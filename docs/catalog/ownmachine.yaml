@@ -4,7 +4,7 @@
 name: ownmachine
 title: OwnMachine
 repo: https://github.com/rbur0425/ownmachine
-sha: 26210c7e5682c87cd5eb896ac19b803320d9eda8
+sha: 017cc54aa703f8a12a488d258a19b4784d58ac46
 subdir: plugin
 description: A persistent private macOS VM workspace for Hermes with SSH/MCP and human-controlled browser access.
 maintainer: rbur0425
@@ -16,8 +16,8 @@ docs_url: https://github.com/rbur0425/ownmachine#readme
 readme: true
 platforms: [linux, macos] # Hermes runtime; guest host still requires Apple Silicon macOS.
 screenshots:
-  - https://raw.githubusercontent.com/rbur0425/ownmachine/26210c7e5682c87cd5eb896ac19b803320d9eda8/docs/media/catalog/human-control.png
-  - https://raw.githubusercontent.com/rbur0425/ownmachine/26210c7e5682c87cd5eb896ac19b803320d9eda8/docs/media/catalog/agent-control.png
+  - https://raw.githubusercontent.com/rbur0425/ownmachine/017cc54aa703f8a12a488d258a19b4784d58ac46/docs/media/catalog/human-control.png
+  - https://raw.githubusercontent.com/rbur0425/ownmachine/017cc54aa703f8a12a488d258a19b4784d58ac46/docs/media/catalog/agent-control.png
 known_issues:
   - Declares websockets==15.0.1 for same-profile authenticated gateway scheduling; Hermes requests dependency consent during installation.
   - Manual Mac/guest setup, firewall installation and macOS permission grants are required.

@@ -152,3 +152,43 @@ handling and the driver's hidden-window refusal, add appropriate regression
 coverage, and repeat this same model task with independent page verification.
 This result does not establish model-driven pixel-click reliability. No new host
 reboot or Hermes runtime rebuild was performed.
+
+### Fixed cold-launch rerun — passed
+
+The cold-launch branch now honors explicit `raise_window=true`: after one launch,
+it observes the same bundle's new process/window, then requests exact-window
+`bring_to_front`. Read-only readiness polling uses the configured
+`action_timeout_seconds`. Both writes retain lease/generation checks. A failed
+launch never raises, a human takeover blocks the second write, and every exit
+invalidates the previous capture. Background-only requests remain background-only.
+No Safari-specific path, host identity or foreground fallback was added.
+
+Installed fix commit `71049a2c8bcd88c15393a83b64ced99d14fb1fdc` through
+`hermes plugins install` from the same public Git URL with `--ref`, `--force`,
+`--yes-deps` and `--enable`. Operator preparation closed the empty Safari window
+and independently confirmed Safari was not running. A new Hermes session then
+received the **same prompt** as the failed run, with the same local Qwen model and
+current Hermes source. No operator desktop input occurred during that session.
+
+Hermes captured the desktop, launched/raised Safari, captured its Start Page,
+sent Command+L, typed the URL, verified the field contents, pressed Return, waited
+and captured the Google page. It dismissed the address suggestions with Escape
+and reported success. The initial hidden-window typing refusal did not recur.
+
+Independent verification after the model finished used a separate read-only
+backend session, not its success message or saved image: an unannotated 1456×786
+capture visibly showed Google's logo, search field and search buttons. A fresh
+AX read reported window title `Google` and the smart search field value
+`https://www.google.com/?client=safari&channel=mac_bm`. Safari's query parameters
+do not change the verified destination. No Google sign-in was performed.
+The gate had no pending action; control was returned to **paused**, with the guest
+running and Google left open. Private images/transcripts remain outside Git.
+
+The required local gate passed **340 tests, zero skips**, source/packaged Hermes
+validation, reproducible bundles/checksums, fresh installation and upgrade checks.
+Five new regression cases cover cold launch with/without raise, launch failure,
+human takeover before raise and bounded readiness timeout. The CI prerequisite
+list was updated for those Hermes-dependent tests; the lightweight CI image does
+not include Hermes, while the required local gate executes all five against it.
+This task establishes cold-launch and keyboard/AX navigation acceptance; it does
+not establish model-driven pixel-click reliability or new firewall reboot coverage.
