@@ -70,7 +70,7 @@ class ReminderTests(unittest.TestCase):
 
 
     def test_scheduled_mode_explicitly_unavailable(self):
-        self.assertIn('Scheduled reminders are unavailable',self.run_command('later'))
+        self.assertIn('Scheduled reminders are unavailable',self.run_command('later','--mode','tomorrow'))
         self.assertEqual(self.calls,[])
         self.assertFalse(r.load(self.ctx)['enabled'])
 
@@ -117,3 +117,19 @@ class ReminderTests(unittest.TestCase):
         self.assertEqual(delivered,[r.MESSAGE])
         self.ctx.settings['setup_allowed_senders']=[]
         self.assertFalse(r.refresh(self.ctx,r.load(self.ctx))['enabled'])
+
+    def test_default_preview_and_confirmation_use_next_visit_in_terminal_and_chat(self):
+        self.ctx.settings['setup_allowed_senders']=[dict(platform='test',user_id='owner',chat_id='chat')]
+        chat=dict(platform='test',source=SimpleNamespace(user_id='owner',chat_id='chat',thread_id='one'))
+        for source in (None,chat):
+            with self.subTest(source='terminal' if source is None else 'chat'):
+                r.execute(self.ctx,args('remind','off'),source)
+                preview=r.execute(self.ctx,args('remind','later'),source)
+                self.assertIn('Preview only',preview)
+                record=r.load(self.ctx)
+                self.assertFalse(record['enabled'])
+                self.assertEqual(record['proposal']['mode'],'next-visit')
+                r.execute(self.ctx,args('remind','later','--confirm',record['proposal']['token']),source)
+                self.assertTrue(r.load(self.ctx)['enabled'])
+                self.assertEqual(r.load(self.ctx)['mode'],'next-visit')
+        self.assertEqual(self.calls,[])

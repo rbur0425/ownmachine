@@ -444,3 +444,32 @@ This status supersedes the earlier open items above.
 See [verification acceptance](verification-retirement-acceptance.md) and
 [reminder controls](onboarding-reminders.md). Real external reminder delivery and
 full cross-machine unattended orchestration are not claimed by this increment.
+
+
+### Phase 2 progress — Next (partly implemented)
+
+- [x] `remind later`, `remind status` and `remind off` in the terminal and chat
+  for explicitly allowed senders. `later` defaults to the available `next-visit`
+  mode; an explicit `--mode tomorrow` explains the limitation and schedules nothing.
+- [x] Preview then confirmation token, valid for 15 minutes; a preview or silence
+  never enables reminders. Both terminal and chat use the same mode default.
+- [x] Configurable 1–3 accepted nudges (default 3), at least 24 hours apart. A newly
+  verified stage advance resets the count; retrying the same stage does not.
+  Explicit fresh consent can renew an exhausted budget without bypassing the
+  daily spacing. Initial consent can nudge on the next eligible command immediately.
+- [x] Recheck plan/source/setup identity, sender authority and completion before
+  delivery. Invalidated consent is disabled when checked, not by a background job.
+- [x] Bind terminal nudges to the active Hermes profile across terminal windows;
+  bind chat nudges to the approved platform/sender/chat/thread. No nudge is added
+  to machine-readable JSON output or reminder-management commands.
+- [ ] Offer a reminder choice automatically after a Later/Pause action. Current
+  behavior requires an explicit reminder command, stricter than the target plan.
+- [ ] Next-day scheduled reminders: the tested standalone plugin-command context
+  cannot dispatch `cronjob_manage`, including the delivery-time inspection helper.
+  This is not a claim that Hermes lacks a scheduler or that every chat context
+  lacks the tool. A supported end-to-end scheduler route remains required.
+- [ ] New-session reminders: the available session-start hook does not provide
+  the verified sender/chat/thread identity needed to route safely. Next-visit
+  currently means the next eligible OwnMachine command, not any new session.
+- [ ] Real external chat delivery acceptance; prior integration tests recorded
+  delivery locally and sent no external messages.

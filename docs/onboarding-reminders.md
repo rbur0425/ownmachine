@@ -4,18 +4,22 @@ Installation enables no reminders. Run either `hermes ownmachine remind ...` in
 an operator terminal or `/ownmachine remind ...` in an explicitly authorized chat.
 
 ```sh
-hermes ownmachine remind later --mode next-visit
+hermes ownmachine remind later
 # Review the displayed destination, then use its exact confirmation token:
-hermes ownmachine remind later --mode next-visit --confirm <preview-token>
+hermes ownmachine remind later --confirm <preview-token>
 hermes ownmachine remind status
 hermes ownmachine remind off
 ```
 
+`remind later` defaults to `--mode next-visit`; it previews rather than enables.
 A preview expires after 15 minutes. Confirmation enables a fixed, non-secret
 resume offer on the next matching OwnMachine command. It never starts a VM or
-runs setup. Terminal and chat destinations are distinct; chat identity includes
+runs setup. Terminal consent follows the active Hermes profile across terminal
+windows, not a particular terminal process. JSON output and reminder-management
+commands do not emit nudges. Terminal and chat destinations are distinct; chat identity includes
 the approved platform, sender, chat and optional thread. Changing setup identity
-or withdrawing sender authorization disables prior consent. No credentials,
+or withdrawing sender authorization disables prior consent when OwnMachine next
+checks it; no background watcher is installed. No credentials,
 viewer tokens or desktop content are stored in reminder state or message text.
 
 `setup_reminder_limit` is configurable from 1 to 3 (default 3). Nudges are spaced

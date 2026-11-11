@@ -58,7 +58,7 @@ def add_arguments(parser):
     status.add_argument('--json', action='store_true', dest='as_json')
     remind = subs.add_parser('remind', help='Explicit opt-in onboarding reminders')
     remind.add_argument('remind_action', choices=['status','later','off'])
-    remind.add_argument('--mode', choices=['tomorrow','next-visit'], default='tomorrow')
+    remind.add_argument('--mode', choices=['tomorrow','next-visit'], default='next-visit', help='Reminder delivery mode (default: next-visit; tomorrow is unavailable)')
     remind.add_argument('--confirm', help='Confirm the exact time/destination preview token')
     doctor = subs.add_parser('doctor', help='Read-only configured host, permissions and MCP checks')
     doctor.add_argument('--json', action='store_true', dest='as_json')
