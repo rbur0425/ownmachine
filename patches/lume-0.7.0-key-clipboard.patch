@@ -1,0 +1,117 @@
+diff --git a/libs/lume/src/Clipboard/ClipboardWatcher.swift b/libs/lume/src/Clipboard/ClipboardWatcher.swift
+index 440a5d0..86e992c 100644
+--- a/libs/lume/src/Clipboard/ClipboardWatcher.swift
++++ b/libs/lume/src/Clipboard/ClipboardWatcher.swift
+@@ -88,6 +88,9 @@ public actor ClipboardWatcher {
+     }
+
+     public func start() {
++        // The optional helper defaults to explicit toolbar transfers only.
++        let env = ProcessInfo.processInfo.environment
++        if env["LUME_CLIPBOARD_HELPER"] != nil && env["LUME_CLIPBOARD_AUTOSYNC"] != "1" { return }
+         guard !isRunning else { return }
+         isRunning = true
+
+@@ -476,6 +479,10 @@ public actor ClipboardWatcher {
+         timeout: TimeInterval
+     ) async throws -> SSHResult {
+         try Task.checkCancellation()
++        if let helper = ProcessInfo.processInfo.environment["LUME_CLIPBOARD_HELPER"], !helper.isEmpty {
++            guard helper.hasPrefix("/") else { throw ClipboardSyncError.unavailable }
++            return try await Self.executeHelper(helper, vm: vmName, storage: storage, command: command, timeout: timeout)
++        }
+         guard !sshCommandInProgress else {
+             throw ClipboardSyncError.transferInProgress
+         }
+@@ -542,6 +549,32 @@ public actor ClipboardWatcher {
+         lastLoggedError = nil
+     }
+
++    // Explicit operator-owned helper: supports hardened guests without factory passwords.
++    private static func executeHelper(_ helper: String, vm: String, storage: String?, command: String, timeout: TimeInterval) async throws -> SSHResult {
++        let controller = CopyProcessController()
++        return try await withTaskCancellationHandler {
++            try await Task.detached {
++                let process = Process()
++                process.executableURL = URL(fileURLWithPath: helper)
++                process.arguments = ["--vm", vm, "--storage", storage ?? "", "--command", command]
++                process.standardInput = FileHandle.nullDevice
++                process.standardError = FileHandle.nullDevice
++                let output = Pipe()
++                process.standardOutput = output
++                try controller.register(process)
++                try process.run()
++                controller.processDidStart(process)
++                controller.scheduleTimeout(for: process, deadline: Date().addingTimeInterval(timeout + 5))
++                let data = output.fileHandleForReading.readDataToEndOfFile()
++                process.waitUntilExit()
++                try controller.finish(process)
++                return SSHResult(exitCode: process.terminationStatus, output: String(data: data, encoding: .utf8) ?? "")
++            }.value
++        } onCancel: {
++            controller.cancel()
++        }
++    }
++
+     private func getSSHClient() async -> SSHClient? {
+         if let cachedSSHClient, cachedIPAddress != nil {
+             return cachedSSHClient
+diff --git a/libs/lume/src/VM/VM.swift b/libs/lume/src/VM/VM.swift
+index b1f0eb5..75e1ada 100644
+--- a/libs/lume/src/VM/VM.swift
++++ b/libs/lume/src/VM/VM.swift
+@@ -669,6 +669,10 @@ class VM {
+     }
+
+     private func sendGuestClipboardShortcut(_ character: Character) async throws {
++        if let native = displayPresenter as? NativeVMDisplayPresenter {
++            try native.sendClipboardShortcut(character)
++            return
++        }
+         try await vncService.connectInputClient()
+         defer { vncService.disconnectInputClient() }
+         try await vncService.sendCharWithModifiers(character, modifiers: .command)
+diff --git a/libs/lume/src/VM/VMDisplayPresenter.swift b/libs/lume/src/VM/VMDisplayPresenter.swift
+index f2ca68d..6eac819 100644
+--- a/libs/lume/src/VM/VMDisplayPresenter.swift
++++ b/libs/lume/src/VM/VMDisplayPresenter.swift
+@@ -122,6 +122,25 @@ private final class NativeVirtualMachineView: VZVirtualMachineView {
+         registerForDraggedTypes([.fileURL])
+     }
+
++    func sendClipboardKey(_ character: Character) throws {
++        guard let window else { throw VMDisplayPresenterError.virtualMachineUnavailable }
++        let code: UInt16 = character == "c" ? 8 : 9
++        func event(_ type: NSEvent.EventType, _ flags: NSEvent.ModifierFlags, _ key: UInt16) -> NSEvent {
++            NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags,
++                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
++                context: nil, characters: String(character), charactersIgnoringModifiers: String(character),
++                isARepeat: false, keyCode: key)!
++        }
++        window.makeFirstResponder(self)
++        // Deliver only to this VZ view, bypassing our copy/paste interception.
++        // Native display must not require a network VNC listener for shortcuts.
++        let commandFlags = NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags.command.rawValue | 0x8)
++        super.flagsChanged(with: event(.flagsChanged, commandFlags, 55))
++        super.keyDown(with: event(.keyDown, commandFlags, code))
++        super.keyUp(with: event(.keyUp, commandFlags, code))
++        super.flagsChanged(with: event(.flagsChanged, [], 55))
++    }
++
+     override func keyDown(with event: NSEvent) {
+         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+         if !event.isARepeat, modifiers.contains(.command) {
+@@ -226,6 +245,13 @@ final class NativeVMDisplayPresenter: NSObject, VMDisplayPresenter, NSWindowDele
+     private var showWindowItem: NSMenuItem?
+     private var ownsApplicationRunLoop = false
+
++    func sendClipboardShortcut(_ character: Character) throws {
++        guard let machineView, window?.isVisible == true else {
++            throw VMDisplayPresenterError.virtualMachineUnavailable
++        }
++        try machineView.sendClipboardKey(character)
++    }
++
+     func show(context: VMDisplayContext) async throws {
+         guard let virtualMachine = context.virtualMachine else {
+             throw VMDisplayPresenterError.virtualMachineUnavailable

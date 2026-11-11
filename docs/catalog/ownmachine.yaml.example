@@ -1,0 +1,27 @@
+# Preparation template ONLY. Not submitted and deliberately not validation-ready.
+# Replace the placeholder after this readiness update is merged and validated.
+# Pin the full release commit after validating this catalog entry.
+name: ownmachine
+title: OwnMachine
+repo: https://github.com/rbur0425/ownmachine
+sha: REPLACE_WITH_REVIEWED_40_CHARACTER_COMMIT
+subdir: plugin
+description: A persistent private macOS VM workspace for Hermes with SSH/MCP and human-controlled browser access.
+maintainer: rbur0425
+tier: community
+category: desktop
+requires_hermes: ">=0.23.1"
+version: "0.6.0" # Must match plugin.yaml at the selected commit.
+docs_url: https://github.com/rbur0425/ownmachine#readme
+readme: true
+platforms: [linux, macos] # Hermes runtime; guest host still requires Apple Silicon macOS.
+screenshots: [] # Add sanitized real viewer screenshots on GitHub, pinned to the same SHA.
+known_issues:
+  - Manual Mac/guest setup, firewall installation and macOS permission grants are required.
+  - Model-driven pixel-click acceptance is deferred; cloud Mac hosting is unverified.
+  - PolyForm Noncommercial 1.0.0; commercial use outside its permissions requires a separate license.
+capabilities:
+  provides_tools: [ownmachine_status]
+  provides_hooks: []
+  provides_middleware: [tool_execution]
+  requires_env: []

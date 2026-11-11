@@ -1,0 +1,29 @@
+name: Validation
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hermes:
+    # Shared self-hosted runners execute trusted same-repository branches only.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ vars.OWNMACHINE_CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    container:
+      image: ${{ vars.OWNMACHINE_CI_IMAGE || 'node:22-bookworm' }}
+    env:
+      OWNMACHINE_CI_PYTHON: ${{ vars.OWNMACHINE_CI_PYTHON || 'python3' }}
+    steps:
+      - name: Checkout exact event revision
+        uses: https://github.com/actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Viewer pointer regression
+        run: node tests/viewer-pointer.mjs
+      - name: Tests, bundles and Hermes package validation
+        run: '"$OWNMACHINE_CI_PYTHON" scripts/ci-check.py --require-hermes'
