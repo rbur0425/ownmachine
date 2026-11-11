@@ -71,6 +71,18 @@ class ExecutionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'will not replace'):
             m.execute(self.args)
 
+    def test_existing_build_adoption_requires_successful_verification(self):
+        self.args.app.mkdir();self.args.apply=True;self.args.use_existing_build=True
+        with patch.object(m,'verify_build',side_effect=ValueError('invalid_build')), patch.object(m.subprocess,'run') as command:
+            with self.assertRaisesRegex(ValueError,'invalid_build'):m.execute(self.args)
+            command.assert_not_called()
+
+    def test_existing_build_adoption_does_not_rebuild(self):
+        self.args.app.mkdir();self.args.apply=True;self.args.use_existing_build=True
+        with patch.object(m,'verify_build'), patch.object(m.subprocess,'run') as command:
+            self.assertEqual(m.execute(self.args)['stage'],'verified')
+            command.assert_not_called()
+
     def test_provision_uses_explicit_storage_and_verifies(self):
         self.args.apply = True; self.args.step = 'provision'
         with patch.object(m, 'verify_build'), patch.object(m, 'run') as preflight, patch.object(m, 'verify_guest') as verify, patch.object(m.subprocess, 'run') as command:

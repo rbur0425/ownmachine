@@ -33,9 +33,10 @@ def fingerprint():
 
 def configuration(path):
     c = json.loads(private_read(path))
-    permitted = {'plan_file','services_file','app','build_dir','ipsw','preset','allowed_steps','source_sha256','setup_public_key_file'}
+    permitted = {'plan_file','services_file','app','build_dir','ipsw','preset','allowed_steps','source_sha256','setup_public_key_file','use_existing_build'}
     if not isinstance(c,dict) or set(c)-permitted or c.get('source_sha256') != fingerprint():
         raise ValueError('unreviewed_source')
+    if 'use_existing_build' in c and type(c['use_existing_build']) is not bool: raise ValueError('invalid_build_adoption')
     for key in ('plan_file','services_file','app','build_dir'):
         if key in c and (not isinstance(c[key],str) or not Path(c[key]).is_absolute()):
             raise ValueError('absolute_operator_paths_required')
@@ -55,6 +56,7 @@ def configuration(path):
 def command(c,plan,step,apply):
     if step in {'build','provision'}:
         argv = [sys.executable,str(ROOT/'scripts/setup-mac.py'),'--plan-file',c['plan_file'],'--step',step,'--apply']
+        if step=='build' and c.get('use_existing_build'): argv.append('--use-existing-build')
         for key in ('app','build_dir','ipsw','preset'):
             if key in c: argv += ['--'+key.replace('_','-'),str(c[key])]
         return argv
