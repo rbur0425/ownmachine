@@ -100,3 +100,55 @@ A live early-run test produced no scheduled reminder output. The next real local
 session received exactly one skipped-delivery explanation; a second session
 received none. The delivery count stayed unchanged. The test job/consent were
 cleared and the isolated gateway stopped afterward.
+
+## Real-model Safari task — 2026-11-11
+
+**Result: failed safely; Google was not reached.** This is an actual model run,
+not a replay of operator-authored desktop actions. The isolated Docker agent used
+its public-Git-installed OwnMachine plugin at
+`0be4244aa219aa2ac17f4653ed69db3ab4c986e5`, with current Hermes source
+`3bcd071226d3d605a2bb3b4f3933e7d583e189d6`. PR documentation head before this
+run was `c820d50ef9c402aed09c53a1ce9514673a9ffcda`; this is not a claim that the
+installed plugin was upgraded to that later commit.
+
+The normal Hermes one-shot CLI used the configured local OpenAI-compatible
+`qwen3.8-flash-next-iq2_xs` model and the `computer_use` toolset. The isolated
+profile kept terminal, file and code-execution toolsets disabled. No provider
+credentials were copied. The task asked it to open Safari, navigate to
+`https://www.google.com`, wait and capture the result, using desktop tools only.
+It included explicit guidance to inspect first, use Command+L, type the URL and
+press Return. No operator supplied desktop input during the model run.
+
+Observed sequence:
+
+1. Readiness passed. Safari was installed but not running.
+2. An initial launch attempt lacked a capture and was rejected with
+   `capture_required`. The model captured the desktop and recovered. One malformed
+   tool-call wrapper was also rejected before dispatch and subsequently corrected.
+3. `focus_app` with `raise_window=true` launched Safari in the background. In the
+   current provider, the not-running branch returns after `launch_app`; it does
+   not also perform `bring_to_front`. The model captured Safari's Start Page.
+4. Command+L was dispatched; the effect required verification. The model captured
+   again, then attempted to type the URL. The driver refused with
+   `minimized_or_hidden_window` (including inability to prove window state), and
+   OwnMachine returned `driver_action_failed_review_required`, blocking writes.
+5. The model stopped input, took a final read-only capture and correctly reported
+   failure. It did not press Return or claim Google loaded. The transcript contains
+   nine `computer_use` results plus status/discovery calls; no shell or external
+   browser tool performed the task.
+
+Independent verification: after the run, the operator stopped only the isolated
+agent profile's gateway to release its backend session lock, then opened a separate
+read-only backend connection. A fresh, unannotated 1456×786 Safari capture showed
+**Start Page**, its onboarding card and an empty address field. The Google favorite
+tile is not a loaded Google page. The window listing reported Safari on screen,
+so the driver's refusal is not proof that Safari was actually minimized; the
+launch/focus and driver state checks need investigation. The control gate retained
+`pending=true` until operator inspection, then was acknowledged into **paused**.
+The guest was left running. Private captures and transcripts remain outside Git.
+
+Follow-up before claiming this task passes: investigate cold-launch foreground
+handling and the driver's hidden-window refusal, add appropriate regression
+coverage, and repeat this same model task with independent page verification.
+This result does not establish model-driven pixel-click reliability. No new host
+reboot or Hermes runtime rebuild was performed.

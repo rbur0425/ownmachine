@@ -440,8 +440,10 @@ This status supersedes the earlier open items above.
   inspection and CLI paused creation. Delivery-time checks use this same route.
 - [x] Local session-open/resume nudges and explicit authorized chat-command nudges.
   Automatic admitted-chat nudges were withdrawn: the hook has no bound conversation.
-- [ ] Independently verified real-model desktop task remains separate acceptance;
-  a valid screenshot does not certify task completion.
+- [ ] Independently verified real-model desktop task: the PR 10 Safari-to-Google
+  run failed safely at typing (`minimized_or_hidden_window`). Independent capture
+  confirmed Start Page, not Google. Investigate cold-launch/focus and driver state
+  checks, then rerun; see [acceptance evidence](docker-reminder-acceptance.md#real-model-safari-task--2026-11-11).
 
 See [verification acceptance](verification-retirement-acceptance.md) and
 [reminder controls](onboarding-reminders.md). Real external reminder delivery and
