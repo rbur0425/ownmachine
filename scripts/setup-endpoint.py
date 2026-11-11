@@ -33,7 +33,7 @@ def fingerprint():
 
 def configuration(path):
     c = json.loads(private_read(path))
-    permitted = {'plan_file','services_file','app','build_dir','ipsw','preset','allowed_steps','source_sha256'}
+    permitted = {'plan_file','services_file','app','build_dir','ipsw','preset','allowed_steps','source_sha256','setup_public_key_file'}
     if not isinstance(c,dict) or set(c)-permitted or c.get('source_sha256') != fingerprint():
         raise ValueError('unreviewed_source')
     for key in ('plan_file','services_file','app','build_dir'):
@@ -48,6 +48,7 @@ def configuration(path):
     plan = {key: raw.get(key, DEFAULTS[key]) for key in FIELDS}
     validate_plan(plan)
     if payload.get('guest_os','macos') != 'macos': raise ValueError('macos_only')
+    c['_config_path'] = str(path.resolve())
     return c,plan
 
 
@@ -95,6 +96,7 @@ def heartbeat(request):
 
 def execute(request,c,plan):
     expected={'format','nonce','source_sha256','plan_digest','vm','step','apply'}
+    if isinstance(request, dict) and request.get('step') == 'retire': expected.add('capture')
     if isinstance(request, dict) and 'stream' in request:
         expected.add('stream')
         if request['stream'] is not True: raise ValueError('invalid_stream_request')
@@ -115,6 +117,7 @@ def execute(request,c,plan):
         saved=json.loads(private_read(path)) if path.exists() else dict(format=1,plan_digest=digest(plan),source_sha256=c['source_sha256'],nonces=[],outcomes={})
         if saved.get('format')!=1 or saved.get('plan_digest')!=digest(plan) or saved.get('source_sha256')!=c['source_sha256']:
             raise ValueError('endpoint_progress_identity_changed')
+        if (state/'retirement.json').exists(): raise ValueError('setup_retirement_requires_operator_inspection')
         if request['nonce'] in saved['nonces']: raise ValueError('replayed_request')
         if len(saved['nonces']) >= 4096: raise ValueError('setup_session_limit_reached')
         saved['nonces']=saved['nonces']+[request['nonce']]
@@ -127,6 +130,21 @@ def execute(request,c,plan):
                 preflight = saved['outcomes'].get('preflight', {})
                 if preflight.get('stage') != 'observed' or time.time()-preflight.get('observed_at',0) > 300:
                     raise ValueError('fresh_remote_preflight_required')
+            if step == 'retire':
+                verified = saved['outcomes'].get('verify', {})
+                proof = request.get('capture')
+                if (verified.get('stage') != 'checks_passed' or not 0 <= time.time()-verified.get('observed_at',0) <= 300
+                        or not isinstance(proof,dict) or set(proof) != {'sha256','width','height','captured_at'}
+                        or not isinstance(proof.get('sha256'),str) or not re.fullmatch('[a-f0-9]{64}',proof['sha256'])
+                        or any(type(proof.get(k)) is not int or not 1 <= proof[k] <= 8192 for k in ('width','height'))
+                        or type(proof.get('captured_at')) is not int or not 0 <= time.time()-proof['captured_at'] <= 300):
+                    raise ValueError('fresh_verification_and_capture_required')
+                from setup_support import module
+                retirement = module('endpoint_retirement','scripts/retire-setup-key.py')
+                retirement.retire(c,state)
+                saved['outcomes'][step]=dict(stage='verified',observed_at=int(time.time()))
+                mac.write_state(path,saved)
+                return {**{k:v for k,v in request.items() if k not in {'apply','stream','capture'}},'ok':True,'outcomes':{step:saved['outcomes'][step]}}
             argv=command(c,plan,step,request['apply'])
             saved['outcomes'][step]=dict(stage='running',observed_at=int(time.time()))
             mac.write_state(path,saved)

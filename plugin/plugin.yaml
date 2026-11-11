@@ -9,6 +9,7 @@ description: Native Hermes computer use for a persistent private macOS VM
 license: PolyForm-Noncommercial-1.0.0
 requires_hermes: ">=0.23.1"
 config_schema:
+  setup_reminder_limit: {type: int, default: 3, description: "Maximum reminders per verified setup stage, 1–3; at most one delivered per 24 hours"}
   setup_progress_interval_seconds: {type: int, default: 30, description: "Chat elapsed-time updates every 5–300 seconds, capped at 20; remote success requires an authenticated receipt"}
   setup_ssh_config: {type: str, default: "", description: "Optional absolute operator-owned OpenSSH config, passed to ssh -F; no credential files are read by the plugin"}
   setup_host_alias: {type: str, default: "", description: "Separate pinned SSH alias for the temporary fixed-command setup endpoint; never the agent runtime alias"}

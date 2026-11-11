@@ -180,9 +180,9 @@ stage rechecks its actual outcome. Changed config/source or uncertain mutations
 stop for inspection; no guest deletion or destructive repair is attempted.
 Read-only firewall/permission/readiness checks can be repeated after a human fixes
 the issue. The runners report sanitized liveness events. The dedicated SSH endpoint now
-imports authenticated final outcomes into Hermes progress; streaming liveness
-into chat/UI remains pending. Keep the planned opt-in reminders disabled
-until their consent, cancellation and deduplication design is implemented.
+imports authenticated final outcomes and conversation-bound liveness into Hermes.
+See [reminder controls](onboarding-reminders.md) for explicit next-visit consent;
+scheduled reminders remain unavailable.
 
 
 ### Continue from Hermes chat
@@ -193,4 +193,30 @@ its reviewed source/plan allowlist, and granted the exact chat sender, use
 flags as the terminal. Progress appears in the invoking conversation without
 blocking the chat. See [setup transport](setup-transport.md) for the new `harden`
 stage, heartbeat limits, VNC-disabled bootstrap and viewer-role restart before
-permission setup. No secrets are requested in chat and no reminders are scheduled.
+permission setup. No secrets are requested in chat; reminders require explicit opt-in.
+
+
+### Finish verification and remove setup access
+
+Configure `setup_public_key_file` in the Mac's private endpoint configuration to
+point to the dedicated setup public key (mode 0600). Allow `verify` and `retire` in
+that endpoint's reviewed stage allowlist. Keep the agent and viewer identities
+separate. Pause agent control in the viewer before verification; verification
+will refuse a human reservation or uncertain input rather than take it over.
+
+```sh
+hermes ownmachine setup --run verify --json
+hermes ownmachine setup --run verify --apply --json
+hermes ownmachine status --json
+```
+
+The first call validates a real screenshot without removing access. The second
+repeats the checks, removes only the exact forced-command setup entry, proves that
+key is refused and checks runtime readiness. The setup private key can then be
+removed by its owner. Do not use that key for any other host or service.
+
+A completed receipt is historical acceptance, not continuous monitoring. Use
+`doctor` for current runtime health. If retirement is interrupted, inspect the
+Mac's private setup-endpoint retirement receipt and exact authorized key entry;
+do not blindly re-authorize a key or replay setup. Remaining runtime identities
+and unrelated authorized keys must be preserved.
