@@ -151,26 +151,12 @@ firewall before starting the VM; do not disable FileVault.
 See [persistent installation and startup](docs/permanent-installation.md),
 [recovery](docs/recovery.md) and [offline plugin upgrades](docs/upgrading.md).
 
-## What has been tested—and what hasn't
+## Roadmap
 
-Fresh installation, guided permissions, private SSH/MCP transport, live browser
-viewing and input, human/agent handoffs, saved-data persistence and operator-assisted
-physical-host reboot recovery have been exercised. A real model created and saved
-a TextEdit document through Accessibility controls; its result was independently
-verified. See [release readiness and acceptance evidence](docs/release-readiness.md).
-
-Known preview limits:
-
-- Model-driven pixel-click acceptance is deferred after a capture-expiry failure.
-  The successful Accessibility task does not prove every GUI action is reliable.
-- macOS permissions and administrator firewall setup remain manual. Automatic
-  host unlock and guest startup are not promised.
-- Native-viewer paste into privileged password dialogs is not certified; direct
-  typing is the documented fallback.
-- VM backup/restore is outside the MVP. Plugin/configuration upgrade backups do
-  not back up the guest disk.
-- This is a single-operator, single-configured-VM system, not a public multi-user
-  remote-desktop service. Cloud Mac acceptance is still outstanding.
+1. Implement an Omarchy image.
+2. Implement an Ubuntu image.
+3. Implement a Windows VM.
+4. Test various cloud providers and record tutorials and setup guides for each.
 
 ## Contributing
 
