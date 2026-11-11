@@ -115,12 +115,12 @@ space, CPU count and memory against the saved resource plan. This does not yet
 cover automatic port selection, every external-storage cache requirement or a
 cloud-host qualification. After a long build, refresh preflight before creation.
 
-The root firewall installer remains a human administrator handoff. Guest
-hardening (`secure-guest.py`), guest key-only SSH configuration and exact shutdown
-permission still require the documented operator steps; they are **not** wired
-into this dispatch sequence yet. Driver setup requires that prepared guest SSH
-path and a running selected VM. Permissions `--apply` only opens the guest guide;
-the human still approves macOS consent. No screenshot is performed by final verify.
+The root firewall installer remains a human administrator handoff. The explicit
+`harden --apply` stage now runs fresh-guest hardening, prepares key-only SSH and
+installs the exact shutdown permission; see the prerequisites below. Driver setup
+requires that prepared guest SSH path and a running selected VM. Permissions
+`--apply` opens the guest guide; the human still approves macOS consent. Final
+verify includes a native screenshot; apply also retires the temporary setup key.
 
 `--apply` is required for mutating stages. Set a suitable bounded timeout (5–7500
 seconds); the default is 120 seconds. A lost/timed-out connection is uncertain,
@@ -143,8 +143,9 @@ The endpoint retains up to 4096 request nonces, then requires operator retiremen
 of that setup session; it never silently evicts nonce replay protection. Progress
 queries return prior observations, not fresh postcondition verification. Imported
 state becomes stale when plan/source/SSH transport configuration changes. No
-result marks the entire desktop accepted. Final verify still needs a real
-`computer_use` screenshot, browser input and a saved-task/readback acceptance run.
+result marks the entire desktop accepted. Final verify includes a real
+`computer_use` screenshot. Browser input and independently verified model-task
+completion are separate acceptance checks.
 
 The operator runners retain their liveness events. Terminal calls wait for a
 bounded final response; supervised chat calls receive sanitized authenticated
@@ -204,8 +205,10 @@ never appear. Messaging failure, unload or sender revocation cancels the local
 SSH wait; the remote child may continue. Query `setup --run progress` once the
 remote lock is free and inspect uncertain state; do not replay mutations.
 
-These are updates for an explicit active call, **not scheduled reminders**.
-No cron jobs or reminders are created. No computer_use screenshot is verified.
-Setup-key retirement remains manual until complete acceptance: remove only its
-exact authorized_keys entry, verify that it fails and both runtime keys still
-work, then remove its private operator copy. Never remove unrelated keys.
+These are updates for an explicit active call. Separately opted-in
+[reminders](onboarding-reminders.md) can use the public Hermes scheduler. Final
+`verify --apply` checks the screenshot, removes only the exact temporary setup
+authorized key, proves rejection and retains runtime access. Configure `verify`
+and `retire` in the reviewed allowlist and the private `setup_public_key_file`
+as described in the [wizard quickstart](wizard-quickstart.md#finish-verification-and-remove-setup-access).
+The operator may then remove its private setup key; never remove unrelated keys.

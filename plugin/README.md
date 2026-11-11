@@ -1,5 +1,7 @@
 # OwnMachine
 
+Start with the [evaluator quickstart](../docs/evaluator-quickstart.md) for the complete ordered setup and permission checks.
+
 **Give your AI agent its own desktop.**
 
 OwnMachine connects Hermes to a persistent, separate macOS VM through restricted
@@ -226,3 +228,11 @@ The owner has confirmed license and SSH eligibility for submission. OwnMachine
 has not been submitted to or admitted by the Hermes catalog.
 
 Remote terminal/chat execution, guided fresh-guest hardening and channel-bound progress: see [setup transport](../docs/setup-transport.md). The setup command derives its live guide URL from the installed plugin version; development operators may pin a full commit through setup_guide_ref.
+
+## Verified model task
+
+A real local Qwen model used the installed native provider to launch Safari and
+reach Google, independently verified by a separate screenshot and URL read.
+[Acceptance evidence](../docs/docker-reminder-acceptance.md#fixed-cold-launch-rerun--passed)
+records both the initial cold-launch failure and passing fixed run. This is one
+keyboard/accessibility task; model-driven pixel-click acceptance remains deferred.

@@ -152,8 +152,11 @@ runtime identities (with that group active):
 
 ```sh
 python3 scripts/ownmachine-control.py --control-dir /shared/ownmachine-control status
-chmod 0660 /shared/ownmachine-control/lease.db
+touch /shared/ownmachine-control/session.lock
+chmod 0660 /shared/ownmachine-control/lease.db /shared/ownmachine-control/session.lock
 ```
+
+See the [complete Linux/Docker recipe and both-user checks](evaluator-quickstart.md#prepare-shared-control-before-starting-either-runtime).
 
 Default directory ACLs alone do not ensure SQLite creates a group-writable
 database. Verify both users can

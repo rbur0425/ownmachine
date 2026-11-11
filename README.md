@@ -21,6 +21,17 @@ control back when you're ready.
 > official Nous Research product. Setup includes administrator firewall installation
 > and manual macOS permission grants. It is not yet listed in the Hermes catalog.
 
+## A verified desktop task
+
+Hermes, using a local Qwen model and the installed OwnMachine plugin, cold-launched
+Safari and opened Google. A separate screenshot and accessibility URL read
+confirmed completion; no operator input was supplied during the model run.
+
+![Independently verified Google page in the OwnMachine Safari guest](docs/media/catalog/google-task.png)
+
+See the [passing run and initial failure/fix](docs/docker-reminder-acceptance.md#fixed-cold-launch-rerun--passed).
+This demonstrates one keyboard/accessibility task, not a general benchmark.
+
 ## Your desktop stays yours
 
 Desktop work doesn't always have an API. Sometimes the task is inside a native
@@ -82,6 +93,10 @@ A generic Linux or Windows cloud server can host Hermes; it does not replace the
 Apple Silicon Mac needed for the macOS guest.
 
 ## Get started
+
+**Start with the [evaluator quickstart](docs/evaluator-quickstart.md).** It covers administrator
+handoffs, separate runtime identities, shared-control permissions and a verified
+Safari-to-Google task. The detailed guides below remain available for each stage.
 
 Download the checksummed full-source bundle from the
 [v0.6.0 release](https://github.com/rbur0425/ownmachine/releases/tag/v0.6.0)

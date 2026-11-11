@@ -1,6 +1,8 @@
 # Wizard quickstart
 
-This is the current development onboarding path, not a claim of one-click setup.
+For a first evaluation, start with the [evaluator quickstart](evaluator-quickstart.md),
+including administrator handoffs and shared-control permission checks.
+This is the guided onboarding path, not a claim of one-click setup.
 Use reviewed full source or a checksum-verified release bundle on each operator
 machine. The catalog-installed `plugin/` contains no privileged installers.
 macOS is the only guest image; no OS choice is needed.
@@ -50,10 +52,9 @@ Complete the dedicated non-admin account's first graphical login. Follow
 are liveness signals, not download percentages or proof of success.
 
 A successful creation leaves the guest stopped and does not expose verification
-VNC. Complete [first-boot hardening](vm-setup.md) and the guest key-only SSH alias
-before the driver stage below. Guest hardening and the exact guest shutdown sudo
-rule remain explicit reviewed operator steps; they are not silently installed by
-the service runner. Bring up the selected guest using the documented protected
+VNC. Run the explicit guided `harden --apply` stage through the [setup endpoint](setup-transport.md#guided-fresh-guest-hardening)
+before the driver stage. It configures the fresh guest SSH alias and exact
+shutdown rule; it refuses to overwrite existing credentials. Bring up the selected guest using the documented protected
 runtime or no-VNC bootstrap path; do not launch an unmanaged VNC listener.
 
 ## Pair the two runtime identities
@@ -143,6 +144,9 @@ Missing grants or capture consent remain a blocked stage. No TCC database is edi
 
 ## Start the viewer and check readiness
 
+First complete [shared-control initialization and both-user checks](evaluator-quickstart.md#prepare-shared-control-before-starting-either-runtime).
+Do not start either service against a private 0700 directory owned by the other user.
+
 As the separate viewer runtime owner, using the permanent reviewed source tree:
 
 ```sh
@@ -167,7 +171,7 @@ hermes ownmachine doctor
 ```
 
 Final readiness checks both SSH identities, refusal of arbitrary commands, guest
-readiness and the authenticated viewer/RFB handshake. It does not prove browser
+readiness, a native computer-use screenshot and the authenticated viewer/RFB handshake. It does not prove browser
 click/type, external-network firewall isolation, reboot persistence or a desktop
 model task. Complete those explicit acceptance checks before declaring onboarding
 complete. A green readiness result never transfers control to the agent.

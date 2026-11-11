@@ -192,3 +192,13 @@ list was updated for those Hermes-dependent tests; the lightweight CI image does
 not include Hermes, while the required local gate executes all five against it.
 This task establishes cold-launch and keyboard/AX navigation acceptance; it does
 not establish model-driven pixel-click reliability or new firewall reboot coverage.
+
+### Evaluator shared-control recipe
+
+The documented Linux recipe was exercised in a new disposable control directory
+with setgid/default ACLs and two separate numeric runtime users in isolated
+containers. Under umask 077, the viewer created the lease, lock and atomically
+replaced heartbeat. Both users acquired the exclusive lock, opened a SQLite write
+transaction and rolled it back, then read the heartbeat. The lease remained
+paused at generation zero. No live control state or private homes were modified.
+This verifies Linux/Docker sharing, not an untested native macOS ACL recipe.
