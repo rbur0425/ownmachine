@@ -1,59 +1,81 @@
 # Catalog preparation — not a submission
 
-`ownmachine.yaml.example` is a local preparation template, not a catalog entry.
-No upstream PR, issue, fork or maintainer message is created by this update.
-The owner selected PolyForm Noncommercial 1.0.0. Catalog license eligibility
-remains unconfirmed; do not represent the license as accepted by Hermes.
+The local `ownmachine.yaml` is a reviewed-source preparation draft, not an
+accepted entry. No upstream PR, issue, fork or maintainer message is authorized
+by this work. The owner confirmed the two policy questions below on 2026-11-11.
 
-## Before a submission is authorized
+## Policy confirmation
 
-1. Confirm license eligibility with the maintainers. The published admission rules
-   do not explicitly require an OSI-approved license; that does not establish
-   acceptance of PolyForm Noncommercial 1.0.0.
-2. Ask reviewers to assess operator-managed SSH keys/agents under the catalog's
-   credential rule. The plugin delegates authentication to OpenSSH; this is a
-   disclosure, not a claim that the credential policy does not apply.
-3. Merge the readiness changes, choose a complete 40-character commit, and verify
-   its `plugin/LICENSE` exactly matches the root license. Catalog installs use
-   `subdir: plugin`, so they need a license there independently of release bundles.
-4. Run `hermes plugins validate /path/to/plugin --install-deps` against the chosen
-   commit in the Hermes environment used for current catalog admission. Prior
-   validation on Hermes 0.23.1 alone is not current-upstream compatibility proof.
-5. Capture sanitized screenshots of the actual viewer and its handoff controls.
-   Commit only reviewed screenshots with no credentials, personal data or private
-   deployment identities. The stylized teaser is not an actual UI screenshot.
-6. Replace the template SHA, confirm the version/capabilities against the pinned
-   manifest, and use same-SHA GitHub image URLs. Add only the resulting
-   `plugin-catalog/ownmachine.yaml` to an authorized upstream submission branch.
-   Run the upstream schema validator and follow its current submission guide.
+The owner reported on 2026-11-11 that **PolyForm Noncommercial 1.0.0 and the
+operator-managed OpenSSH authentication design are acceptable**. These are no
+longer unresolved preparation blockers. This records the owner's confirmation;
+it is not an independently verified maintainer statement or catalog admission.
+The eventual upstream PR still needs CI and maintainer review.
 
-The catalog renders `plugin/README.md`, not the repository-root README. It now
-contains setup links, runtime/privileged-setup disclosures, provider capabilities,
-limits and licensing. The native computer-use provider should be explained in the
-PR even though the catalog capability arrays cover tools/hooks/middleware/env.
-Do not invent a schema field for it. The separately hosted browser viewer is not
-a Hermes Desktop SDK extension.
+Keep the authentication disclosure: OpenSSH uses operator-managed configuration,
+a restricted private key or SSH agent; OwnMachine does not parse private keys.
+No credential API workaround or policy bypass is included. Future functionality
+requiring secrets must use the applicable Hermes-supported credential route.
 
-## Suggested submission description
+Rule 18 concerns password-manager login backends. OwnMachine registers neither
+`browser_vault` nor `ctx.register_login_backend`, so it does not request a
+vendor-only login-backend listing or the `verified`/`official` tier. Operator
+setup passwords do not turn it into a password-manager integration. This does
+not remove the obligation to disclose OpenSSH authentication under rule 11.
+
+## Prepared evidence
+
+- [Current-upstream validation](validation-2026-11-11.md), including the exact
+  Hermes source revision, test results, scanner result and limitations.
+- [Real viewer screenshots](../media/catalog/README.md), visually reviewed for
+  private data and captured with actual human/agent handoff controls.
+- `plugin/README.md` describes installation boundaries, public APIs, subprocesses,
+  credential handling, capture/model-provider data flow, persistent processes,
+  setup downloads, privileged setup, manual consent and preview limits.
+- The root and installable-package licenses match. The package contains source,
+  not the locally built Lume executable or a self-updater.
+
+## Before an authorized upstream PR
+
+1. Include the owner-confirmed license and OpenSSH design in the submission
+   disclosures. If upstream review requires changes, repeat affected validation.
+2. Merge the OwnMachine preparation PR. The local draft pins the content commit
+   containing the screenshots and updated plugin README, not a moving branch.
+   If a different commit is selected, rerun validation and update **both** `sha`
+   and all screenshot URLs to that same full 40-character commit.
+3. Recheck the current upstream rules and run
+   `hermes plugins validate /path/to/pinned/plugin --install-deps` and the
+   upstream `scripts/validate_plugin_catalog.py` against the draft YAML.
+4. With explicit submission authorization, add only
+   `plugin-catalog/ownmachine.yaml` to a PR in `NousResearch/hermes-agent`.
+   Explain the disclosures below and wait for catalog CI and human review.
+
+The catalog renders `plugin/README.md`, not the repository-root README. The
+native computer-use provider should be described in the PR even though the
+capability arrays cover tools/hooks/middleware/env. Do not invent a schema field
+for it. The separately hosted browser viewer is not a Desktop SDK extension.
+
+## Prepared submission description
 
 OwnMachine connects Hermes to one operator-configured macOS VM over a restricted
 SSH relay and guest MCP. It registers `ownmachine_status`, the native `ownmachine`
-computer-use provider and `tool_execution` middleware through public APIs. All
-writers share the same control database. Standard approvals remain enabled;
-uncertain writes stop for operator review.
+computer-use provider and `tool_execution` middleware through public APIs.
+Cooperating agent/viewer writers share one control database. Standard approvals
+remain enabled; uncertain writes stop for operator review. That shared state is
+coordination, not a boundary against hostile code.
 
-Disclose the README's OpenSSH subprocess and credential handling, local control
-state/heartbeat, capture data sent through Hermes, external guest-app networking,
-long-running separately installed viewer, bearer access file, administrator
-firewall/hardening steps, manual guest permissions, and official checksum/signature-
-pinned setup-time binary downloads. No updater or native binary is included in
-the catalog-installed package. Full-source offline upgrade scripts are a separate
-operator workflow. State licensing restrictions and unresolved preview limits.
+Disclose OpenSSH subprocess authentication and the owner's policy confirmation, local control state/heartbeat, captures and app text sent through Hermes
+to the configured model provider, guest-app networking, the separately installed
+long-running viewer and bearer file, administrator firewall/hardening steps,
+manual guest permissions, official pinned setup downloads and locally built Lume
+patch. No native binary or updater is included in `plugin/`. Full-source offline
+upgrade scripts are a separate operator workflow. State the PolyForm terms and
+preview limits, including deferred pixel-model acceptance, unverified cloud Mac
+hosting, initial guest hang and outstanding new-security reboot/ALF-only tests.
 
-## References checked
+## Rules checked
 
-- [Canonical admission rules and schema](https://github.com/NousResearch/hermes-agent/blob/2b7a6ceca58d82f998fc9d2e5bcbaa7c7f5d60af/plugin-catalog/README.md)
-- [Current submission guide](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission)
+- [Canonical rules at the tested Hermes revision](https://github.com/NousResearch/hermes-agent/blob/3bcd071226d3d605a2bb3b4f3933e7d583e189d6/plugin-catalog/README.md)
+- [Live submission guide](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission)
 
-Recheck these before submission; review rules can change. This preparation does
-not assert approval or submit OwnMachine to any catalog.
+Recheck before submission. Automated validation is not catalog admission.
