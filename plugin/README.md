@@ -14,6 +14,44 @@ is recorded in the catalog readiness report), OpenSSH, and a compatible Apple Si
 running the Lume guest. Hermes may run on another machine; a Linux Docker runtime
 has been tested. Cloud Mac hosting has not been acceptance-tested.
 
+## Guided setup commands
+
+Start with `/ownmachine setup` in Hermes chat. Hermes default plugin-host mode
+skips plugin CLI commands and cannot load the native provider. In a dedicated
+OwnMachine profile, explicitly run `hermes config set plugins.isolation in_process`
+before using `hermes ownmachine setup` or `hermes ownmachine doctor` in a terminal.
+This is a profile isolation choice, not something setup silently changes. The terminal wizard asks for a local Mac, remote Mac or existing relay,
+then previews non-secret settings. It saves only when you choose to. Chat and
+noninteractive sessions never wait for stdin.
+
+```sh
+hermes ownmachine setup --target remote --vm-name ownmachine --save
+hermes ownmachine setup --json
+hermes ownmachine doctor
+```
+
+For an already prepared relay, use your own verified SSH alias and absolute
+shared control path:
+
+```sh
+hermes ownmachine setup --target existing --host-alias example-mac \
+  --control-dir /absolute/shared/control --connect
+```
+
+The same options work after `/ownmachine setup` in chat. `--connect` saves the
+connection in the active profile; it requires `--replace` if different connection
+settings already exist. It does not select the native provider or change Hermes
+isolation/toolsets: follow the dedicated-profile setup below and start a new
+session after configuration changes. `hermes ownmachine doctor --json` and
+`/ownmachine doctor` report bounded read-only readiness.
+
+This first onboarding phase provides planning, resume, connection configuration
+and diagnosis. **Fresh account/VM/firewall/viewer installation remains a guided
+operator workflow**, not an action performed by these commands. Setup stores
+non-secret choices in the active profile's `setup_plan`; never put passwords,
+private keys or viewer tokens in it or in chat. Resource choices and storage
+budgets are configurable; remote capacity is not inferred from the local machine.
+
 ## Browser viewer and handoff
 
 Actual browser captures from the dedicated acceptance guest, using demonstration

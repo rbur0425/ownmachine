@@ -1,0 +1,240 @@
+"""Operator-only setup planning and read-only diagnosis through public Hermes APIs."""
+import argparse
+import json
+from pathlib import Path
+import platform
+import shlex
+import shutil
+import sys
+from .config import Config
+from .diagnostics import diagnose, render as render_doctor
+
+PREREQUISITE = ('CLI commands and the native provider require a dedicated Hermes profile with in-process loading. '
+                'In that profile, explicitly run: hermes config set plugins.isolation in_process. '
+                'This changes profile isolation; setup never changes it automatically.')
+GUIDE = 'https://github.com/rbur0425/ownmachine/blob/v0.6.0/docs/community-setup.md'
+FIELDS = ('target', 'host_alias', 'vm_name', 'control_dir', 'storage_dir',
+          'cpu', 'memory_gb', 'disk_gb', 'min_free_gb', 'display')
+DEFAULTS = dict(target='', host_alias='', vm_name='ownmachine', control_dir='',
+                storage_dir='', cpu=4, memory_gb=8, disk_gb=64,
+                min_free_gb=60, display='1900x1200')
+
+
+class InputError(ValueError):
+    pass
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise InputError('Invalid setup options. Use /ownmachine help or hermes ownmachine --help.')
+
+
+def add_arguments(parser):
+    subs = parser.add_subparsers(dest='ownmachine_command')
+    setup = subs.add_parser('setup', help='Plan or resume setup; explicitly save non-secret settings')
+    setup.add_argument('--target', choices=['local', 'remote', 'existing'])
+    for name in ('host-alias', 'vm-name', 'control-dir', 'storage-dir', 'display'):
+        setup.add_argument('--' + name)
+    for name in ('cpu', 'memory-gb', 'disk-gb', 'min-free-gb'):
+        setup.add_argument('--' + name, type=int)
+    setup.add_argument('--save', action='store_true', help='Save the plan in the active Hermes profile')
+    setup.add_argument('--connect', action='store_true', help='Save existing relay connection settings; does not start the VM')
+    setup.add_argument('--replace', action='store_true', help='Allow replacement of different existing connection settings')
+    setup.add_argument('--json', action='store_true', dest='as_json')
+    doctor = subs.add_parser('doctor', help='Read-only configured host, permissions and MCP checks')
+    doctor.add_argument('--json', action='store_true', dest='as_json')
+    subs.add_parser('help', help='Show setup entry points')
+
+
+def configuration(ctx):
+    return Config(**{k: ctx.get_config(k, v) for k, v in vars(Config()).items()})
+
+
+def validate_plan(plan):
+    if plan['target'] not in ('local', 'remote', 'existing'):
+        raise InputError('Choose a target: local (Hermes runs on this Mac), remote, or existing.')
+    for key in ('host_alias', 'vm_name', 'control_dir', 'storage_dir', 'display'):
+        if not isinstance(plan[key], str) or any(ord(c) < 32 for c in plan[key]):
+            raise InputError('Setup fields must be plain text without control characters.')
+    Config(host_alias=plan['host_alias'] or 'not-configured', vm_name=plan['vm_name'],
+           control_dir=plan['control_dir']).validate()
+    if plan['storage_dir'] and not Path(plan['storage_dir']).is_absolute():
+        raise InputError('Storage directory must be an absolute path on the Mac host.')
+    for key in ('cpu', 'memory_gb', 'disk_gb', 'min_free_gb'):
+        if type(plan[key]) is not int or not 1 <= plan[key] <= 65536:
+            raise InputError('Resource settings must be positive integers no greater than 65536.')
+    import re
+    if not re.fullmatch(r'[1-9][0-9]{2,4}x[1-9][0-9]{2,4}', plan['display']):
+        raise InputError('Display must use WIDTHxHEIGHT, for example 1900x1200.')
+
+
+def preflight(plan):
+    checks = [{'check': 'ssh_client', 'status': 'pass' if shutil.which('ssh') else 'fail',
+               'detail': 'OpenSSH is required in the Hermes environment.'}]
+    if plan['target'] == 'local':
+        compatible = platform.system() == 'Darwin' and platform.machine() == 'arm64'
+        checks.append({'check': 'local_mac', 'status': 'pass' if compatible else 'fail',
+                       'detail': 'Local means the machine running Hermes, not your browser. Apple Silicon macOS is required.'})
+        if plan['storage_dir']:
+            path = Path(plan['storage_dir'])
+            while not path.exists() and path != path.parent:
+                path = path.parent
+            try:
+                free = shutil.disk_usage(path).free // (1024 ** 3)
+                checks.append({'check': 'storage', 'status': 'pass' if free >= plan['min_free_gb'] else 'fail',
+                               'detail': f'{free} GiB free; selected working budget {plan["min_free_gb"]} GiB. Sparse virtual disk capacity is separate.'})
+            except OSError:
+                checks.append({'check': 'storage', 'status': 'fail', 'detail': 'Cannot inspect selected storage location.'})
+        else:
+            checks.append({'check': 'storage', 'status': 'pending', 'detail': 'Select an absolute storage directory on the Mac.'})
+    else:
+        checks.append({'check': 'mac_host', 'status': 'pending',
+                       'detail': 'Remote hardware/storage are not inferred from this Hermes machine; verify on the Mac.'})
+    return checks
+
+
+def setup(ctx, args):
+    saved = ctx.get_config('setup_plan', {})
+    if not isinstance(saved, dict) or saved.get('schema_version', 1) != 1:
+        raise InputError('Saved setup plan is invalid or from a newer version; review it in plugin settings.')
+    plan = {**DEFAULTS, **{k: saved[k] for k in FIELDS if k in saved}}
+    current = configuration(ctx)
+    for key in ('host_alias', 'vm_name', 'control_dir'):
+        if key not in saved:
+            plan[key] = getattr(current, key)
+    for key in FIELDS:
+        value = getattr(args, key, None)
+        if value is not None:
+            plan[key] = value
+    if not plan['target']:
+        return {'ok': False, 'stage': 'needs_input', 'questions': [
+            'Where should the desktop run: local, remote, or existing?',
+            'For a configured host, what is its verified SSH alias?',
+            'Which absolute control directory is shared by agent and viewer?'],
+            'prerequisite': PREREQUISITE, 'next': 'Run setup --target local|remote|existing; use --help in the terminal for options. No passwords or private keys in chat.'}
+    validate_plan(plan)
+    checks = preflight(plan)
+    if args.connect:
+        if plan['target'] != 'existing' or not plan['host_alias'] or not plan['control_dir']:
+            raise InputError('--connect requires target existing, a verified SSH alias and an absolute shared control directory.')
+        desired = {k: plan[k] for k in ('host_alias', 'vm_name', 'control_dir')}
+        old = {k: getattr(current, k) for k in desired}
+        if (current.host_alias or current.control_dir) and desired != old and not args.replace:
+            raise InputError('Existing connection differs. Review it before explicitly using --replace.')
+        # Each public API write is atomic. Restore earlier values if a later write fails.
+        written = []
+        try:
+            for key, value in desired.items():
+                ctx.set_config(key, value)
+                written.append(key)
+        except Exception:
+            for key in reversed(written):
+                ctx.set_config(key, old[key])
+            raise
+    if args.save or args.connect:
+        ctx.set_config('setup_plan', {**plan, 'schema_version': 1, 'stage': 'planned'})
+    return {'ok': not any(c['status'] == 'fail' for c in checks), 'stage': 'planned',
+            'saved': bool(args.save or args.connect), 'connection_saved': bool(args.connect),
+            'plan': plan, 'checks': checks,
+            'steps': ['Check Mac capacity and build tools', 'Prepare dedicated account and restricted SSH keys',
+                      'Install and verify firewall', 'Provision guest without Apple sign-in',
+                      'Approve guest Accessibility, Screen Recording and capture consent',
+                      'Start private viewer and verify human/agent handoff'],
+            'next': ('Run hermes ownmachine doctor. Select the ownmachine native provider and in-process plugin loading in a dedicated profile using the guide; open a new session afterward.' if args.connect else
+                     'Plan saved; resume with the same setup command.' if args.save else 'Review this plan, then add --save to keep it.'),
+            'guide': GUIDE, 'prerequisite': PREREQUISITE,
+            'scope': 'Planning/configuration only. No VM, account, firewall, key, service or permission was created or changed. Fresh-install execution is the next onboarding phase.'}
+
+
+def render_setup(report):
+    lines = ['OwnMachine setup: ' + report['stage'].replace('_', ' ').upper()]
+    for question in report.get('questions', []):
+        lines.append(question)
+    if 'plan' in report:
+        lines.extend(f'{key}: {value or "not selected"}' for key, value in report['plan'].items())
+    lines.extend(f'[{c["status"].upper()}] {c["check"]}: {c["detail"]}' for c in report.get('checks', []))
+    lines.extend(f'{i}. {step}' for i, step in enumerate(report.get('steps', []), 1))
+    lines.append(report['prerequisite'])
+    lines.append(report['next'])
+    if 'guide' in report:
+        lines.extend([report['guide'], report['scope']])
+    return '\n'.join(lines)
+
+
+def execute(ctx, args):
+    if args.ownmachine_command == 'setup':
+        report = setup(ctx, args)
+        return (json.dumps(report) if args.as_json else render_setup(report)), (0 if report['ok'] else 2)
+    if args.ownmachine_command == 'doctor':
+        report = diagnose(configuration(ctx))
+        return (json.dumps(report) if args.as_json else render_doctor(report)), (0 if report['ok'] else 1)
+    return ('OwnMachine: /ownmachine setup | hermes ownmachine setup | hermes ownmachine doctor\n'
+            'Setup resumes the saved plan. Use --save to persist it, or --target existing --connect to configure a prepared relay.\n'
+            'Fresh Mac provisioning is not automated by this command yet. Never paste passwords or private keys into chat.\n' + PREREQUISITE), 0
+
+
+def interactive(ctx, args):
+    """Only the explicit terminal setup command prompts; chat/cron never read stdin."""
+    if args.ownmachine_command != 'setup' or args.target is not None or args.as_json or args.save or args.connect:
+        return
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        return
+    saved = ctx.get_config('setup_plan', {})
+    saved = saved if isinstance(saved, dict) else {}
+    print('Give your AI agent its own desktop. No passwords or private keys are requested.')
+    def ask(label, default=''):
+        value = input(f'{label}' + (f' [{default}]' if default else '') + ': ').strip()
+        return value or default
+    args.target = ask('Where will the desktop run? local / remote / existing', saved.get('target', 'local'))
+    args.host_alias = ask('Verified SSH alias (leave blank until configured)', saved.get('host_alias', ctx.get_config('host_alias', '')))
+    args.control_dir = ask('Absolute shared control directory', saved.get('control_dir', ctx.get_config('control_dir', '')))
+    if args.target != 'existing':
+        args.storage_dir = ask('Absolute VM storage directory on the Mac', saved.get('storage_dir', ''))
+    args.vm_name = ask('VM name', saved.get('vm_name', 'ownmachine'))
+    preview, _ = execute(ctx, args)
+    print(preview)
+    args.save = ask('Save this non-secret plan? yes / no', 'no') == 'yes'
+    if args.target == 'existing' and args.save:
+        args.connect = ask('Also configure this existing relay connection? yes / no', 'no') == 'yes'
+    return True
+
+
+def register_commands(ctx):
+    def cli(args):
+        try:
+            previewed = interactive(ctx, args)
+            text, code = execute(ctx, args)
+            if previewed:
+                print('Plan saved. No provisioning performed.' if args.save else 'Plan not saved. Run setup again when ready.')
+                if args.connect:
+                    print('Existing connection saved. Run hermes ownmachine doctor; start a new session after configuring the provider.')
+            else:
+                print(text)
+            return code
+        except InputError as error:
+            print('OwnMachine: ' + str(error), file=sys.stderr)
+            return 2
+        except (ValueError, TypeError, OSError, EOFError):
+            print('OwnMachine: setup could not complete. Check non-secret settings and directory permissions; no provisioning was performed.', file=sys.stderr)
+            return 2
+    def slash(raw_args='', **kwargs):
+        parser = Parser(prog='/ownmachine', add_help=False)
+        add_arguments(parser)
+        try:
+            tokens = shlex.split(raw_args)
+            if '--help' in tokens or '-h' in tokens:
+                return 'Use /ownmachine help, or hermes ownmachine setup --help in a terminal.'
+            args = parser.parse_args(tokens)
+            return execute(ctx, args)[0]
+        except InputError as error:
+            return 'OwnMachine: ' + str(error)
+        except (ValueError, TypeError, OSError):
+            return 'OwnMachine: invalid or unavailable setup settings. Use /ownmachine help. No provisioning was performed.'
+        except SystemExit:
+            return 'Use /ownmachine help, or hermes ownmachine setup --help in a terminal.'
+    if hasattr(ctx, 'register_cli_command'):
+        ctx.register_cli_command(name='ownmachine', help='Set up or diagnose a private desktop',
+                                 setup_fn=add_arguments, handler_fn=cli)
+    if hasattr(ctx, 'register_command'):
+        ctx.register_command('ownmachine', handler=slash,
+                             description='Plan desktop setup or run read-only diagnostics', args_hint='setup | doctor | help')
