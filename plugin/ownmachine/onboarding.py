@@ -296,7 +296,7 @@ def register_commands(ctx):
                     print('Existing connection saved. Run hermes ownmachine doctor; start a new session after configuring the provider.')
             else:
                 print(text)
-            if args.ownmachine_command != 'remind':
+            if args.ownmachine_command != 'remind' and not getattr(args, 'as_json', False):
                 from .reminders import nudge
                 def delivered(message):
                     print(message,flush=True)
