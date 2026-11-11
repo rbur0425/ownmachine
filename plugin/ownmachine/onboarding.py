@@ -13,7 +13,16 @@ from .diagnostics import diagnose, render as render_doctor
 PREREQUISITE = ('CLI commands and the native provider require a dedicated Hermes profile with in-process loading. '
                 'In that profile, explicitly run: hermes config set plugins.isolation in_process. '
                 'This changes profile isolation; setup never changes it automatically.')
-GUIDE = 'https://github.com/rbur0425/ownmachine/blob/develop/docs/wizard-quickstart.md'
+def guide(ctx):
+    import re
+    manifest = (Path(__file__).resolve().parents[1] / 'plugin.yaml').read_text()
+    match = re.search(r'^version: ([0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.-]+)?)$', manifest, re.M)
+    if not match: raise ValueError('invalid_plugin_version')
+    ref = ctx.get_config('setup_guide_ref', '') or 'v' + match.group(1)
+    if not isinstance(ref, str) or not re.fullmatch(r'(?:[a-f0-9]{40}|v[0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.-]+)?)', ref):
+        raise ValueError('guide_requires_version_or_commit')
+    return 'https://github.com/rbur0425/ownmachine/blob/' + ref + '/docs/community-setup.md'
+
 FIELDS = ('target', 'host_alias', 'vm_name', 'control_dir', 'storage_dir',
           'cpu', 'memory_gb', 'disk_gb', 'min_free_gb', 'display')
 DEFAULTS = dict(target='', host_alias='', vm_name='ownmachine', control_dir='',
@@ -38,6 +47,9 @@ def add_arguments(parser):
         setup.add_argument('--' + name)
     for name in ('cpu', 'memory-gb', 'disk-gb', 'min-free-gb'):
         setup.add_argument('--' + name, type=int)
+    from .setup_transport import STEPS
+    setup.add_argument('--run', choices=(*STEPS, 'progress'), help='Run a reviewed stage over the dedicated setup SSH identity (terminal only)')
+    setup.add_argument('--apply', action='store_true', help='Explicitly authorize a remote mutating step or opening the guest guide')
     setup.add_argument('--save', action='store_true', help='Save the plan in the active Hermes profile')
     setup.add_argument('--connect', action='store_true', help='Save existing relay connection settings; does not start the VM')
     setup.add_argument('--replace', action='store_true', help='Allow replacement of different existing connection settings')
@@ -98,6 +110,16 @@ def preflight(plan):
 
 
 def setup(ctx, args):
+    if getattr(args, 'run', None):
+        from .setup_transport import dispatch
+        saved = ctx.get_config('setup_plan', {})
+        if not isinstance(saved, dict) or not saved or args.save or args.connect or any(getattr(args, k, None) is not None for k in FIELDS):
+            raise InputError('Save/review the plan separately before running a remote stage; do not combine plan edits with execution.')
+        plan = {k: saved.get(k, DEFAULTS[k]) for k in FIELDS}
+        validate_plan(plan)
+        return dispatch(ctx, plan, args.run, args.apply)
+    if getattr(args, 'apply', False):
+        raise InputError('--apply requires --run.')
     saved = ctx.get_config('setup_plan', {})
     if not isinstance(saved, dict) or saved.get('schema_version', 1) != 1:
         raise InputError('Saved setup plan is invalid or from a newer version; review it in plugin settings.')
@@ -150,8 +172,8 @@ def setup(ctx, args):
                       'Start private viewer and verify human/agent handoff'],
             'next': ('Run hermes ownmachine doctor. Select the ownmachine native provider and in-process plugin loading in a dedicated profile using the guide; open a new session afterward.' if args.connect else
                      'Plan saved; resume with the same setup command.' if args.save else 'Review this plan, then add --save to keep it.'),
-            'guide': GUIDE, 'prerequisite': PREREQUISITE,
-            'scope': 'Planning/configuration only. No VM, account, firewall, key, service or permission was created or changed. Fresh-install execution is the next onboarding phase.'}
+            'guide': guide(ctx), 'prerequisite': PREREQUISITE,
+            'scope': 'Planning/configuration only. No VM, account, firewall, key, service or permission was created or changed. Use --run with the approved setup endpoint for explicit remote execution.'}
 
 
 def render_setup(report):
@@ -176,6 +198,8 @@ def render_setup(report):
 def execute(ctx, args):
     if args.ownmachine_command == 'setup':
         report = setup(ctx, args)
+        if getattr(args, 'run', None):
+            return json.dumps(report), (0 if report['ok'] else 2)
         return (json.dumps(report) if args.as_json else render_setup(report)), (0 if report['ok'] else 2)
     if args.ownmachine_command == 'status':
         saved = ctx.get_config('setup_plan', {})
@@ -183,7 +207,12 @@ def execute(ctx, args):
             raise InputError('Saved plan is invalid; review plugin settings before continuing.')
         plan = {k: saved.get(k, DEFAULTS[k]) for k in FIELDS} if saved else {}
         report = onboarding_state.summary(ctx, plan)
+        from . import setup_transport
+        if ctx.state.get(setup_transport.KEY, default=None) is not None:
+            report['execution'] = setup_transport.summary(ctx, plan)
         text = 'OwnMachine onboarding: ' + report['stage'].replace('_', ' ').upper() + '\n' + report['next']
+        if 'execution' in report:
+            text += '\nRemote execution: ' + report['execution']['stage']
         if report.get('blocked_checks'):
             text += '\nBlocked checks: ' + ', '.join(report['blocked_checks'])
         return (json.dumps(report) if args.as_json else text), 0
@@ -192,12 +221,12 @@ def execute(ctx, args):
         return (json.dumps(report) if args.as_json else render_doctor(report)), (0 if report['ok'] else 1)
     return ('OwnMachine: /ownmachine setup | hermes ownmachine setup | hermes ownmachine doctor\n'
             'Setup resumes the saved plan. Use --save to persist it, or --target existing --connect to configure a prepared relay.\n'
-            'Fresh Mac provisioning is not automated by this command yet. Never paste passwords or private keys into chat.\n' + PREREQUISITE), 0
+            'Use setup --run STAGE for the approved SSH endpoint; mutating stages require --apply in the operator terminal. Never paste passwords or private keys into chat.\n' + PREREQUISITE), 0
 
 
 def interactive(ctx, args):
     """Only the explicit terminal setup command prompts; chat/cron never read stdin."""
-    if args.ownmachine_command != 'setup' or args.target is not None or args.as_json or args.save or args.connect:
+    if args.ownmachine_command != 'setup' or args.target is not None or args.as_json or args.save or args.connect or getattr(args, 'run', None):
         return
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         return
@@ -252,7 +281,10 @@ def register_commands(ctx):
             print('OwnMachine: ' + str(error), file=sys.stderr)
             return 2
         except (ValueError, TypeError, OSError, RuntimeError, EOFError):
-            print('OwnMachine: setup could not complete. Check non-secret settings, saved state and directory permissions; existing state is preserved and no provisioning was performed.', file=sys.stderr)
+            if getattr(args, 'run', None):
+                print('OwnMachine: remote success was not confirmed. Check the setup alias, source pin and stage allowlist; use setup --run progress before retrying. Do not replay an uncertain mutation.', file=sys.stderr)
+            else:
+                print('OwnMachine: setup could not complete. Check non-secret settings, saved state and directory permissions; existing state is preserved and no provisioning was performed.', file=sys.stderr)
             return 2
     def slash(raw_args='', **kwargs):
         parser = Parser(prog='/ownmachine', add_help=False)
@@ -262,6 +294,8 @@ def register_commands(ctx):
             if '--help' in tokens or '-h' in tokens:
                 return 'Use /ownmachine help, or hermes ownmachine setup --help in a terminal.'
             args = parser.parse_args(tokens)
+            if args.ownmachine_command == 'setup' and getattr(args, 'run', None):
+                return 'Run remote setup stages with hermes ownmachine setup --run in the operator terminal. Chat remains nonblocking; /ownmachine status shows imported progress.'
             if args.ownmachine_command == 'setup' and (args.save or args.connect):
                 if not authorized_sender(ctx, kwargs):
                     return 'OwnMachine: configuration changes in chat require an explicitly allowed sender. Use the local terminal setup command, or configure setup_allowed_senders with verified platform, user_id and chat_id values. No settings were changed.'

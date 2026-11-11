@@ -36,8 +36,10 @@ hermes ownmachine setup --json > plan.json
 hermes ownmachine status --json
 ```
 
-At present, transfer this non-secret plan through your operator channel. Hermes
-SSH stage dispatch and authenticated progress import are still pending. Do not
+Transfer/review the initial non-secret plan through your operator bootstrap channel.
+Then configure [Hermes SSH stage dispatch and authenticated progress](setup-transport.md)
+to run the stages from the operator terminal. Initial account/source/key trust
+establishment is still explicit operator work. Do not
 paste passwords, private keys or viewer links into chat.
 
 ## Prepare and create the Mac guest
@@ -177,6 +179,7 @@ missing firewall or viewer dependency permits a normal retry. Mutating stages us
 stage rechecks its actual outcome. Changed config/source or uncertain mutations
 stop for inspection; no guest deletion or destructive repair is attempted.
 Read-only firewall/permission/readiness checks can be repeated after a human fixes
-the issue. The runners report sanitized liveness events; Mac checkpoints are not
-yet imported into Hermes progress. Keep the planned opt-in reminders disabled
+the issue. The runners report sanitized liveness events. The dedicated SSH endpoint now
+imports authenticated final outcomes into Hermes progress; streaming liveness
+into chat/UI remains pending. Keep the planned opt-in reminders disabled
 until their consent, cancellation and deduplication design is implemented.

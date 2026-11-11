@@ -9,6 +9,11 @@ description: Native Hermes computer use for a persistent private macOS VM
 license: PolyForm-Noncommercial-1.0.0
 requires_hermes: ">=0.23.1"
 config_schema:
+  setup_ssh_config: {type: str, default: "", description: "Optional absolute operator-owned OpenSSH config, passed to ssh -F; no credential files are read by the plugin"}
+  setup_host_alias: {type: str, default: "", description: "Separate pinned SSH alias for the temporary fixed-command setup endpoint; never the agent runtime alias"}
+  setup_source_sha256: {type: str, default: "", description: "Reviewed full-source fingerprint reported by setup-endpoint.py --fingerprint"}
+  setup_timeout_seconds: {type: int, default: 120, description: "Explicit bounded setup call timeout, 5–7500 seconds; use a longer value for build/provision"}
+  setup_guide_ref: {type: str, default: "", description: "Optional immutable vVERSION or full commit for development docs; empty derives the release tag from plugin version"}
   setup_allowed_senders: {type: list, default: [], description: "Explicit chat mutation grants: objects with platform, user_id and chat_id; missing identity is refused. Local CLI setup remains available."}
   setup_plan: {type: dict, default: {}, description: "Non-secret resumable operator setup plan; saving a plan does not provision a VM"}
   control_dir: {type: str, default: "", description: "Absolute operator-owned control directory shared by every profile targeting this VM"}

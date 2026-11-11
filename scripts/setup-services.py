@@ -264,6 +264,8 @@ def execute(args):
         return dict(ok=True, step=step, stage='observed', machine=platform.machine(),
                     free_gib=round(shutil.disk_usage(path).free/1024**3, 2),
                     swift_available=call(['/usr/bin/xcrun', '--find', 'swift']).returncode == 0,
+                    cpu_count=os.cpu_count() or 0,
+                    memory_gib=int(call(['/usr/sbin/sysctl', '-n', 'hw.memsize']).stdout.strip())//1024**3,
                     scope='Actual host observation; guest, ports and runtime identities still need checks.')
     if not args.apply and step in MUTATIONS:
         return dict(ok=True, step=step, stage='planned', next='Review configuration, then explicitly apply on the correct account.')

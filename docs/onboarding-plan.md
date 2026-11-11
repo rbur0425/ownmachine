@@ -348,3 +348,37 @@ scripts, viewer secrets, host passwords or private keys into the installed plugi
 Remote receipt authentication and stage dispatch should land together so a UI
 cannot advance based on an unauthenticated status file. Full acceptance must run
 from Hermes through the viewer before this ledger can be marked complete.
+
+## Phase 3 orchestration update — SSH transport increment
+
+These entries supersede the earlier gap ledger where implementation has advanced.
+They do not close live end-to-end acceptance or the human consent steps.
+
+- [x] Run reviewed stages from the Hermes **operator terminal** over strict,
+  host-key-pinned SSH using a separate temporary setup identity and host-side
+  allowlist. Runtime keys retain their existing restrictions. Initial source,
+  approved plan/config and public-key trust bootstrap remain operator work.
+- [x] Check the actual remote Mac from Hermes before build/provision; require a
+  fresh successful hardware/Swift/capacity/resource preflight. Port selection and
+  full cloud/external-storage admission checks remain future work.
+- [x] Import sanitized Mac outcomes through the live authenticated SSH channel,
+  bound to nonce, source, plan, VM and stage; display them in Hermes onboarding
+  status. Reject mismatches and replay; no copied-file completion import.
+- [ ] Wire `secure-guest.py`, initial guest SSH configuration and guest shutdown
+  authorization into the resumable protocol. Existing manual hardening remains
+  required; partial outcomes must never trigger automatic password rotation.
+- [ ] Partial final verify: checks both runtime-key statuses, rejects each key's
+  other-role operation and tests viewer VNC authentication. It **does not yet run
+  a computer_use screenshot**. Add that and independently verify a desktop task
+  before marking this acceptance item complete.
+- [ ] Stream progress into nonblocking Hermes chat/UI and complete the fresh
+  multi-machine flow. Terminal calls currently wait for the bounded final result;
+  local status records pending/uncertain execution. Keep reminders opt-in and
+  unimplemented until the previously specified consent/deduplication tests pass.
+
+PR #4 follow-ups: command inventory in plugin.yaml remains documentation-only
+for current Hermes; public registration APIs load the command. The wizard
+quickstart exists. The setup guide now derives its release tag from plugin version;
+an explicit full-commit override supports development without floating release
+docs. Never claim that advisory manifest inventory changes Hermes registration.
+See [transport and trust setup](setup-transport.md) for configuration and limits.
