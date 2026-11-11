@@ -113,7 +113,7 @@ class OnboardingCommandsTests(unittest.TestCase):
             self.assertFalse(report['ok'])
         with tempfile.TemporaryDirectory() as folder, patch.object(o.shutil, 'disk_usage') as usage:
             usage.return_value.free = 1024 ** 3
-            report = o.setup(Context(), args('setup', '--target', 'local', '--storage-dir', folder, '--min-free-gb', '2'))
+            report = o.setup(Context(), args('setup', '--target', 'local', '--storage-dir', folder, '--min-free-gb', '32'))
             self.assertFalse(report['ok'])
 
     def test_invalid_and_injected_values_never_saved(self):

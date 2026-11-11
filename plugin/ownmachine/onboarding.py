@@ -63,11 +63,12 @@ def validate_plan(plan):
            control_dir=plan['control_dir']).validate()
     if plan['storage_dir'] and not Path(plan['storage_dir']).is_absolute():
         raise InputError('Storage directory must be an absolute path on the Mac host.')
-    for key in ('cpu', 'memory_gb', 'disk_gb', 'min_free_gb'):
-        if type(plan[key]) is not int or not 1 <= plan[key] <= 65536:
-            raise InputError('Resource settings must be positive integers no greater than 65536.')
+    for key, low, high in (('cpu', 2, 32), ('memory_gb', 8, 128), ('disk_gb', 50, 1000), ('min_free_gb', 32, 2000)):
+        if type(plan[key]) is not int or not low <= plan[key] <= high:
+            raise InputError(f'{key} must be an integer between {low} and {high}.')
     import re
-    if not re.fullmatch(r'[1-9][0-9]{2,4}x[1-9][0-9]{2,4}', plan['display']):
+    match = re.fullmatch(r'(\d{3,4})x(\d{3,4})', plan['display'])
+    if not match or not all(640 <= int(v) <= 4096 for v in match.groups()):
         raise InputError('Display must use WIDTHxHEIGHT, for example 1900x1200.')
 
 
