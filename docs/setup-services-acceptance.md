@@ -6,9 +6,9 @@ Hermes-driven Mac installation. The complete gap ledger is in
 
 ## Checks performed
 
-- Current Hermes source `3bcd071226d3d605a2bb3b4f3933e7d583e189d6`: 275 tests
+- Current Hermes source `3bcd071226d3d605a2bb3b4f3933e7d583e189d6`: 276 tests
   passed, zero skips, using its isolated Python environment.
-- Standalone suite: 275 tests, 252 passed and 23 expected Hermes-only skips.
+- Standalone suite: 276 tests, 253 passed and 23 expected Hermes-only skips.
 - `hermes plugins validate plugin --install-deps` passed; install security scan
   safe. Command inventory is advisory because this Hermes revision registers
   commands through the public APIs, not a manifest command-loading field.

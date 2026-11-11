@@ -111,7 +111,7 @@ class ServicesTests(unittest.TestCase):
 
     def test_failed_mutation_is_not_replayed(self):
         self.args.apply=True
-        with patch.object(s,'apply',side_effect=ValueError('fixture_failure')):
+        with patch.object(s,'preflight_mutation'),patch.object(s,'apply',side_effect=ValueError('fixture_failure')):
             with self.assertRaises(ValueError):s.execute(self.args)
         with patch.object(s,'apply',side_effect=AssertionError('replay')):
             with self.assertRaisesRegex(ValueError,'inspection'):s.execute(self.args)
@@ -163,3 +163,12 @@ class ServicesTests(unittest.TestCase):
             viewer.assert_called_once_with(self.c,probe=True)
         with patch.object(s,'call',return_value=good),patch.object(s.subprocess,'run',return_value=good),patch.object(s,'viewer_check'):
             with self.assertRaisesRegex(ValueError,'not_restricted'):s.verify('verify',self.c)
+
+    def test_missing_firewall_can_be_fixed_without_poisoning_resume(self):
+        self.args.apply=True
+        with patch.object(s,'firewall',side_effect=ValueError('firewall_not_ready')):
+            with self.assertRaises(ValueError):s.execute(self.args)
+        checkpoint=self.home/'.local/state/ownmachine/testvm/setup/service-relay.json'
+        self.assertFalse(checkpoint.exists())
+        with patch.object(s,'firewall'),patch.object(s.mac,'verify_build'):
+            self.assertEqual(s.execute(self.args)['stage'],'verified')

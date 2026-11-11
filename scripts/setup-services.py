@@ -207,14 +207,27 @@ def verify(step, c):
         viewer_check(c, probe=True)
 
 
-def apply(step, c):
+def preflight_mutation(step, c):
+    # Missing prerequisites are safe to fix and retry: no running checkpoint yet.
     if step == 'relay':
         firewall(c)
         mac.verify_build(Path(c['lume_app']))
+        host_settings(c)
+    elif step == 'keys':
+        verify('relay', c)
+        key_lines(c)
+    elif step == 'driver':
+        call(guest_argv(c) + ['test "$(/usr/bin/id -u)" -ne 0 && /usr/bin/sw_vers -productVersion'])
+    elif step == 'viewer':
+        viewer_files(c)
+        call([c['viewer_python'], '-c', 'from Crypto.Cipher import DES'])
+
+
+def apply(step, c):
+    if step == 'relay':
         mac.private_dir(Path(c['storage_dir']))
         for path, content in desired_relay(c): install_exact(path, content)
     elif step == 'keys':
-        verify('relay', c)
         install_keys(c)
     elif step == 'driver':
         install_driver(c)
@@ -279,6 +292,7 @@ def execute(args):
                 raise ValueError('previous_execution_requires_inspection')
             verify(step, c)
             return dict(ok=True, step=step, stage='verified', replayed=False)
+        preflight_mutation(step, c)
         record = dict(schema_version=1, identity=identity, stage='running')
         mac.write_state(checkpoint, record)
         try:

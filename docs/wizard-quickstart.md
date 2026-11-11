@@ -172,7 +172,8 @@ complete. A green readiness result never transfers control to the agent.
 
 ## Resume and remaining automation
 
-Mutating stages use a per-VM lock and private durable checkpoints. A completed
+Missing prerequisites are checked before the mutation checkpoint, so fixing a
+missing firewall or viewer dependency permits a normal retry. Mutating stages use a per-VM lock and private durable checkpoints. A completed
 stage rechecks its actual outcome. Changed config/source or uncertain mutations
 stop for inspection; no guest deletion or destructive repair is attempted.
 Read-only firewall/permission/readiness checks can be repeated after a human fixes
