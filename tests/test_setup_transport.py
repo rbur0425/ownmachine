@@ -92,3 +92,11 @@ class TransportTests(unittest.TestCase):
             root=Path(folder);(root/'elsewhere').mkdir();(root/'scripts').symlink_to(root/'elsewhere')
             with patch.object(endpoint,'ROOT',root),self.assertRaisesRegex(ValueError,'symlinks'):
                 endpoint.fingerprint()
+
+    def test_future_or_corrupt_progress_is_preserved_before_network(self):
+        for old in ({'format':2}, ['invalid']):
+            self.ctx.state.set(t.KEY,old)
+            with patch.object(t,'exchange',side_effect=AssertionError('network')):
+                with self.assertRaisesRegex(ValueError,'invalid_setup_execution_state'):
+                    t.dispatch(self.ctx,self.plan,'preflight')
+            self.assertEqual(self.ctx.state.get(t.KEY),old)

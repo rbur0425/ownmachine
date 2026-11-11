@@ -80,7 +80,9 @@ def dispatch(ctx, plan, step, apply=False):
     binding = {k: request[k] for k in ('format','nonce','source_sha256','plan_digest','vm','step')}
     pending = dict(binding, host_alias=alias, transport_digest=digest({'alias':alias,'config':ctx.get_config('setup_ssh_config','')}), stage='awaiting_remote_result', observed_at=int(time.time()))
     # Persist uncertainty before sending anything; never replay automatically.
-    previous = ctx.state.get(KEY, default={})
+    previous = ctx.state.get(KEY, default=None)
+    if previous is not None and (not isinstance(previous,dict) or type(previous.get('format')) is not int or previous.get('format') != 1):
+        raise ValueError('invalid_setup_execution_state')
     ctx.state.set(KEY, pending)
     argv = ['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
             '-o', 'IdentitiesOnly=yes', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
