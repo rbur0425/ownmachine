@@ -43,10 +43,9 @@ unattended preset (`tahoe` or `sequoia`); neither permits another guest OS. The 
 absolute `storage_dir` is passed explicitly to Lume for both listing and creation.
 New execution directories are private; existing selected directories must already
 be owned by the operator and mode 0700. Symlink execution directories are refused.
-For the existing relay/viewer workflow, use the account's standard `~/.lume`
-location (expanded to an absolute path). Custom-storage guest creation is supported
-here, but propagating that location into every runtime relay operation remains a
-separate follow-up; do not connect a custom-storage guest to the default relay.
+Set the relay's `storage_dir` to this same absolute path. The service runner
+propagates it to host.json; status, MCP, lifecycle and VNC all select it explicitly.
+Omitting storage_dir preserves the existing Lume default for older installations.
 
 Checkpoints and logs live beneath
 `~/.local/state/ownmachine/<vm-name>/setup/` (directory 0700, files 0600).

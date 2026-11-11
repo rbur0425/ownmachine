@@ -20,3 +20,7 @@ provides_tools:
   - ownmachine_status
 provides_middleware:
   - tool_execution
+
+# Command inventory (advisory metadata); public ctx.register_* APIs load these.
+commands:
+  - ownmachine
