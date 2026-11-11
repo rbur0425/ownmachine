@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"plugin"))
 import unittest
 from unittest.mock import MagicMock, patch
 from ownmachine import reminder_scheduler as s

@@ -135,8 +135,7 @@ class ReminderTests(unittest.TestCase):
                 self.assertEqual(r.load(self.ctx)['mode'],'next-visit')
         self.assertEqual(self.calls,[])
 
-    def test_public_visit_hooks_ignore_background_and_unapproved_senders(self):
-        import asyncio
+    def test_only_verified_local_visit_hook_is_registered(self):
         hooks={};self.ctx.register_hook=lambda name,fn:hooks.__setitem__(name,fn)
         r.register_hooks(self.ctx)
         with patch.object(r,'nudge') as nudge:
@@ -144,6 +143,4 @@ class ReminderTests(unittest.TestCase):
             nudge.assert_not_called()
             hooks['on_session_open'](platform='cli',reason='resume')
             nudge.assert_called_once_with(self.ctx,None)
-        self.consent('next-visit')
-        self.ctx.post_message=lambda message:self.fail('unauthorized delivery')
-        self.assertIsNone(asyncio.run(hooks['post_gateway_admission'](platform='discord',source=dict(user_id='stranger',chat_id='chat'))))
+        self.assertNotIn('post_gateway_admission',hooks)

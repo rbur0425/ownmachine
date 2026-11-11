@@ -79,3 +79,16 @@ hosting, initial guest hang and outstanding new-security reboot/ALF-only tests.
 - [Live submission guide](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission)
 
 Recheck before submission. Automated validation is not catalog admission.
+
+## Reminder dependency and merge review
+
+The candidate declares `websockets==15.0.1` in `plugin.yaml` for the public local
+gateway client. It is also disclosed in the entry’s `known_issues` because the
+current catalog schema has no dedicated dependency field. Hermes resolves it
+against core constraints and asks for installation consent. No tokens are read
+from files. Refresh the pin and hook list after PR 10 review; do not submit yet.
+
+Local session-open delivery passed a real gateway session test. The admitted-chat
+pipeline returned `no_conversation`, so that hook was withdrawn. A successful
+scheduled Discord reminder alone did not establish either result. See the
+explicit checks in `docs/onboarding-plan.md`.

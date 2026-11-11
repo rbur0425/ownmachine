@@ -34,6 +34,7 @@ class ScheduledTests(unittest.TestCase):
         self.jobs[0]['last_delivery_unverified']=[]
         self.run_command('status');self.run_command('status')
         self.assertEqual(r.load(self.ctx)['count'],1)
+        self.assertFalse(r.load(self.ctx).get('notice_pending'))
 
     def test_edited_destination_is_silent_and_disabled(self):
         self.consent('tomorrow');token=r.load(self.ctx)['intent'];self.now+=86400
@@ -68,3 +69,17 @@ class ScheduledTests(unittest.TestCase):
         with patch.object(gateway,'jobs',side_effect=ValueError('offline')):
             state=json.loads(self.run_command('status'))
         self.assertTrue(state['enabled']);self.assertFalse(state['scheduler_available'])
+
+    def test_skipped_job_explained_once_on_next_authorized_visit(self):
+        self.consent('tomorrow');self.jobs[0]['last_status']='ok'
+        seen=[]
+        r.nudge(self.ctx,None,lambda text:seen.append(text) or True)
+        self.run_command('status')
+        r.nudge(self.ctx,None,lambda text:seen.append(text) or True)
+        self.assertEqual(seen,[r.SKIPPED_MESSAGE])
+        self.assertEqual(r.load(self.ctx)['count'],0)
+
+    def test_optout_suppresses_skipped_notice(self):
+        self.consent('tomorrow');self.jobs[0]['last_status']='ok';self.run_command('status')
+        self.run_command('off')
+        r.nudge(self.ctx,None,lambda text:self.fail('opted out'))

@@ -22,9 +22,9 @@ thread_id; it never guesses a recipient. `setup_reminder_timezone` controls the
 preview time zone (default UTC). Tomorrow means 24 hours after the preview.
 
 Next-visit reminders need no job. They can appear when a local CLI/TUI/Desktop
-session opens or resumes, on the next admitted message from the approved chat
-sender, or on a matching OwnMachine command. Chat admission is a next-message
-hook, not a promise to detect every new chat session. JSON and reminder-management
+session opens or resumes, or on a matching OwnMachine command from the approved chat sender. Automatic
+nudges on unrelated chat messages are not registered: the tested admission hook
+has no bound conversation, and its reply contract would consume the user’s message. JSON and reminder-management
 commands do not emit command nudges. Terminal consent follows the active profile,
 not a terminal process. No hook consumes the user's message or starts setup.
 
@@ -55,3 +55,10 @@ repeat creation to recover a lost response.
 
 No reminder contains credentials, viewer links or desktop content. A reminder
 cannot provision, start a VM, invoke a model or grant guest permissions.
+
+Skipped or failed one-shot delivery records a pending explanation. The next
+authorized matching visit can show that explanation once, without increasing the
+reminder count or scheduling a retry. Explicit opt-out and changed setup identity
+suppress it. Local session-open delivery has passed a live gateway test; automatic
+admitted-chat delivery was withdrawn after the real Hermes admission pipeline
+returned `no_conversation`. Explicit chat-command nudges remain available.

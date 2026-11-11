@@ -23,10 +23,10 @@ def valid(record, job):
 
 
 def reconcile(ctx, record):
-    if not record.get('intent'): return record
+    if not record.get('intent') or record.get('phase')=='delivered': return record
     rows=matching(ctx,record)
     if not rows:
-        record.update(enabled=False,phase='job_missing_requires_review')
+        record.update(enabled=False,phase='job_missing_requires_review',notice_pending=not record.get('notice_reported',False))
         return record
     job=rows[0]
     if not record.get('job_id'):
@@ -40,7 +40,9 @@ def reconcile(ctx, record):
             record['last_nudge_at']=max(record['last_nudge_at'],record.pop('emitted_at'))
             record.update(enabled=False,phase='delivered')
         elif job.get('last_status') in ('error','delivery_failed','cancelled'):
-            record.update(enabled=False,phase='delivery_failed')
+            record.update(enabled=False,phase='delivery_failed',notice_pending=not record.get('notice_reported',False))
+    elif job.get('last_status') in ('ok','error','delivery_failed','cancelled'):
+        record.update(enabled=False,phase='skipped_without_delivery',notice_pending=not record.get('notice_reported',False))
     return record
 
 
@@ -75,6 +77,7 @@ def helper(ctx, token):
 
 def arm(ctx,record):
     from .reminders import KEY
+    record.pop('notice_reported',None);record.pop('notice_pending',None)
     record.update(intent=secrets.token_hex(16),phase='creating')
     dest=record['destination'];record['deliver']=':'.join(dest[k] for k in ('platform','chat_id','thread_id') if dest.get(k))
     ctx.state.set(KEY,record)

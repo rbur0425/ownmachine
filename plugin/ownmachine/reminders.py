@@ -12,6 +12,7 @@ import time
 from .onboarding_state import digest
 
 KEY = 'setup_reminders'
+SKIPPED_MESSAGE = 'An OwnMachine reminder was skipped or could not be delivered. No retry was scheduled. Run /ownmachine remind status to inspect it, or /ownmachine remind later for a new preview.'
 MESSAGE = 'OwnMachine setup is waiting. Run /ownmachine status to review progress, or /ownmachine setup to continue. Nothing has been provisioned by this reminder.'
 
 
@@ -104,6 +105,7 @@ def destination_allowed(ctx, record):
 def refresh(ctx, record):
     if record.get('identity') != identity(ctx) or completed(ctx) or (record.get('enabled') and not destination_allowed(ctx,record)):
         record.update(enabled=False, phase='disabled_requires_review')
+        record.pop('notice_pending',None)
     current = rank(ctx)
     if current > record['rank']:
         record.update(rank=current, count=0)
@@ -113,6 +115,7 @@ def refresh(ctx, record):
 def cancel(ctx, record):
     record.update(enabled=False, phase='off')
     record.pop('reservation', None)
+    record.pop('notice_pending', None)
     record.pop('proposal', None)
     ctx.state.set(KEY, record)
     if record.get('intent'):
@@ -163,7 +166,7 @@ def execute(ctx,args,source=None):
             proposal=dict(token=secrets.token_hex(16),mode=mode,destination=dest,created_at=now,
                           due=now+86400,identity=identity(ctx),authority='terminal' if source is None else 'chat')
             record['proposal']=proposal;ctx.state.set(KEY,record)
-            when=(dt.datetime.fromtimestamp(proposal['due'],ZoneInfo(ctx.get_config('setup_reminder_timezone','UTC'))).isoformat() if mode=='tomorrow' else 'your next eligible Hermes visit (or OwnMachine command)')
+            when=(dt.datetime.fromtimestamp(proposal['due'],ZoneInfo(ctx.get_config('setup_reminder_timezone','UTC'))).isoformat() if mode=='tomorrow' else 'your next local Hermes session or matching OwnMachine command')
             return 'Preview only: '+when+'; destination '+json.dumps(dest)+'. Confirm with remind later --mode '+mode+' --confirm '+proposal['token']+'. No reminder was enabled by this preview.'
         if (not isinstance(proposal,dict) or proposal.get('token')!=confirm or proposal.get('mode')!=mode
                 or proposal.get('destination')!=dest or proposal.get('identity')!=identity(ctx)
@@ -181,22 +184,35 @@ def execute(ctx,args,source=None):
 
 def nudge(ctx,source,deliver=None):
     """Deliver a consent-bound nudge from an authenticated visit or command."""
-    if not load(ctx).get('enabled'): return
+    initial=load(ctx)
+    if not initial.get('enabled') and not initial.get('notice_pending'): return
     expected={'kind':'terminal'} if source is None else target(ctx,source)
     with locked(ctx):
         record=refresh(ctx,load(ctx))
-        if (not record['enabled'] or record.get('mode')!='next-visit' or completed(ctx)
+        if record.get('intent') and record.get('enabled'):
+            from .scheduled_reminders import reconcile
+            try: record=reconcile(ctx,record)
+            except (ValueError,OSError,RuntimeError): pass
+        notice=bool(record.get('notice_pending'))
+        if notice:
+            matching=(source is None and record.get('authority')=='terminal') or record.get('destination')==expected
+            if not matching or not destination_allowed(ctx,record) or record.get('reservation'):
+                ctx.state.set(KEY,record);return
+        if not notice and (not record['enabled'] or record.get('mode')!='next-visit' or completed(ctx)
                 or record.get('destination')!=expected or record['count']>=limit(ctx)
                 or clock()-record['last_nudge_at']<86400 or record.get('reservation')):
             ctx.state.set(KEY,record);return
         reservation=secrets.token_hex(16);record['reservation']=reservation;ctx.state.set(KEY,record)
-    try: accepted=deliver(MESSAGE) is True if deliver is not None else getattr(ctx.post_message(MESSAGE),'ok',False) is True
+    message=SKIPPED_MESSAGE if notice else MESSAGE
+    try: accepted=deliver(message) is True if deliver is not None else getattr(ctx.post_message(message),'ok',False) is True
     except Exception: accepted=False
     with locked(ctx):
         record=load(ctx)
         if record.get('reservation')!=reservation:return
         record.pop('reservation',None)
-        if accepted:
+        if accepted and notice:
+            record.pop('notice_pending',None);record['notice_reported']=True
+        elif accepted:
             record['count']=min(3,record['count']+1);record['last_nudge_at']=clock()
         ctx.state.set(KEY,record)
 
@@ -207,14 +223,4 @@ def register_hooks(ctx):
         if platform not in ('cli','tui','desktop') or reason not in ('create','resume'): return
         try: nudge(ctx,None)
         except (ValueError,OSError,RuntimeError): pass
-    async def admitted(platform=None,source=None,**kwargs):
-        # This hook fires only AFTER Hermes authenticates/admit-checks a real
-        # inbound message. It never consumes or changes the user's message.
-        from types import SimpleNamespace
-        import asyncio
-        if not isinstance(source,dict): return
-        context=dict(platform=platform,source=SimpleNamespace(**{k:source.get(k) for k in ('user_id','chat_id','thread_id')}))
-        try: await asyncio.to_thread(nudge,ctx,context)
-        except (ValueError,OSError,RuntimeError): pass
     ctx.register_hook('on_session_open',local_open)
-    ctx.register_hook('post_gateway_admission',admitted)

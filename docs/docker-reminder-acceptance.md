@@ -30,7 +30,7 @@ completed. Private destinations, account names, paths and keys are omitted.
 - Stopping only the isolated profile gateway caused tomorrow scheduling to refuse;
   no job or automatic gateway start occurred.
 
-## Docker-to-Mac setup (in progress)
+## Docker-to-Mac setup
 
 Separate operator, agent and viewer OS users and private SSH keys were prepared.
 Only public keys and independently trusted host-key material crossed machines.
@@ -48,7 +48,7 @@ profile then installed it through `hermes plugins install` from the public Git
 URL at immutable commit `0be4244aa219aa2ac17f4653ed69db3ab4c986e5`, resolved the
 declared Python dependency and enabled the plugin successfully.
 
-The required local package gate passed all 333 tests with no skips, reproducible
+The initial required local package gate passed all 333 tests with no skips, reproducible
 bundle/checksum checks, fresh installation, upgrade and source/packaged Hermes
 validation. The GitHub offline job exposed a missing test-environment dependency;
 the workflow now installs the same pinned WebSocket dependency as the manifest.
@@ -56,6 +56,42 @@ the workflow now installs the same pinned WebSocket dependency as the manifest.
 The protected Docker viewer connected after the managed guest restart. First boot
 still required Update Mac Automatically, optional accessibility preferences,
 Apple Account skip, adult age range, analytics (unchecked), Screen Time and guest
-FileVault choices. The permission guide appeared afterward. Guest consent, final
-viewer input, native capture and setup-key retirement remain in progress.
+FileVault choices. The permission guide appeared afterward. Guest consent and the guide's capture verification passed. A disposable TextEdit
+file was typed and saved through the browser, then independently read over guest
+SSH from the guest home directory. The guest Documents folder denied SSH access;
+no Full Disk Access was granted to bypass that protection.
 
+Native capture passed through the Docker operator and separately through the
+public-Git-installed plugin under the dedicated agent user. Both returned valid
+1456×920 PNG captures. Final verify/apply completed, rejected the retired setup
+key, retained runtime access and reported no pending reminder cleanup. Control
+was left paused. This is deterministic desktop acceptance, not a model-driven task.
+
+The fixture initially omitted the documented shared-control bootstrap: its lease
+and session lock were private to their creating users. Group modes and default
+ACLs were configured only on the shared control volume; private key/token homes
+remained inaccessible to the agent. Include this bootstrap before starting either
+service. Mac-side verification used its existing local verification aliases and
+viewer; the separate Docker key-denial, streaming, input/readback and installed
+plugin capture tests above establish the new cross-machine path independently.
+
+## Review follow-ups
+
+- A real local gateway session received the fixed `on_session_open` reminder as
+  a session event; state counted exactly one accepted delivery.
+- The actual Hermes admission pipeline was exercised with its isolated test
+  adapter and real plugin dispatch. `ctx.post_message` returned `no_conversation`;
+  the original message reached the agent once, and the reminder count stayed zero.
+  The ineffective `post_gateway_admission` registration was removed. Automatic
+  next-message chat nudges remain deferred; explicit OwnMachine chat commands and
+  consent-bound scheduled delivery remain supported.
+- Skipped/failed one-shot results now retain a one-time explanation for the next
+  authorized matching visit, respecting opt-out and configuration changes.
+- The catalog draft discloses the pinned WebSocket dependency and actual hook list.
+
+The review follow-up suite passes 335 tests. A separate capture explicitly loaded
+the pinned current Hermes source in Docker and passed after setup-key retirement.
+The original Docker image remains an existing managed runtime (it reports a
+dependency/build synchronization warning); this acceptance does not certify a
+from-scratch rebuild of Hermes itself. OwnMachine’s immutable-pin installation,
+plugin validation and runtime capture were tested separately.

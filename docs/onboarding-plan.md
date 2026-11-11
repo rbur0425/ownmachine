@@ -116,8 +116,8 @@ offers opt-in reminders without stopping a running operation.
 
 The current reminder implementation and its exact delivery semantics are in
 [onboarding-reminders.md](onboarding-reminders.md). The public scheduler route
-has now delivered one user-confirmed Discord test. Full candidate Docker-to-Mac
-acceptance remains in progress; see [docker-reminder-acceptance.md](docker-reminder-acceptance.md).
+has now delivered one user-confirmed Discord test. The deterministic Docker-to-Mac
+acceptance run passed; see [docker-reminder-acceptance.md](docker-reminder-acceptance.md).
 Older phase notes below record earlier review boundaries and are superseded by
 these current implementation and acceptance documents where they differ.
 
@@ -438,8 +438,8 @@ This status supersedes the earlier open items above.
   daily spacing, opt-out, completion suppression and interrupted-delivery guard.
 - [x] Scheduled tomorrow reminders through public gateway attach, `cron.manage`
   inspection and CLI paused creation. Delivery-time checks use this same route.
-- [x] Local session-open/resume and authenticated chat-admission next-visit hooks.
-  Chat delivery means the next admitted message, not a generic session-open event.
+- [x] Local session-open/resume nudges and explicit authorized chat-command nudges.
+  Automatic admitted-chat nudges were withdrawn: the hook has no bound conversation.
 - [ ] Independently verified real-model desktop task remains separate acceptance;
   a valid screenshot does not certify task completion.
 
@@ -448,7 +448,7 @@ See [verification acceptance](verification-retirement-acceptance.md) and
 full cross-machine unattended orchestration are not claimed by this increment.
 
 
-### Reminder phase — implemented; acceptance in progress
+### Reminder phase — supported routes verified; automatic chat-message route deferred
 
 - [x] Terminal and authorized-chat status/later/off; next-visit remains the default.
 - [x] Preview plus 15-minute confirmation; installation and silence grant no consent.
@@ -456,10 +456,28 @@ full cross-machine unattended orchestration are not claimed by this increment.
 - [x] Later/Pause offers reminder choices without stopping active work.
 - [x] Paused one-shot creation, exact job verification, delivery-time recheck,
   silent helper errors and delivery receipt reconciliation through public APIs.
-- [x] Local session and authenticated chat-message visit hooks; command fallback.
+- [x] Local session visit hook and authorized chat-command fallback.
+- [ ] Automatic next-message chat nudges need a supported non-consuming reply route.
 - [x] One real Discord reminder independently confirmed by the recipient; job removed.
 - [x] Cron cleaned-environment helper reached the same profile's plugin state.
-- [ ] Complete final Docker-to-Mac candidate installation, guest consent, viewer
+- [x] Complete final Docker-to-Mac candidate installation, guest consent, viewer
   input, native capture and retirement acceptance; do not infer this from unit tests.
 
 See [Docker/reminder acceptance](docker-reminder-acceptance.md) for observed results.
+
+## PR 10 merge checks raised during review
+
+- [x] Prove session-open nudge delivery through an actual Hermes session, including
+  the bound-session route and accepted message result. Registration and mocked
+  `post_message` tests are not delivery evidence. The isolated live gateway emitted
+  the fixed reminder into the newly created session and counted one delivery.
+- [x] Test chat-visit nudge delivery after admission without consuming the user's
+  original message. Check the hook's documented reply contract and whether a
+  session is bound; do not return `handled` merely to inject an unrelated nudge.
+  The actual admission pipeline returned `no_conversation`; the hook was removed.
+  The user message reached the agent and the reminder count stayed zero.
+- [x] Persist a skipped/expired reminder outcome and explain it on the next
+  authorized matching visit instead of letting a one-shot job disappear silently.
+  The explanation must respect opt-out and configuration/recipient changes.
+- [x] Disclose `websockets==15.0.1` in the prepared catalog entry and submission
+  notes; refresh the immutable pin and registered hooks before submission.
