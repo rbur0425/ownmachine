@@ -25,6 +25,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
+      - name: Install plugin transport dependency
+        run: python -m pip install websockets==15.0.1
       - name: Viewer pointer regression
         run: node tests/viewer-pointer.mjs
       - name: Tests and reproducible package checks

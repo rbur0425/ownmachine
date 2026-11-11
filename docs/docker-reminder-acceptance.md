@@ -43,7 +43,19 @@ and driver stages all passed. The older relay file differed, so setup refused to
 overwrite it; inspection confirmed no relay mutation, and the old file and failed
 checkpoint were preserved before the explicit fresh-install retry.
 
-The current fixture initially copied the candidate plugin for testing. This is
-not proof of installation through `hermes plugins install` at a public Git pin.
-Final packaged installation, guest permissions, Docker viewer input, native
-capture and setup-key retirement remain pending in this acceptance run.
+The initial fixture copied the candidate plugin for testing. A second fresh Docker
+profile then installed it through `hermes plugins install` from the public Git
+URL at immutable commit `0be4244aa219aa2ac17f4653ed69db3ab4c986e5`, resolved the
+declared Python dependency and enabled the plugin successfully.
+
+The required local package gate passed all 333 tests with no skips, reproducible
+bundle/checksum checks, fresh installation, upgrade and source/packaged Hermes
+validation. The GitHub offline job exposed a missing test-environment dependency;
+the workflow now installs the same pinned WebSocket dependency as the manifest.
+
+The protected Docker viewer connected after the managed guest restart. First boot
+still required Update Mac Automatically, optional accessibility preferences,
+Apple Account skip, adult age range, analytics (unchecked), Screen Time and guest
+FileVault choices. The permission guide appeared afterward. Guest consent, final
+viewer input, native capture and setup-key retirement remain in progress.
+
