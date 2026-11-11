@@ -41,6 +41,10 @@ agent input. Subsequent normal restart and shutdown/start preserved files and
 permissions; the temporary unrestricted operator key was removed. See
 [full acceptance evidence](security-hardening-validation.md).
 
+The recreated-history candidate also passed the complete macOS and real-Hermes
+Linux gates on 2026-11-11, including source, extracted and installed package
+validation. Recreating Git history did not change the tested runtime code.
+
 Final artifact validation identifies the exact release merge commit separately
 in the release assets. Checksums establish integrity against that inventory;
 they are not signatures or proof of a trusted publisher.
