@@ -146,6 +146,66 @@ class NativeProviderTests(unittest.TestCase):
   self.assertEqual(result.code,'capture_required')
   self.assertFalse(self.b.lease.status()['pending'])
 
+ def cold_launch_fixture(self, *, fail_launch=False, windows=True):
+  original=self.fake.call
+  launched=False
+  def call(name,args):
+   nonlocal launched
+   if name=='list_apps':
+    self.fake.calls.append((name,args))
+    return {'structuredContent':{'apps':[{'name':'Browser','pid':77 if launched else 0,'bundle_id':'example.browser'}]}}
+   if name=='launch_app':
+    self.fake.calls.append((name,args));launched=True
+    return {'structuredContent':{'ok':not fail_launch,'message':'Launched in background'}}
+   if name=='list_windows' and launched:
+    self.fake.calls.append((name,args))
+    return {'structuredContent':{'windows':[{'pid':77,'window_id':88}] if windows else []}}
+   return original(name,args)
+  self.fake.call=call
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+
+ def test_cold_launch_explicit_raise_targets_new_window(self):
+  self.cold_launch_fixture()
+  result=self.b.focus_app('Browser',raise_window=True)
+  self.assertTrue(result.ok)
+  writes=[(n,a) for n,a in self.fake.calls if n in ('launch_app','bring_to_front')]
+  self.assertEqual([n for n,a in writes],['launch_app','bring_to_front'])
+  self.assertEqual(writes[1][1]['pid'],77);self.assertEqual(writes[1][1]['window_id'],88)
+  self.assertEqual(self.b.type_text('x').code,'capture_required')
+
+ def test_cold_launch_without_raise_stays_background(self):
+  self.cold_launch_fixture()
+  self.assertTrue(self.b.focus_app('Browser').ok)
+  self.assertNotIn('bring_to_front',[n for n,a in self.fake.calls])
+  self.assertIsNone(self.b.target)
+
+ def test_failed_cold_launch_never_raises_and_keeps_review_gate(self):
+  self.cold_launch_fixture(fail_launch=True)
+  self.assertEqual(self.b.focus_app('Browser',raise_window=True).code,'driver_action_failed_review_required')
+  self.assertNotIn('bring_to_front',[n for n,a in self.fake.calls])
+  self.assertTrue(self.b.lease.status()['pending'])
+
+ def test_takeover_between_launch_and_raise_prevents_second_write(self):
+  self.cold_launch_fixture()
+  original=self.fake.call
+  def call(name,args):
+   reply=original(name,args)
+   if name=='list_windows' and any(n=='launch_app' for n,a in self.fake.calls):self.b.lease.transfer('human')
+   return reply
+  self.fake.call=call
+  self.assertEqual(self.b.focus_app('Browser',raise_window=True).code,'human_takeover')
+  self.assertNotIn('bring_to_front',[n for n,a in self.fake.calls])
+
+ def test_cold_launch_window_timeout_does_not_relaunch(self):
+  from unittest.mock import patch
+  self.cold_launch_fixture(windows=False)
+  with patch('ownmachine.provider.time.monotonic',side_effect=[0,121]):
+   result=self.b.focus_app('Browser',raise_window=True)
+  self.assertEqual(result.code,'launched_window_not_ready')
+  self.assertEqual([n for n,a in self.fake.calls].count('launch_app'),1)
+  self.assertNotIn('bring_to_front',[n for n,a in self.fake.calls])
+  self.assertFalse(self.b.lease.status()['pending'])
+
  def test_nonpressable_element_refused_before_dispatch(self):
   original=self.fake.call
   def field(name,args):

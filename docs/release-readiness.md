@@ -1,11 +1,20 @@
 # Release readiness
 
-The first packaged preview is v0.6.0; see [release scope](release-0.6.0.md).
+The packaged security preview v0.6.0 is published; see [release scope](release-0.6.0.md).
+Current catalog preparation and owner-confirmed policy eligibility are tracked in
+[catalog readiness](catalog/README.md).
 It is not a stable release or an accepted Hermes catalog entry. Feature PRs
 merge into `develop`. Release promotion uses a separate `release/<version>` PR
 into `main`, followed by a tag and synchronization PR back into `develop`.
 Historical acceptance documents retain failures and intermediate test counts;
 this page is the current checklist.
+
+## Guided onboarding in development
+
+The [onboarding plan](onboarding-plan.md) defines the next installation experience.
+The first phase adds setup/doctor commands and saved non-secret plans;
+[command acceptance](onboarding-acceptance.md) records tested behavior and remaining
+manual setup boundaries. These changes are not included in the published v0.6.0 tag.
 
 ## Completed MVP evidence
 
@@ -54,17 +63,18 @@ The current security candidate passed dedicated-account clean installation,
 guided permissions, native Hermes and browser input, and subsequent guest
 restart checks. The initial guest hang and remaining firewall/reboot test limits
 are recorded in [security acceptance](security-hardening-validation.md).
-Catalog compatibility and admission remain unconfirmed.
+Current-upstream validation passed, and the owner confirmed PolyForm and OpenSSH
+eligibility for submission. Catalog admission still requires upstream review.
 
 | Gate | Required result |
 | --- | --- |
 | Physical-host reboot — passed within tested scope | Operator-assisted restart verified a changed boot ID, IPv4 LAN restriction before VNC startup, SSH/MCP, permissions, three document-content hashes, capture and viewer HTTP/VNC handshake; Chrome reopened. Exact browser-profile identity is unverified and was clarified as outside the MVP acceptance requirement. See [hardware acceptance](hardware-acceptance.md#physical-host-reboot-follow-up--2026-11-10). |
 | Branding selected; rename validation | **OwnMachine — Give your AI agent its own desktop.** This unreleased preview uses a clean installation; no MacDesk migration or backward compatibility is promised. Clean-install and AX model-task validation passed for `f6ed1c6`; renamed laptop firewall/service reboot and operator-assisted recovery passed. See [laptop reboot acceptance](laptop-permanent-reboot-acceptance.md), including the test-induced port conflict and explicit startup limits. Preliminary name screening is not legal clearance. |
 | Final release documentation | The generic install/start/recovery path and historical-evidence cleanup are complete in this phase. v0.6.0 names, GitHub URLs and release notes are defined; keep manual consent and startup limits explicit. |
-| Exact release candidate | Development candidate `f6ed1c6` has verified bundles, clean-install and independently verified AX model-task evidence. Choose the release version and final commit; rerun affected acceptance if release changes alter behavior. Preserve sanitized evidence and checksum inventories. |
+| Exact release candidate | Released v0.6.0 pins `8431db09c3abd251ba1f2d18a2f09d127816a119`, with verified bundles and final artifact inventories. Earlier model acceptance and the security clean-install run have distinct scopes; see release notes. New changes require their own validation. |
 | Model-driven pixel input — deferred | Operator deferred this acceptance gate. A fresh model run hit `capture_expired` before dispatch and stopped safely. Keep the limitation explicit; additional prompting is not a confirmed fix. The AX task pass does not establish pixel-input reliability. |
-| Public distribution and catalog | Public source and preview artifacts use github.com/rbur0425/ownmachine. Catalog submission remains separate: verify current admission and license compatibility, replace template values with the intended full commit and retain notices. No catalog admission is claimed. |
-| Gitflow release | After the gates are satisfied, review the release PR into `main`, tag the released commit, attach verified artifacts and synchronize back to `develop`. Do not promote `develop` automatically. |
+| Public distribution and catalog | Public source and preview artifacts use github.com/rbur0425/ownmachine. Catalog submission remains separate: the owner confirmed license/SSH eligibility and current-upstream validation passed; the prepared entry pins a reviewed content commit and retains notices. Upstream admission review remains required. No catalog admission is claimed. |
+| Gitflow release | The v0.6.0 release PR, tag, verified artifacts and synchronization into `develop` are complete. Future releases follow the same PR workflow. |
 
 ## MVP limits, not promises of completed automation
 
@@ -83,3 +93,14 @@ Catalog compatibility and admission remain unconfirmed.
 Never publish private desktop recordings, account sessions, VM images, access
 links or deployment identities as evidence. Public demonstrations, naming/legal
 review, catalog submission and publication are separate release activities.
+
+## v0.7.0 release follow-up
+
+The evaluator quickstart now includes administrator/guest consent handoffs and
+the verified Linux/Docker shared-control recipe. A real local-Qwen Safari task
+passed after the explicit cold-launch focus fix, independently verified by a
+new screenshot and AX URL read. No host reboot was repeated at the owner's
+direction; preserve the scope and limitations of earlier reboot evidence.
+The final release assets record the immutable source and validation results.
+[Submission materials](submission-handoff.md) are prepared; the owner supplies
+the working demo and authorizes any upstream/catalog/social/form submission.

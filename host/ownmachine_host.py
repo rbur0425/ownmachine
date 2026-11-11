@@ -25,8 +25,9 @@ import subprocess
 def configuration():
     path = Path.home() / '.config/ownmachine/host.json'
     data = json.loads(path.read_text()) if path.exists() else {}
-    if not isinstance(data, dict) or set(data) - {'vm_name', 'lume_path', 'guest_ssh_alias', 'enable_mcp', 'enable_lifecycle', 'display_mode', 'enable_vnc', 'vnc_port'}:
+    if not isinstance(data, dict) or set(data) - {'vm_name', 'lume_path', 'guest_ssh_alias', 'enable_mcp', 'enable_lifecycle', 'display_mode', 'enable_vnc', 'vnc_port', 'storage_dir'}:
         raise ValueError('invalid_host_configuration')
+    storage_arguments(data)
     name = data.get('vm_name', 'ownmachine')
     if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]{0,63}', name):
         raise ValueError('invalid_host_configuration')
@@ -48,11 +49,26 @@ def configuration():
     return name, binary, guest
 
 
+
+def storage_arguments(settings):
+    value = settings.get('storage_dir')
+    if value is None:
+        return []
+    if not isinstance(value, str) or not Path(value).is_absolute() or any(ord(c) < 32 or ord(c) == 127 for c in value):
+        raise ValueError('invalid_storage_directory')
+    return ['--storage', value]
+
+
+def selected_storage(settings):
+    storage_arguments(settings)
+    return Path(settings.get('storage_dir', str(Path.home() / '.lume')))
+
+
 # Fixed root-owned runtime location: an account-owned config cannot redirect trust.
 FIREWALL_STATUS = Path('/private/var/run/ownmachine/firewall-status.json')
 
 
-def firewall_ready(port):
+def firewall_ready(port, binary=None):
     if type(port) is not int or not 1024 <= port <= 65535:
         raise ValueError('fixed_vnc_port_required')
     path = FIREWALL_STATUS
@@ -74,6 +90,16 @@ def firewall_ready(port):
     if (not isinstance(data, dict) or data.get('port') != port or data.get('pf_enabled') is not True
             or data.get('rule_loaded') is not True or data.get('application_blocked') is not True):
         raise ValueError('firewall_not_ready')
+    if binary is not None:
+        resolved = Path(binary).resolve()
+        if len(resolved.parents) < 3: raise ValueError('explicit_lume_app_required')
+        app = resolved.parents[2]
+        if app.suffix != '.app' or Path(binary).resolve() != app / 'Contents/MacOS/lume':
+            raise ValueError('explicit_lume_app_required')
+        probe = subprocess.run(['/usr/libexec/ApplicationFirewall/socketfilterfw', '--getappblocked', str(app)],
+                               capture_output=True, text=True, timeout=5, check=True, env={'LC_ALL': 'C', 'PATH': '/usr/bin:/bin'})
+        if 'is blocked.' not in probe.stdout:
+            raise ValueError('configured_lume_app_not_blocked')
 
 
 def private_directory(path):
@@ -160,7 +186,7 @@ def guest_status(alias, address):
     return result
 
 
-def status(name='ownmachine', binary=None, guest_alias=None):
+def status(name='ownmachine', binary=None, guest_alias=None, storage_dir=None):
     candidates = [Path(binary)] if binary else [
         Path.home() / '.local/bin/lume', Path('/opt/homebrew/bin/lume'),
         Path('/usr/local/bin/lume')]
@@ -172,7 +198,7 @@ def status(name='ownmachine', binary=None, guest_alias=None):
         env = {key: os.environ[key] for key in ('HOME', 'PATH', 'LANG') if key in os.environ}
         env['LUME_TELEMETRY_ENABLED'] = 'false'
         try:
-            result = subprocess.run([str(executable), 'ls', '--format', 'json'], env=env,
+            result = subprocess.run([str(executable), 'ls', '--format', 'json'] + storage_arguments({'storage_dir': storage_dir} if storage_dir else {}), env=env,
                                     capture_output=True, text=True, timeout=5, check=True)
             rows = json.loads(result.stdout)
             if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
@@ -200,7 +226,7 @@ def mcp(name, binary, guest):
         Path('/opt/homebrew/bin/lume'), Path('/usr/local/bin/lume')]
     executable = next((p for p in candidates if p.is_file() and os.access(p, os.X_OK)), None)
     if executable is None: raise ValueError('lume_not_installed')
-    result = subprocess.run([str(executable), 'ls', '--format', 'json'],
+    result = subprocess.run([str(executable), 'ls', '--format', 'json'] + storage_arguments(config),
         capture_output=True, text=True, timeout=5, check=True)
     rows = json.loads(result.stdout)
     if not isinstance(rows, list): raise ValueError('invalid_listing')
@@ -227,7 +253,7 @@ def lifecycle(operation, name, binary, guest):
     env={key:os.environ[key] for key in ('HOME','PATH','LANG') if key in os.environ}
     env['LUME_TELEMETRY_ENABLED']='false'
     def selected():
-        probe=subprocess.run([str(executable),'ls','--format','json'],env=env,
+        probe=subprocess.run([str(executable),'ls','--format','json'] + storage_arguments(settings),env=env,
                              capture_output=True,text=True,timeout=5,check=True)
         rows=json.loads(probe.stdout)
         if not isinstance(rows,list):raise ValueError('invalid_listing')
@@ -236,6 +262,7 @@ def lifecycle(operation, name, binary, guest):
         return vm
     state=private_directory(Path.home()/'.local/state/ownmachine')
     private_directory(Path.home()/'.lume')
+    private_directory(selected_storage(settings))
     with (state/'lifecycle.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         vm=selected()
@@ -261,9 +288,9 @@ def lifecycle(operation, name, binary, guest):
                      '--vnc','enabled' if settings.get('enable_vnc') is True else 'disabled']
             log = state / 'lume-detached.log'
             private_file(log)
-            command += ['--log-file', str(log)]
+            command += ['--log-file', str(log)] + storage_arguments(settings)
             if settings.get('enable_vnc') is True:
-                firewall_ready(settings.get('vnc_port'))
+                firewall_ready(settings.get('vnc_port'), str(executable))
                 vnc_password(state)
                 command += ['--vnc-port',str(settings['vnc_port']),
                             '--vnc-password-file',str(state/'vnc-password')]
@@ -282,12 +309,13 @@ def lifecycle(operation, name, binary, guest):
 def vnc(name,binary):
     settings=json.loads((Path.home()/'.config/ownmachine/host.json').read_text())
     if settings.get('enable_vnc') is not True:raise ValueError('vnc_not_enabled')
-    firewall_ready(settings.get('vnc_port'))
     private_directory(Path.home()/'.lume')
+    private_directory(selected_storage(settings))
     candidates=[Path(binary)] if binary else [Path.home()/'.local/bin/lume',Path('/opt/homebrew/bin/lume'),Path('/usr/local/bin/lume')]
     executable=next((p for p in candidates if p.is_file() and os.access(p,os.X_OK)),None)
     if executable is None:raise ValueError('lume_not_installed')
-    probe=subprocess.run([str(executable),'ls','--format','json'],capture_output=True,text=True,timeout=5,check=True)
+    firewall_ready(settings.get('vnc_port'), str(executable))
+    probe=subprocess.run([str(executable),'ls','--format','json'] + storage_arguments(settings),capture_output=True,text=True,timeout=5,check=True)
     rows=json.loads(probe.stdout)
     vm=next((x for x in rows if isinstance(x,dict) and x.get('name')==name),None)
     if not vm or vm.get('status')!='running':raise ValueError('vm_not_running')
@@ -315,7 +343,7 @@ def vnc(name,binary):
             selector.register(sys.stdin.buffer,selectors.EVENT_READ,'stdin')
             selector.register(connection,selectors.EVENT_READ,'vnc')
             while True:
-                firewall_ready(settings['vnc_port'])
+                firewall_ready(settings['vnc_port'], str(executable))
                 for key,_ in selector.select(timeout=5):
                     if key.data=='stdin':
                         data=os.read(sys.stdin.fileno(),65536)
@@ -349,7 +377,9 @@ def main(role='agent'):
         if os.environ.get('SSH_ORIGINAL_COMMAND') != f'ownmachine-host status --vm {name}':
             print(json.dumps({'code': 'unsupported_operation'}))
             return 2
-        print(json.dumps(status(name, binary, guest)))
+        settings_path = Path.home()/'.config/ownmachine/host.json'
+        settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+        print(json.dumps(status(name, binary, guest, settings.get('storage_dir'))))
         return 0
     except (ValueError, OSError, subprocess.SubprocessError):
         print(json.dumps({'code': 'invalid_host_configuration'}))

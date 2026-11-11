@@ -1,5 +1,10 @@
 # Community setup and doctor
 
+Start with the [evaluator quickstart](evaluator-quickstart.md) for the complete ordered setup and permission checks.
+
+For the guided command flow, start with the [wizard quickstart](wizard-quickstart.md)
+and [Hermes SSH setup transport](setup-transport.md).
+
 OwnMachine uses one persistent VM and a shared control directory. Addresses, SSH
 keys, host/guest accounts and model credentials belong to the operator. The
 source contains none of them. Complete [host setup](host-setup.md),

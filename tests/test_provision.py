@@ -95,3 +95,16 @@ class ProvisionTests(unittest.TestCase):
         with patch.object(provision.sys, 'argv', ['provision', '--verification-vnc-port', '55000', '--min-free-gb', '70']):
             self.assertEqual(provision.main(), 2)
         self.assertEqual(run.call_count, 1)
+
+    @patch.object(provision.shutil, 'disk_usage')
+    @patch.object(provision.subprocess, 'run')
+    def test_storage_is_passed_to_listing_and_create(self, run, usage):
+        usage.return_value.free = 200 * 1024**3
+        run.side_effect = [subprocess.CompletedProcess([], 0, '[]'), subprocess.CompletedProcess([], 0)]
+        storage = self.home / 'selected-storage'
+        with patch.object(provision.sys, 'argv', ['provision', '--storage-dir', str(storage)]):
+            self.assertEqual(provision.main(), 0)
+        for call in run.call_args_list:
+            argv = call.args[0]
+            self.assertEqual(argv[argv.index('--storage') + 1], str(storage))
+        self.assertEqual(usage.call_args.args[0], self.home)

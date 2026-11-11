@@ -7,6 +7,7 @@ import math
 import re
 import shutil
 import struct
+import time
 import uuid
 from pathlib import Path
 from tools.computer_use.backend import ComputerUseBackend, ComputerUseProvider, CaptureResult, ActionResult, UIElement
@@ -359,21 +360,36 @@ class OwnMachineBackend(ComputerUseBackend):
         return ActionResult(False,'drag',code='unsupported_action',message='Drag is not supported in this release.')
 
     def focus_app(self,app,raise_window=False):
-        matches = [a for a in self.list_apps() if app.lower() in {str(a.get('name','')).lower(),str(a.get('bundle_id','')).lower()}]
-        if len(matches)!=1: return ActionResult(False,'focus_app',code='app_not_unique')
-        pid = matches[0].get('pid')
-        if not pid:
-            result=self._write('launch_app',{'bundle_id':matches[0]['bundle_id']})
+        try:
+            matches = [a for a in self.list_apps() if app.lower() in {str(a.get('name','')).lower(),str(a.get('bundle_id','')).lower()}]
+            if len(matches)!=1: return ActionResult(False,'focus_app',code='app_not_unique')
+            pid = matches[0].get('pid')
+            if not pid:
+                bundle_id = matches[0].get('bundle_id')
+                result = self._write('launch_app', {'bundle_id':bundle_id})
+                if not result.ok or not raise_window: return result
+                # Launch is background-only. Honor an explicitly requested raise,
+                # resolving the new process/window rather than reusing the capture's
+                # old target. Poll reads only; never replay launch or bypass the gate.
+                deadline = time.monotonic() + self.config.action_timeout_seconds
+                while True:
+                    launched = [a for a in self.list_apps() if a.get('bundle_id') == bundle_id and a.get('pid')]
+                    windows = self.list_windows() if len(launched)==1 else []
+                    windows = [w for w in windows if w.get('pid') == launched[0]['pid']] if len(launched)==1 else []
+                    if windows: break
+                    if time.monotonic() >= deadline:
+                        return ActionResult(False,'focus_app',code='launched_window_not_ready',
+                            message='App launch was dispatched, but no unique process with a window was observed before the action timeout. Capture fresh state before retrying focus; do not assume launch failed.')
+                    time.sleep(0.1)
+            else:
+                windows = [w for w in self.list_windows() if w.get('pid')==pid]
+            if not windows: return ActionResult(False,'focus_app',code='window_not_found')
+            try: window = select_window(windows)
+            except ValueError as error:
+                return ActionResult(False,'focus_app',code=str(error),message='List windows and capture the intended window by explicit ID.')
+            target = {'pid':window['pid'],'window_id':window['window_id']}
+            return (self._write('bring_to_front',target) if raise_window else
+                    ActionResult(True,'focus_app',message='Target selected; capture before input.'))
+        finally:
+            # Launch/focus (including failed selection) invalidates prior targets.
             self._clear()
-            return result
-        windows=[w for w in self.list_windows() if w.get('pid')==pid]
-        if not windows: return ActionResult(False,'focus_app',code='window_not_found')
-        try: window = select_window(windows)
-        except ValueError as error:
-            return ActionResult(False, 'focus_app', code=str(error), message='List windows and capture the intended window by explicit ID.')
-        result=(self._write('bring_to_front',{'pid':pid,'window_id':window['window_id']})
-                if raise_window else ActionResult(True,'focus_app',message='Target selected; capture before input.'))
-        self._clear()  # changing targets always requires a new capture
-        self._last_app = app
-        self._last_target = {'pid':pid,'window_id':window['window_id']}
-        return result
