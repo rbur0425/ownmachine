@@ -50,3 +50,26 @@ The catalog draft remains pinned to the earlier reviewed preparation commit.
 After the onboarding work is merged and accepted, select a new submission pin,
 repeat catalog validation and update same-SHA screenshot URLs. Nothing was
 submitted upstream by this work.
+
+## Final candidate results
+
+Runtime candidate: `cd95f4721fe45f39e3d5d76c3f2ea449d07d3c62`.
+
+- Current-Hermes macOS suite: **241 passed, zero skips/failures/errors**.
+- Standalone macOS suite: **218 passed, 23 expected Hermes-only skips**. The added
+  skip is the real-Hermes command/discovery test, explicitly tracked in the test
+  coverage policy; it ran and passed in the Hermes-enabled suite.
+- Required-Hermes CI gate passed: repeatable bundles, source/extracted/installed
+  plugin validation, fresh-home installation and synthetic offline upgrade.
+- Security scan: safe. No core runtime overrides detected. The validator's
+  host-isolation CLI-skipping note is disclosed above and separately tested.
+- Node viewer pointer regression and Git whitespace checks passed.
+
+A separate fresh home then installed the public Git URL with `#plugin` and the
+full candidate SHA using `hermes plugins install --yes-deps --enable`. After the
+explicit dedicated-profile isolation choice, the actual CLI successfully ran:
+empty setup, saved remote plan, resume in a new process, read-only unconfigured
+doctor, existing-relay connection configuration and installed-package validation.
+Example-only connection settings were used; no real SSH keys were supplied. The
+control directory was not created. This test proves command installation and
+configuration behavior, not a new live guest deployment.
