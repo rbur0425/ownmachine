@@ -59,7 +59,7 @@ for it. The separately hosted browser viewer is not a Desktop SDK extension.
 
 OwnMachine connects Hermes to one operator-configured macOS VM over a restricted
 SSH relay and guest MCP. It registers `ownmachine_status`, the native `ownmachine`
-computer-use provider and `tool_execution` middleware through public APIs.
+computer-use provider, the `on_session_open` hook, and `tool_execution` middleware through public APIs.
 Cooperating agent/viewer writers share one control database. Standard approvals
 remain enabled; uncertain writes stop for operator review. That shared state is
 coordination, not a boundary against hostile code.
@@ -86,9 +86,18 @@ The candidate declares `websockets==15.0.1` in `plugin.yaml` for the public loca
 gateway client. It is also disclosed in the entry’s `known_issues` because the
 current catalog schema has no dedicated dependency field. Hermes resolves it
 against core constraints and asks for installation consent. No tokens are read
-from files. Refresh the pin and hook list after PR 10 review; do not submit yet.
+from files. The v0.7.0 release asset `ownmachine-catalog.yaml` pins the final release merge
+commit and matching screenshots. The source draft pins reviewed content; use
+the release asset for submission. Do not submit without owner authorization.
 
 Local session-open delivery passed a real gateway session test. The admitted-chat
 pipeline returned `no_conversation`, so that hook was withdrawn. A successful
 scheduled Discord reminder alone did not establish either result. See the
 explicit checks in `docs/onboarding-plan.md`.
+
+Scheduled reminders use the public same-user gateway attach contract, WebSocket
+transport (`websockets==15.0.1`) and public cron CLI. Jobs are created paused,
+verified, then resumed after explicit user confirmation; delivery rechecks consent.
+No gateway/provider credentials are read from credential stores. Disclose the
+profile-local helper script, scheduled job and persisted reminder state as well.
+See [submission handoff](../submission-handoff.md) for the checked entry process.
