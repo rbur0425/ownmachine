@@ -80,3 +80,27 @@ python /path/to/hermes/scripts/validate_plugin_catalog.py /path/to/ownmachine.ya
 Paths are operator-selected. Validation does not need a real SSH alias, viewer
 access token, model credential or running VM. Schema success and local checks
 still require upstream admission CI and maintainer review before listing.
+
+## Direct installation through Hermes
+
+A second fresh, isolated `HERMES_HOME` successfully installed the public Git
+subdirectory through the actual current-Hermes CLI:
+
+```sh
+hermes plugins install 'https://github.com/rbur0425/ownmachine.git#plugin' \
+  --ref 5966a19820aae0b5bb574b26d065cc0ebb9b1365 --yes-deps --enable
+```
+
+Hermes reported the expected custom/unreviewed-source warning, then installed and
+enabled OwnMachine. `hermes plugins list` showed version 0.6.0, enabled, with Git
+pin `5966a198`. All 13 tracked package files, including `LICENSE`, matched the
+pinned source byte-for-byte. Validation of the installed directory with
+`--install-deps` also passed, including a safe security scan.
+
+This establishes public-URL plugin installation, not automatic infrastructure
+onboarding. The test home had no real SSH alias or control-directory deployment
+configuration. The operator must still provision/configure the Mac host, VM,
+firewall, guest permissions and viewer, and select in-process loading for the
+native provider as documented. No working installation or VM was changed by
+this isolated install test. Installation by bare catalog name is unavailable
+until admission.
