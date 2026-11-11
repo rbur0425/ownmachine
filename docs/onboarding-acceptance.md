@@ -95,3 +95,11 @@ is registered. Preview/status/doctor behavior is unchanged by this mutation gate
 
 No reminder, cron job, remote bootstrap privilege or new guest OS was added. The
 plan documents explicit reminder opt-in and the separate setup-authorization path.
+
+Updated runtime candidate `664060cb2b1abe98cdfaa8d6072fc3417d62c31d` passed
+**250 current-Hermes tests with zero skips**, the full required-Hermes package/
+bundle/fresh-home/synthetic-upgrade gate, and safe plugin validation. Standalone
+macOS ran 250 tests: **227 passed, 23 expected Hermes-only skips**. The Node
+pointer regression also passed. macOS-only presentation and rejection of OS/image
+selector flags are covered. The full opt-in reminder lifecycle and tests are in
+the plan; reminder execution remains unimplemented and no messages were scheduled.
