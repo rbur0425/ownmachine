@@ -9,6 +9,13 @@ into `main`, followed by a tag and synchronization PR back into `develop`.
 Historical acceptance documents retain failures and intermediate test counts;
 this page is the current checklist.
 
+## Guided onboarding in development
+
+The [onboarding plan](onboarding-plan.md) defines the next installation experience.
+The first phase adds setup/doctor commands and saved non-secret plans;
+[command acceptance](onboarding-acceptance.md) records tested behavior and remaining
+manual setup boundaries. These changes are not included in the published v0.6.0 tag.
+
 ## Completed MVP evidence
 
 - Native Hermes provider and private SSH/MCP transport, standard approvals and

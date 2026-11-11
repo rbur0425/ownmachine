@@ -1,4 +1,7 @@
 name: ownmachine
+# Load operator commands before a computer-use provider is selected.
+# The native provider remains available through Hermes category discovery.
+kind: standalone
 version: 0.6.0
 manifest_version: 2
 api_version: 1
@@ -6,6 +9,8 @@ description: Native Hermes computer use for a persistent private macOS VM
 license: PolyForm-Noncommercial-1.0.0
 requires_hermes: ">=0.23.1"
 config_schema:
+  setup_allowed_senders: {type: list, default: [], description: "Explicit chat mutation grants: objects with platform, user_id and chat_id; missing identity is refused. Local CLI setup remains available."}
+  setup_plan: {type: dict, default: {}, description: "Non-secret resumable operator setup plan; saving a plan does not provision a VM"}
   control_dir: {type: str, default: "", description: "Absolute operator-owned control directory shared by every profile targeting this VM"}
   host_alias: {type: str, default: "", description: "Owner-configured SSH alias for the VM host"}
   vm_name: {type: str, default: "ownmachine"}

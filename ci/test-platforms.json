@@ -21,7 +21,8 @@
     "test_native_provider.NativeProviderTests.test_pixel_click_is_bound_once_and_right_double_use_same_route",
     "test_native_provider.NativeProviderTests.test_pixel_bounds_and_missing_binding_fail_before_focus",
     "test_native_provider.NativeProviderTests.test_driver_screenshot_frame_overrides_earlier_window_geometry",
-    "test_native_provider.NativeProviderTests.test_fresh_install_loads_through_real_hermes_category_loader"
+    "test_native_provider.NativeProviderTests.test_fresh_install_loads_through_real_hermes_category_loader",
+    "test_onboarding_commands.HermesOnboardingTests.test_real_cli_and_slash_discovery_resume_and_read_only_doctor"
   ],
   "macos": [
     "test_permission_guide.PermissionGuideTests.test_already_granted_does_not_prompt",
