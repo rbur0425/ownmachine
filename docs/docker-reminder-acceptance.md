@@ -95,3 +95,8 @@ The original Docker image remains an existing managed runtime (it reports a
 dependency/build synchronization warning); this acceptance does not certify a
 from-scratch rebuild of Hermes itself. OwnMachine’s immutable-pin installation,
 plugin validation and runtime capture were tested separately.
+
+A live early-run test produced no scheduled reminder output. The next real local
+session received exactly one skipped-delivery explanation; a second session
+received none. The delivery count stayed unchanged. The test job/consent were
+cleared and the isolated gateway stopped afterward.
