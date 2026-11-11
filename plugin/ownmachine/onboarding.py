@@ -226,6 +226,8 @@ def execute(ctx, args):
         acceptance = ctx.state.get(acceptance_key, default=None)
         if matches(ctx, plan, acceptance):
             report['acceptance'] = acceptance
+            if acceptance.get('stage') == 'complete':
+                report.update(stage='complete', next='Setup accepted and temporary access retired. Use doctor for current runtime health.')
         text = 'OwnMachine onboarding: ' + report['stage'].replace('_', ' ').upper() + '\n' + report['next']
         if 'execution' in report:
             text += '\nRemote execution: ' + report['execution']['stage']

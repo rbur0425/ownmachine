@@ -72,3 +72,15 @@ class RetirementTests(unittest.TestCase):
         with patch.object(t,'dispatch') as dispatch:
             self.assertEqual(a.finish(ctx,plan,True)['stage'],'complete')
             dispatch.assert_not_called()
+
+    def test_status_reports_completed_acceptance_without_remote_call(self):
+        from ownmachine import onboarding as o
+        from test_onboarding_commands import args
+        plan=dict(o.DEFAULTS,host_alias='agent',control_dir='/control')
+        ctx=Context(dict(setup_plan=plan,setup_host_alias='setup',setup_source_sha256='a'*64))
+        ctx.state.set(a.KEY,dict(a.identity(ctx,plan),stage='complete'))
+        with patch.object(t,'dispatch') as dispatch:
+            text,code=o.execute(ctx,args('status','--json'))
+            self.assertEqual(json.loads(text)['stage'],'complete')
+            self.assertEqual(code,0)
+            dispatch.assert_not_called()
