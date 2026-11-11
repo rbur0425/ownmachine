@@ -93,3 +93,14 @@ eligibility for submission. Catalog admission still requires upstream review.
 Never publish private desktop recordings, account sessions, VM images, access
 links or deployment identities as evidence. Public demonstrations, naming/legal
 review, catalog submission and publication are separate release activities.
+
+## v0.7.0 release follow-up
+
+The evaluator quickstart now includes administrator/guest consent handoffs and
+the verified Linux/Docker shared-control recipe. A real local-Qwen Safari task
+passed after the explicit cold-launch focus fix, independently verified by a
+new screenshot and AX URL read. No host reboot was repeated at the owner's
+direction; preserve the scope and limitations of earlier reboot evidence.
+The final release assets record the immutable source and validation results.
+[Submission materials](submission-handoff.md) are prepared; the owner supplies
+the working demo and authorizes any upstream/catalog/social/form submission.

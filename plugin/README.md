@@ -138,7 +138,7 @@ The updated source requires [separate agent/viewer identities and firewall
 verification](../docs/security-isolation.md).
 Hardened VNC requires the pinned local Lume build with protected-file password
 input (Xcode/Swift required); the upstream binary exposes argv passwords to other
-local accounts. No forked binary is bundled. The v0.6.0 preview includes
+local accounts. No forked binary is bundled. The v0.7.0 preview includes
 this hardening. Fresh dedicated Hermes profiles
 disable terminal, file and code-execution toolsets.
 
@@ -179,14 +179,14 @@ requires human reservation for input. SSH carries the VNC traffic; the configure
 host firewall must block direct network access to Lume's VNC port. The viewer
 stores its bearer access link and control state outside this package. Do not expose
 the viewer or VNC directly to the internet. Its dependencies and notices are in
-[viewer provenance](https://github.com/rbur0425/ownmachine/blob/v0.6.0/viewer/VENDOR.md).
+[viewer provenance](https://github.com/rbur0425/ownmachine/blob/v0.7.0/viewer/VENDOR.md).
 
 **Updates:** no self-updater is registered or run by this package. Catalog installs
 must follow reviewed catalog SHA updates through Hermes. Standalone installation
 and offline upgrade scripts belong to the full-source operator workflow, not the
 catalog-installed subdirectory.
 
-Read the [security model](https://github.com/rbur0425/ownmachine/blob/v0.6.0/SECURITY.md)
+Read the [security model](https://github.com/rbur0425/ownmachine/blob/v0.7.0/SECURITY.md)
 and [recovery guide](../docs/recovery.md).
 
 ## Password-manager policy
