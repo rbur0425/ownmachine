@@ -1,7 +1,7 @@
 # Release readiness
 
 The packaged security preview v0.6.0 is published; see [release scope](release-0.6.0.md).
-Current catalog preparation and unresolved admission questions are tracked in
+Current catalog preparation and owner-confirmed policy eligibility are tracked in
 [catalog readiness](catalog/README.md).
 It is not a stable release or an accepted Hermes catalog entry. Feature PRs
 merge into `develop`. Release promotion uses a separate `release/<version>` PR
@@ -56,7 +56,8 @@ The current security candidate passed dedicated-account clean installation,
 guided permissions, native Hermes and browser input, and subsequent guest
 restart checks. The initial guest hang and remaining firewall/reboot test limits
 are recorded in [security acceptance](security-hardening-validation.md).
-Catalog compatibility and admission remain unconfirmed.
+Current-upstream validation passed, and the owner confirmed PolyForm and OpenSSH
+eligibility for submission. Catalog admission still requires upstream review.
 
 | Gate | Required result |
 | --- | --- |
@@ -65,7 +66,7 @@ Catalog compatibility and admission remain unconfirmed.
 | Final release documentation | The generic install/start/recovery path and historical-evidence cleanup are complete in this phase. v0.6.0 names, GitHub URLs and release notes are defined; keep manual consent and startup limits explicit. |
 | Exact release candidate | Released v0.6.0 pins `8431db09c3abd251ba1f2d18a2f09d127816a119`, with verified bundles and final artifact inventories. Earlier model acceptance and the security clean-install run have distinct scopes; see release notes. New changes require their own validation. |
 | Model-driven pixel input — deferred | Operator deferred this acceptance gate. A fresh model run hit `capture_expired` before dispatch and stopped safely. Keep the limitation explicit; additional prompting is not a confirmed fix. The AX task pass does not establish pixel-input reliability. |
-| Public distribution and catalog | Public source and preview artifacts use github.com/rbur0425/ownmachine. Catalog submission remains separate: verify current admission and license compatibility, replace template values with the intended full commit and retain notices. No catalog admission is claimed. |
+| Public distribution and catalog | Public source and preview artifacts use github.com/rbur0425/ownmachine. Catalog submission remains separate: the owner confirmed license/SSH eligibility and current-upstream validation passed; the prepared entry pins a reviewed content commit and retains notices. Upstream admission review remains required. No catalog admission is claimed. |
 | Gitflow release | The v0.6.0 release PR, tag, verified artifacts and synchronization into `develop` are complete. Future releases follow the same PR workflow. |
 
 ## MVP limits, not promises of completed automation

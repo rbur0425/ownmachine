@@ -78,8 +78,9 @@ accepts only supported operations for its configured VM. This is not a required
 reverse SSH tunnel. OpenSSH uses the runtime account's SSH configuration, verified
 known-hosts file and restricted key or SSH agent; OwnMachine does not parse private
 keys or read Hermes/vendor credential stores. This operator-managed authentication
-must be reviewed against the catalog credential policy; no policy exception is
-claimed. Passing the automated scanner does not settle this policy question.
+is disclosed under the catalog credential policy. On 2026-11-11 the owner
+confirmed that this design and the PolyForm license are acceptable for submission.
+That confirmation and the passing scanner are not catalog admission.
 No secret is declared in `requires_env` or `config_schema`; if future functionality
 needs one, it must use the applicable Hermes secret-scope or credentialed-request
 API, not direct environment or credential-file reads. The subprocess receives only PATH, HOME, SSH_AUTH_SOCK and LANG from its
@@ -151,4 +152,5 @@ OwnMachine is source-available, not open source. Third-party components retain
 their own terms. Earlier valid license grants are not revoked. See
 [licensing details](https://github.com/rbur0425/ownmachine/blob/develop/docs/licensing.md).
 
-Hermes catalog eligibility has not been established.
+The owner has confirmed license and SSH eligibility for submission. OwnMachine
+has not been submitted to or admitted by the Hermes catalog.

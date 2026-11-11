@@ -41,8 +41,9 @@ A capability-probe pass alone is not proof of live VM control.
 
 ## Policy and acceptance limits
 
-- Safe scanning is not approval of delegated OpenSSH authentication or PolyForm.
-  Both questions remain with the owner/maintainers under the admission rules.
+- The owner confirmed on 2026-11-11 that PolyForm and delegated OpenSSH are
+  acceptable. This is owner-reported policy confirmation, not a scanner finding
+  or catalog admission; upstream review is still required.
 - No browser-vault or login-backend registration exists. No credentials were
   moved into environment variables or files to work around Hermes's rules.
 - The screenshot session exercised actual browser input and human/agent handoff,

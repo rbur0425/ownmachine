@@ -2,25 +2,26 @@
 
 The local `ownmachine.yaml` is a reviewed-source preparation draft, not an
 accepted entry. No upstream PR, issue, fork or maintainer message is authorized
-by this work. The owner is checking the two admission questions below.
+by this work. The owner confirmed the two policy questions below on 2026-11-11.
 
-## Admission questions still open
+## Policy confirmation
 
-- **License:** PolyForm Noncommercial 1.0.0 is the selected license. The published
-  rules do not explicitly require an OSI-approved license, but that does not
-  establish acceptance of this source-available license.
-- **Credentials:** OpenSSH authenticates using operator-managed configuration,
-  a restricted private key or SSH agent. OwnMachine does not parse the private
-  key itself. Rule 11 may still apply to this delegated authentication; do not
-  infer an exception or approval from a passing scanner. Ask maintainers whether
-  this design is eligible or needs a supported Hermes credential route. No
-  credential API workaround or policy bypass is included.
+The owner reported on 2026-11-11 that **PolyForm Noncommercial 1.0.0 and the
+operator-managed OpenSSH authentication design are acceptable**. These are no
+longer unresolved preparation blockers. This records the owner's confirmation;
+it is not an independently verified maintainer statement or catalog admission.
+The eventual upstream PR still needs CI and maintainer review.
+
+Keep the authentication disclosure: OpenSSH uses operator-managed configuration,
+a restricted private key or SSH agent; OwnMachine does not parse private keys.
+No credential API workaround or policy bypass is included. Future functionality
+requiring secrets must use the applicable Hermes-supported credential route.
 
 Rule 18 concerns password-manager login backends. OwnMachine registers neither
 `browser_vault` nor `ctx.register_login_backend`, so it does not request a
 vendor-only login-backend listing or the `verified`/`official` tier. Operator
 setup passwords do not turn it into a password-manager integration. This does
-not answer the separate rule 11 question.
+not remove the obligation to disclose OpenSSH authentication under rule 11.
 
 ## Prepared evidence
 
@@ -36,8 +37,8 @@ not answer the separate rule 11 question.
 
 ## Before an authorized upstream PR
 
-1. Resolve license and delegated-SSH eligibility with maintainers. Update the
-   design and repeat validation if their answer requires code changes.
+1. Include the owner-confirmed license and OpenSSH design in the submission
+   disclosures. If upstream review requires changes, repeat affected validation.
 2. Merge the OwnMachine preparation PR. The local draft pins the content commit
    containing the screenshots and updated plugin README, not a moving branch.
    If a different commit is selected, rerun validation and update **both** `sha`
@@ -63,8 +64,7 @@ Cooperating agent/viewer writers share one control database. Standard approvals
 remain enabled; uncertain writes stop for operator review. That shared state is
 coordination, not a boundary against hostile code.
 
-Disclose OpenSSH subprocess authentication and the maintainer's eligibility
-answer, local control state/heartbeat, captures and app text sent through Hermes
+Disclose OpenSSH subprocess authentication and the owner's policy confirmation, local control state/heartbeat, captures and app text sent through Hermes
 to the configured model provider, guest-app networking, the separately installed
 long-running viewer and bearer file, administrator firewall/hardening steps,
 manual guest permissions, official pinned setup downloads and locally built Lume
