@@ -51,6 +51,9 @@ isolation/toolsets: follow the dedicated-profile setup below and start a new
 session after configuration changes. `hermes ownmachine doctor --json` and
 `/ownmachine doctor` report bounded read-only readiness.
 
+**macOS is the only supported guest image.** There is no OS/image picker and no
+Linux guest provisioning option.
+
 This first onboarding phase provides planning, resume, connection configuration
 and diagnosis. **Fresh account/VM/firewall/viewer installation remains a guided
 operator workflow**, not an action performed by these commands. Setup stores

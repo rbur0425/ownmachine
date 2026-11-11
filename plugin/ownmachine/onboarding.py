@@ -140,6 +140,7 @@ def setup(ctx, args):
         onboarding_state.checkpoint(ctx, plan, checks, connected=args.connect, previous=previous)
     return {'ok': not any(c['status'] == 'fail' for c in checks), 'stage': 'planned',
             'saved': bool(args.save or args.connect), 'connection_saved': bool(args.connect),
+            'guest_os': 'macos',
             'plan': plan, 'checks': checks,
             'progress': onboarding_state.summary(ctx, {k: ctx.get_config('setup_plan', {}).get(k, DEFAULTS[k]) for k in FIELDS}) if ctx.get_config('setup_plan', {}) else {'stage': 'not_started'},
             'steps': ['Check Mac capacity and build tools', 'Prepare dedicated account and restricted SSH keys',
@@ -156,6 +157,8 @@ def render_setup(report):
     lines = ['OwnMachine setup: ' + report['stage'].replace('_', ' ').upper()]
     for question in report.get('questions', []):
         lines.append(question)
+    if 'guest_os' in report:
+        lines.append('Guest image: macOS (the only supported image; no OS selection required)')
     if 'plan' in report:
         lines.extend(f'{key}: {value or "not selected"}' for key, value in report['plan'].items())
     lines.extend(f'[{c["status"].upper()}] {c["check"]}: {c["detail"]}' for c in report.get('checks', []))
