@@ -191,6 +191,7 @@ def main():
     parser.add_argument('--plan-file', required=True, type=Path)
     parser.add_argument('--step', choices=['build', 'provision'], required=True)
     parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--events', action='store_true', help='Print sanitized NDJSON liveness events during execution')
     parser.add_argument('--ipsw', default='latest', help='macOS restore image accepted by the pinned provisioner')
     parser.add_argument('--preset', choices=['tahoe', 'sequoia'], default='tahoe')
     parser.add_argument('--app', type=Path, default=Path.home() / '.local/share/ownmachine/native-lume.app')
@@ -198,7 +199,9 @@ def main():
     args = parser.parse_args()
     os.umask(0o077)
     try:
-        print(json.dumps(execute(args), sort_keys=True))
+        from setup_support import events
+        with events(args.events, args.step): result = execute(args)
+        print(json.dumps(result, sort_keys=True))
         return 0
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         # Do not emit subprocess output or operator paths into model-facing reports.

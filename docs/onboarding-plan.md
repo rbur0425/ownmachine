@@ -69,7 +69,7 @@ Fresh-install execution is explicitly pending. Selecting a native provider,
 in-process loading and the hardened dedicated runtime profile remain in the
 operator guide. Do not silently change unrelated Hermes settings.
 
-### 2. Guided host/guest/viewer execution
+### 2. Guided host/guest/viewer execution — in progress
 
 Orchestrate the existing full-source scripts behind explicit operator actions.
 Keep privileged scripts and host relay outside the catalog-installed plugin;
@@ -90,7 +90,7 @@ security patch. Do not upgrade dependencies or claim Setup Assistant screens are
 removed until clean acceptance proves it. Retain no Apple-account requirement,
 analytics opt-out and manual permission consent.
 
-### 3. Welcome, polish and acceptance
+### 3. Welcome, polish and acceptance — pending
 
 Add a supported interactive-session welcome and a progress surface with a clear
 next action, actual progress, retry/resume and sanitized diagnostics export.
@@ -106,10 +106,12 @@ working viewer and independently verified desktop task, not only a green doctor.
 
 ## Current implementation boundary
 
-The first PR implements Phase 1. `--save` stores a plan under the active profile's
+The Hermes command layer implements Phase 1. `--save` stores a plan under the active profile's
 OwnMachine settings; `--connect` explicitly saves an existing relay's connection.
-Neither creates an account, VM, firewall rule, SSH key, viewer service or permission
-grant. Remote preflight remains pending until checked on the host. Plans never
+Those Hermes commands do not yet dispatch the separately implemented operator
+build/provision and service stages. They do not create an account, VM, firewall
+rule, SSH key, viewer service or permission grant. Remote preflight remains pending
+until checked on the actual host. Plans never
 claim provisioning has completed. See the companion acceptance document for the
 exact checks run.
 
@@ -311,3 +313,38 @@ custom-storage propagation through the runtime relay, cancellation with descenda
 process tracking, actionable repair flow, live fresh-install acceptance, and the
 complete opt-in reminder design above. The existing three command entry points
 remain available; they do not claim these pending steps are automated.
+
+## Reviewed gap ledger — after PR #5
+
+This ledger is the current status; historical phase notes above describe earlier
+increments. Phase 1 is implemented. **Phase 2 is in progress**, not complete.
+PR #5 supplied Mac-side execution/checkpoint primitives, not the complete Phase 2
+or a completed Phase 3. Phase 3 welcome/polish and live end-to-end acceptance
+remain pending. No reminders or cron jobs are currently scheduled.
+
+| Requirement | Current increment | Remaining acceptance/work |
+| --- | --- | --- |
+| Hermes runs each stage over SSH | Pending; commands still plan/connect/diagnose | Dedicated temporary setup authority, reviewed source pin, strict host-key confirmation, bounded stage RPC and revocation; no arbitrary shell on agent/viewer runtime keys |
+| Remote Mac preflight before starting | Operator-side actual Mac preflight exists | Run it through authenticated SSH from Hermes; expand admission checks for memory, build tools, existing guests and occupied ports; never infer remote hardware from Hermes |
+| Key pairing and host-key confirmation | Operator pairing helper generates a key in each runtime account and pins an independently confirmed Ed25519 host key | Guided transport/distribution of public keys and proof that the two runtime accounts/containers are separate; never auto-trust ssh-keyscan |
+| Restricted key installation | Service stage preserves unrelated authorized_keys entries and rejects differently authorized duplicates | Exercise both actual runtime identities after installation; temporary setup access retirement |
+| Relay installation | Explicit idempotent install of reviewed relay and selected configuration, refusing different existing files | Upgrade/recovery UI and authenticated remote orchestration |
+| Firewall | Explicit root installer remains a human administrator handoff; service stage checks fresh root-owned status and the configured app's ALF block | Integrated administrator handoff, free-port selection and independent external-network/reboot acceptance |
+| Guest hardening | Existing explicit operator script only | Integrate bootstrap start without VNC, host-key pinning, password/key rotation, guest SSH alias and exact shutdown permission with independent verification; uncertain hardening must never replay |
+| Driver and permissions | Service stage transfers pinned reviewed installers over key-only, host-key-pinned guest SSH; permission stage opens normal guide and verifies grants/capture evidence | Live fresh-guest run, consent/relaunch recovery and authenticated stage receipts; never grant TCC automatically |
+| Viewer installation | Explicit macOS GUI LaunchAgent or Linux user systemd stage; private access state outside shared control; authenticated readiness wait | Separate-user live acceptance, browser click/type/handoff and remote viewer dispatch; no model-visible token |
+| Final verification | Readiness checks for both restricted SSH identities, wrong-role refusal, guest readiness and viewer/RFB handshake | External firewall, actual browser input, disposable model task and saved-result readback; do not equate readiness with completed onboarding |
+| Mac progress linked to Hermes | Pending | Import only authenticated, nonce/plan/source/VM-bound sanitized receipts into profile-local state; reject replay, forged/newer schemas and mismatched identities; never trust copied JSON as completion evidence |
+| Progress during execution | Optional NDJSON start/liveness/finish events on both operator runners | Transport events into Hermes nonblocking progress; emit measured milestones where available; heartbeats are not fabricated percentages |
+| Custom guest storage | Relay status, MCP, lifecycle and VNC now propagate configured storage_dir; service installation writes matching host.json | Live non-default storage acceptance; keep old default behavior when field omitted |
+| Opt-in reminders | Still planned, not implemented; complete consent/scheduling design above remains required | Consent, dismissal, cancel/resume, cross-channel deduplication and delivery tests; no reminders inferred from silence |
+| Command manifest inventory | ownmachine listed as advisory commands metadata; current Hermes actually loads public ctx.register_command/register_cli_command registrations | Follow a supported manifest registration field if upstream introduces one; do not claim advisory YAML changes runtime behavior |
+| Guide link and wizard quickstart | Current development guide link replaces the fixed v0.6.0 link; wizard-based quickstart documents the actual handoffs | Release docs should link the matching reviewed version; do not execute mutable documentation links as code |
+| PR #4 post-review changes | Planning progress and exact setup_allowed_senders authorization are already merged | Retain tests and explicitly show changes in future review descriptions; these are not proof of execution completion |
+
+The next orchestration increment must join these operator stages to the existing
+three Hermes command paths. It must not broaden runtime keys or put privileged
+scripts, viewer secrets, host passwords or private keys into the installed plugin.
+Remote receipt authentication and stage dispatch should land together so a UI
+cannot advance based on an unauthenticated status file. Full acceptance must run
+from Hermes through the viewer before this ledger can be marked complete.

@@ -274,6 +274,11 @@ class SecurityBoundaryTests(unittest.TestCase):
             marker.write_text(json.dumps(data))
             with patch.object(relay.os,'fstat',return_value=SimpleNamespace(**good)):
                 relay.firewall_ready(5555)
+                binary = str(self.home/'Lume.app/Contents/MacOS/lume')
+                with patch.object(relay.subprocess, 'run', return_value=subprocess.CompletedProcess([],0,'Lume is blocked.')):
+                    relay.firewall_ready(5555, binary)
+                with patch.object(relay.subprocess, 'run', return_value=subprocess.CompletedProcess([],0,'Lume is not blocked.')):
+                    with self.assertRaises(ValueError):relay.firewall_ready(5555, binary)
                 with self.assertRaises(ValueError):relay.firewall_ready(5556)
                 for key in ('pf_enabled','rule_loaded','application_blocked'):
                     marker.write_text(json.dumps({**data,key:False}))
@@ -312,7 +317,7 @@ class HardenedLaunchTests(unittest.TestCase):
         with patch.object(relay,'firewall_ready') as firewall,patch.object(relay.subprocess,'run') as run:
             run.side_effect=[self.listing('stopped'),subprocess.CompletedProcess([],0),self.listing('running')]
             relay.lifecycle('start','ownmachine',str(self.binary),'guest')
-        firewall.assert_called_once_with(5555)
+        firewall.assert_called_once_with(5555, str(self.binary))
         command=run.call_args_list[1].args[0]
         self.assertNotIn('--vnc-password',command)
         state=self.home/'.local/state/ownmachine'
@@ -329,3 +334,36 @@ class HardenedLaunchTests(unittest.TestCase):
         with patch.object(relay,'firewall_ready',side_effect=ValueError('not_ready')),patch.object(relay.subprocess,'run',return_value=self.listing('stopped')) as run:
             with self.assertRaises(ValueError):relay.lifecycle('start','ownmachine',str(self.binary),'guest')
             self.assertEqual(run.call_count,1)
+
+
+class CustomStorageTests(unittest.TestCase):
+    setUp = HostTests.setUp
+    configure = HostTests.configure
+    def test_all_runtime_routes_select_configured_storage(self):
+        storage=str(self.home/'separate-storage')
+        binary=self.home/'lume';binary.touch();binary.chmod(0o700)
+        self.configure(dict(storage_dir=storage,enable_mcp=True,enable_lifecycle=True,enable_vnc=True,vnc_port=5555))
+        running={'name':'ownmachine','status':'running','ipAddress':'192.0.2.40','vncUrl':'vnc://:Abcd1234@127.0.0.1:5555'}
+        def result(state='running'):
+            return subprocess.CompletedProcess([],0,json.dumps([dict(running,status=state)]))
+        with patch.object(relay.subprocess,'run',return_value=result()) as run:
+            relay.status(binary=str(binary),storage_dir=storage)
+            self.assertEqual(run.call_args.args[0][-2:],['--storage',storage])
+        with patch.object(relay.subprocess,'run',return_value=result()) as run,patch.object(relay.os,'execvp'):
+            relay.mcp('ownmachine',str(binary),'guest')
+            self.assertEqual(run.call_args.args[0][-2:],['--storage',storage])
+        with patch.object(relay.subprocess,'run',side_effect=[result('stopped'),subprocess.CompletedProcess([],0),result()]) as run,patch.object(relay,'firewall_ready'):
+            relay.lifecycle('start','ownmachine',str(binary),'guest')
+            for call in run.call_args_list:
+                argv=call.args[0]
+                self.assertEqual(argv[argv.index('--storage')+1],storage)
+        private=relay.private_directory(self.home/'.local/state/ownmachine')
+        relay.private_file(private/'vnc-password','Abcd1234')
+        with patch.object(relay.subprocess,'run',return_value=result()) as run,patch.object(relay,'firewall_ready'),patch.object(relay.socket,'create_connection',side_effect=RuntimeError('socket')):
+            with self.assertRaisesRegex(RuntimeError,'socket'):relay.vnc('ownmachine',str(binary))
+            self.assertEqual(run.call_args.args[0][-2:],['--storage',storage])
+
+    def test_invalid_storage_is_rejected(self):
+        for value in ('relative','/tmp/bad\nvalue',False):
+            self.configure({'storage_dir':value})
+            with self.assertRaises(ValueError):relay.configuration()

@@ -13,7 +13,7 @@ from .diagnostics import diagnose, render as render_doctor
 PREREQUISITE = ('CLI commands and the native provider require a dedicated Hermes profile with in-process loading. '
                 'In that profile, explicitly run: hermes config set plugins.isolation in_process. '
                 'This changes profile isolation; setup never changes it automatically.')
-GUIDE = 'https://github.com/rbur0425/ownmachine/blob/v0.6.0/docs/community-setup.md'
+GUIDE = 'https://github.com/rbur0425/ownmachine/blob/develop/docs/wizard-quickstart.md'
 FIELDS = ('target', 'host_alias', 'vm_name', 'control_dir', 'storage_dir',
           'cpu', 'memory_gb', 'disk_gb', 'min_free_gb', 'display')
 DEFAULTS = dict(target='', host_alias='', vm_name='ownmachine', control_dir='',
