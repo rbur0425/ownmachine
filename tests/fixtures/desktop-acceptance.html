@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OwnMachine Acceptance</title>
+<style>body{font:18px system-ui;padding:20px;background:#fafafa;color:#17212b}button,input{font:inherit;padding:10px;margin:8px;min-width:180px}output{display:block;margin:12px}</style>
+<h1>OwnMachine Acceptance</h1>
+<button id="count" onclick="this.textContent='Clicks: '+(++window.clicks)">Clicks: 0</button>
+<script>window.clicks=0</script>
+<p><label>Test text <input aria-label="Test text" oninput="document.querySelector('#text-result').textContent='Text: '+this.value"></label></p>
+<output id="text-result">Text:</output>
+<p><label>Test password <input type="password" aria-label="Test password" autocomplete="off" oninput="document.querySelector('#password-result').textContent='Password length: '+this.value.length"></label></p>
+<output id="password-result">Password length: 0</output>
+<p>Disposable local fixture. Use harmless test text, never real passwords.<br>No network requests or form submission.</p>

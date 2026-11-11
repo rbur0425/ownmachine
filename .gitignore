@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+*.db
+*.db-*
+.env
+.env.*
+*.pem
+*.key
+*.qcow2
+*.img
+*.ipsw
+.DS_Store

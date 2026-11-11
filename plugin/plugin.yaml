@@ -1,0 +1,17 @@
+name: ownmachine
+version: 0.6.0
+manifest_version: 2
+api_version: 1
+description: Native Hermes computer use for a persistent private macOS VM
+license: PolyForm-Noncommercial-1.0.0
+requires_hermes: ">=0.23.1"
+config_schema:
+  control_dir: {type: str, default: "", description: "Absolute operator-owned control directory shared by every profile targeting this VM"}
+  host_alias: {type: str, default: "", description: "Owner-configured SSH alias for the VM host"}
+  vm_name: {type: str, default: "ownmachine"}
+  connect_timeout_seconds: {type: int, default: 15}
+  action_timeout_seconds: {type: int, default: 30}
+provides_tools:
+  - ownmachine_status
+provides_middleware:
+  - tool_execution
