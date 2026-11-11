@@ -16,8 +16,8 @@ has been tested. Cloud Mac hosting has not been acceptance-tested.
 
 ## Guided setup commands
 
-Start with the [wizard quickstart](https://github.com/rbur0425/ownmachine/blob/develop/docs/wizard-quickstart.md).
-Documentation follows the development workflow; execute only reviewed source or verified release bundles.
+Start with the [wizard quickstart](../docs/wizard-quickstart.md).
+Repository documentation follows the tree being viewed; execute only reviewed source or verified release bundles.
 
 Start with `/ownmachine setup` in Hermes chat. Hermes default plugin-host mode
 skips plugin CLI commands and cannot load the native provider. In a dedicated
@@ -58,8 +58,10 @@ session after configuration changes. `hermes ownmachine doctor --json` and
 Linux guest provisioning option.
 
 The Hermes command layer provides planning, resume, connection configuration
-and diagnosis. **Fresh account/VM/firewall/viewer installation remains a guided
-operator workflow**, not an action performed by these commands. The full-source
+and diagnosis. `hermes ownmachine setup --run STAGE` now dispatches approved
+operator stages over the dedicated setup SSH endpoint; mutations require
+`--apply`. Fresh account creation, source/key trust bootstrap, root firewall
+installation and guest consent remain explicit operator handoffs. The full-source
 Mac runner and service stages now provide explicit build/provision, relay/key
 installation, driver/permission checks and viewer service setup; see the wizard
 quickstart for exact boundaries. Setup stores
@@ -88,12 +90,12 @@ Installing this package alone does **not** provision a VM, install the driver or
 viewer, open network ports, or grant macOS permissions. Obtain the full source
 from the [release page](https://github.com/rbur0425/ownmachine/releases) and follow:
 
-1. [Host SSH and restricted relay setup](https://github.com/rbur0425/ownmachine/blob/develop/docs/host-setup.md).
-2. [Guest provisioning and permissions](https://github.com/rbur0425/ownmachine/blob/develop/docs/vm-setup.md)
-   and [native provider / MCP setup](https://github.com/rbur0425/ownmachine/blob/develop/docs/native-provider.md).
-3. [Hermes home configuration and viewer onboarding](https://github.com/rbur0425/ownmachine/blob/develop/docs/community-setup.md).
-4. [Persistent startup](https://github.com/rbur0425/ownmachine/blob/develop/docs/permanent-installation.md)
-   and [private viewer access](https://github.com/rbur0425/ownmachine/blob/develop/docs/viewer-access.md).
+1. [Host SSH and restricted relay setup](../docs/host-setup.md).
+2. [Guest provisioning and permissions](../docs/vm-setup.md)
+   and [native provider / MCP setup](../docs/native-provider.md).
+3. [Hermes home configuration and viewer onboarding](../docs/community-setup.md).
+4. [Persistent startup](../docs/permanent-installation.md)
+   and [private viewer access](../docs/viewer-access.md).
 
 Set `plugins.entries.ownmachine.settings.host_alias` to your verified SSH alias,
 `vm_name` to the relay's configured guest, and `control_dir` to an absolute private
@@ -124,7 +126,7 @@ replayed. A takeover waits for active input and cannot recall an event already s
 ## Installation and security disclosures
 
 The updated source requires [separate agent/viewer identities and firewall
-verification](https://github.com/rbur0425/ownmachine/blob/develop/docs/security-isolation.md).
+verification](../docs/security-isolation.md).
 Hardened VNC requires the pinned local Lume build with protected-file password
 input (Xcode/Swift required); the upstream binary exposes argv passwords to other
 local accounts. No forked binary is bundled. The v0.6.0 preview includes
@@ -175,7 +177,7 @@ and offline upgrade scripts belong to the full-source operator workflow, not the
 catalog-installed subdirectory.
 
 Read the [security model](https://github.com/rbur0425/ownmachine/blob/v0.6.0/SECURITY.md)
-and [recovery guide](https://github.com/rbur0425/ownmachine/blob/develop/docs/recovery.md).
+and [recovery guide](../docs/recovery.md).
 
 ## Password-manager policy
 
@@ -198,7 +200,7 @@ required a power-off; later normal lifecycle checks passed. Screenshot/pixel-cli
 deferred after a capture-expiry failure. There is no claim of reliable control
 across every app or model. Guest backup/restore, unattended host unlock/startup,
 cloud Mac acceptance and native-viewer password-dialog paste remain outside the
-verified scope. See [acceptance evidence](https://github.com/rbur0425/ownmachine/blob/develop/docs/release-readiness.md).
+verified scope. See [acceptance evidence](../docs/release-readiness.md).
 
 ## License
 
@@ -210,7 +212,9 @@ permissions requires a separate license from [Roland Burke](https://github.com/r
 
 OwnMachine is source-available, not open source. Third-party components retain
 their own terms. Earlier valid license grants are not revoked. See
-[licensing details](https://github.com/rbur0425/ownmachine/blob/develop/docs/licensing.md).
+[licensing details](../docs/licensing.md).
 
 The owner has confirmed license and SSH eligibility for submission. OwnMachine
 has not been submitted to or admitted by the Hermes catalog.
+
+Remote terminal execution and channel-bound progress: see [setup transport](../docs/setup-transport.md). The setup command derives its live guide URL from the installed plugin version; development operators may pin a full commit through setup_guide_ref.

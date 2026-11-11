@@ -57,6 +57,6 @@ def summary(ctx, plan):
         return {'stage': 'connection_changed', 'next': 'Connection settings changed after the checkpoint. Review them with setup before reconnecting; run doctor against the current settings.'}
     messages = {
         'preflight_blocked': 'Resolve the listed preflight checks, then rerun setup --save.',
-        'await_host_setup': 'Continue the host setup guide; provisioning execution is not implemented in this phase.',
+        'await_host_setup': 'Configure the dedicated setup endpoint and run setup --run preflight; use approved stages from the operator terminal.',
         'await_verification': 'Run doctor to check the configured relay. Configuration saved does not mean the desktop is ready.'}
     return {**record, 'next': messages[record['stage']]}

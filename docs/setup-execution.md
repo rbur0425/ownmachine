@@ -65,5 +65,6 @@ A subprocess timeout is not proof that all descendant processes have stopped.
 Continue with [community setup](community-setup.md) for the remaining manual
 steps. No root command, account change, firewall exception, credential transfer,
 permission approval, reminder or VM start is performed by this runner. Hermes's
-profile checkpoint and this Mac execution checkpoint remain separate until a
-future authenticated receipt-import flow is implemented.
+planning checkpoint and Mac execution checkpoint are distinct; the
+[dedicated SSH endpoint](setup-transport.md) imports authenticated stage outcomes
+into Hermes execution status without trusting copied checkpoint files.

@@ -87,7 +87,7 @@ def prepare(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--role', choices=['agent', 'viewer'], required=True)
+    parser.add_argument('--role', choices=['agent', 'viewer', 'setup'], required=True)
     parser.add_argument('--alias', required=True)
     parser.add_argument('--host', required=True)
     parser.add_argument('--port', type=int, default=22)
