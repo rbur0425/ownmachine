@@ -66,7 +66,7 @@ def main():
     def report(phase, **fields):
         path = state / 'provision.json'
         temp = path.with_suffix('.tmp')
-        temp.write_text(json.dumps(dict(phase=phase, **fields)))
+        temp.write_text(json.dumps(dict(phase=phase, vm_name=args.name, storage_dir=str(Path(args.storage_dir).resolve()) if args.storage_dir else str(Path.home()/'.lume'), **fields)))
         temp.replace(path)
     env = dict(os.environ, LUME_TELEMETRY_ENABLED='false')
     try:

@@ -172,3 +172,55 @@ class ServicesTests(unittest.TestCase):
         self.assertFalse(checkpoint.exists())
         with patch.object(s,'firewall'),patch.object(s.mac,'verify_build'):
             self.assertEqual(s.execute(self.args)['stage'],'verified')
+
+class HardeningTests(unittest.TestCase):
+    def test_hardening_is_explicit_mutation(self):
+        self.assertIn('harden', s.STEPS)
+        self.assertIn('harden', s.MUTATIONS)
+
+    def test_missing_fresh_receipt_refuses_before_vm_or_ssh(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(Path, 'home', return_value=Path(tmp).resolve()), patch.object(s, 'call') as call:
+            with self.assertRaises(FileNotFoundError):
+                s.hardening_prerequisites(dict(vm_name='fresh'))
+            call.assert_not_called()
+
+    def test_receipt_must_match_custom_storage(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(Path, 'home', return_value=Path(tmp).resolve()), patch.object(s, 'call') as call:
+            c = dict(vm_name='fresh', storage_dir=tmp+'/selected')
+            state = s.hardening_state(c); state.mkdir(parents=True)
+            receipt = state/'provision.json'
+            receipt.write_text(json.dumps(dict(phase='created', vm_name='fresh', storage_dir=tmp+'/other')))
+            receipt.chmod(0o600)
+            with self.assertRaisesRegex(ValueError, 'fresh_provision'): s.hardening_prerequisites(c)
+            call.assert_not_called()
+
+    def test_verify_requires_live_sshd_and_guest_alias(self):
+        c = dict(vm_name='fresh')
+        with patch.object(s, 'private_read', side_effect=[json.dumps({k:True for k in ('key_auth_verified','password_rotated','password_ssh_disabled','autologin_updated','keychain_updated')}).encode(), b'fixture\n']), patch.object(s, 'hardening_ssh', return_value=['ssh']), patch.object(s, 'guest_argv', return_value=['alias']), patch.object(s, 'call') as call:
+            s.verify_hardening(c)
+            self.assertEqual(call.call_count, 2)
+            self.assertIn(b'permitrootlogin no', call.call_args_list[0].kwargs['data'])
+            self.assertIn('sudo -n -l',call.call_args_list[1].args[0][-1])
+
+    def test_bootstrap_disables_vnc_uses_custom_storage_and_preserves_ssh_config(self):
+        from unittest.mock import MagicMock
+        with tempfile.TemporaryDirectory() as tmp, patch.object(Path, 'home', return_value=Path(tmp).resolve()):
+            home=Path(tmp).resolve()
+            c=dict(vm_name='fresh', storage_dir=str(home/'storage'), lume_app=str(home/'Lume.app'), guest_ssh_alias='fresh-guest', guest_user='lume')
+            state=s.hardening_state(c);state.mkdir(parents=True)
+            config=home/'.ssh/config';config.parent.mkdir(mode=0o700)
+            config.write_bytes(b'Host unrelated\n  HostName example.invalid\n');config.chmod(0o600)
+            def invoke(argv, **kwargs):
+                if 'ls' in argv:return subprocess.CompletedProcess(argv,0,json.dumps([dict(name='fresh',status='stopped')]).encode())
+                if any(str(x).endswith('/secure-guest.py') for x in argv):
+                    (state/'guest-password').write_bytes(b'fixture-recovery\n');(state/'guest-password').chmod(0o600)
+                return subprocess.CompletedProcess(argv,0,b'')
+            with patch.object(s,'call',side_effect=invoke) as call, patch.object(s,'guest_address',return_value='192.0.2.10'), patch('socket.create_connection',return_value=MagicMock()):
+                s.install_hardening(c)
+            boot=call.call_args_list[1].args[0]
+            self.assertEqual(boot[boot.index('--vnc')+1],'disabled')
+            self.assertEqual(boot[boot.index('--storage')+1],c['storage_dir'])
+            self.assertIn(b'Host unrelated',config.read_bytes())
+            self.assertIn(b'Host fresh-guest',config.read_bytes())
+            for invocation in call.call_args_list:self.assertNotIn('fixture-recovery',' '.join(invocation.args[0]))
+            self.assertEqual((state/'hardening-boot.log').stat().st_mode&0o777,0o600)

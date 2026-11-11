@@ -382,3 +382,29 @@ quickstart exists. The setup guide now derives its release tag from plugin versi
 an explicit full-commit override supports development without floating release
 docs. Never claim that advisory manifest inventory changes Hermes registration.
 See [transport and trust setup](setup-transport.md) for configuration and limits.
+
+
+## Phase 3 hardening and chat increment
+
+- [x] Add explicit `harden` stage to the reviewed SSH allowlist and saved
+  checkpoints: matching fresh provisioning receipt/custom storage, VNC-disabled
+  boot, isolated host-key pin, credential rotation, guest alias, exact shutdown
+  permission and live sshd re-verification. Failed/interrupted mutations require
+  inspection. No unattended TCC approval.
+- [x] Supervised, sender-authorized chat calls through public Hermes APIs, with
+  authenticated bounded SSH heartbeat frames and conversation-bound progress.
+  Heartbeats are liveness observations, never completion or percentages.
+- [ ] Fresh laptop guest acceptance of the full new hardening/onboarding path;
+  preserve the existing guest until recreation is explicitly authorized.
+- [ ] Final computer_use screenshot and independently verified desktop task.
+  Existing runtime status/role-denial/VNC checks remain only partial verification.
+- [ ] Retire temporary setup access after complete acceptance: remove only the
+  exact setup public-key entry, preserve unrelated entries, prove setup access
+  fails and runtime keys retain their separate roles, record a non-secret receipt,
+  and provide interruption recovery. Current retirement is still manual.
+- [ ] Phase 2 opt-in reminders, consent, destination binding, deduplication and
+  cancellation tests. Live progress does not implement reminders or cron jobs.
+
+This increment supersedes the earlier manual-hardening and terminal-only entries;
+initial operator pairing/source transfer and cross-machine viewer installation
+remain explicit. See setup-transport.md for commands, limits and recovery.

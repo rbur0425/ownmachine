@@ -1,8 +1,9 @@
 # Hermes-driven setup over SSH
 
 The operator terminal can now dispatch a reviewed setup stage from Hermes and
-import its authenticated result into profile-local onboarding status. Chat remains
-nonblocking: use `/ownmachine status` there, and run long stages in the terminal.
+import its authenticated result into profile-local onboarding status. An explicitly
+allowed chat sender can use the same `setup --run STAGE [--apply]` commands. Hermes
+supervises the background task and posts progress only to the invoking conversation.
 No privileged installer or viewer secret is included in the installed plugin.
 
 ## Bootstrap trust once
@@ -36,7 +37,7 @@ Create an operator-owned endpoint config outside the source tree:
   "services_file": "/absolute/private/services.json",
   "app": "/absolute/mac/OwnMachineLume.app",
   "build_dir": "/absolute/mac/build-cache",
-  "allowed_steps": ["preflight", "build", "provision", "firewall", "relay", "keys", "driver", "permissions"],
+  "allowed_steps": ["preflight", "build", "provision", "firewall", "relay", "keys", "harden", "driver", "permissions"],
   "source_sha256": "REVIEWED_SOURCE_SHA256"
 }
 ```
@@ -100,6 +101,7 @@ hermes ownmachine setup --run provision --apply --json
 hermes ownmachine setup --run firewall --json
 hermes ownmachine setup --run relay --apply --json
 hermes ownmachine setup --run keys --apply --json
+hermes ownmachine setup --run harden --apply --json
 hermes ownmachine setup --run driver --apply --json
 hermes ownmachine setup --run permissions --apply --json
 hermes ownmachine setup --run permissions --json
@@ -144,9 +146,9 @@ state becomes stale when plan/source/SSH transport configuration changes. No
 result marks the entire desktop accepted. Final verify still needs a real
 `computer_use` screenshot, browser input and a saved-task/readback acceptance run.
 
-The operator runners retain their liveness events. This terminal transport waits
-for a bounded final response; streaming those events into a nonblocking Hermes
-chat/UI remains future work. While a call is running, profile status records
+The operator runners retain their liveness events. Terminal calls wait for a
+bounded final response; supervised chat calls receive sanitized authenticated
+endpoint heartbeats as described below. While a call is running, profile status records
 `awaiting_remote_result`; on uncertainty it records `needs_inspection`.
 
 ## Stable documentation links
@@ -157,3 +159,51 @@ wizard quickstart once included in that release. For an unreleased reviewed
 checkout, set `setup_guide_ref` to its full 40-character commit. Floating branches
 such as `develop` are rejected. Repository README links are relative to the tree
 being viewed, so release-tag pages stay tied to their release.
+
+## Guided fresh-guest hardening
+
+Add `harden` to the reviewed endpoint allowlist and set `guest_user` in the
+service configuration if the unattended image uses a name other than `lume`.
+The stage requires this version's successful provisioning receipt matching the
+VM name and canonical custom storage path. It refuses existing credentials or
+an already configured guest alias; do not adapt an existing personal desktop.
+The guest must be stopped. An explicit `--run harden --apply` boots it with VNC
+**disabled**, pins its first SSH host key in isolated guest known-hosts, installs
+a unique key, rotates the factory password, disables SSH password/root login,
+aligns autologin/keychain, configures the selected guest alias, and installs only
+the exact guest shutdown sudo rule. The selected Mac account owns the private
+recovery file; the Hermes plugin neither reads it nor requests it in chat.
+
+Password-bearing operations travel over SSH stdin, not host command arguments.
+Guest password utilities still receive their required arguments inside the guest;
+this is not a claim to protect guest credentials from a compromised guest account.
+Resume checks live effective sshd settings, pinned key access and shutdown
+permission. An interrupted rotation requires inspection, never automatic replay.
+This does not grant Accessibility or Screen Recording; those remain guest consent.
+After hardening, restart the guest through the **viewer runtime identity** to
+switch from VNC-disabled bootstrap to the firewall-checked, password-file VNC
+session before viewing the permission guide. The agent key cannot perform this.
+
+## Live chat progress and interruption
+
+Configure exact `setup_allowed_senders` entries before invoking remote setup in
+chat, including read-only steps. Missing identity fails closed. This requires
+Hermes public `spawn_task` and `apost_message` APIs; older versions receive a
+terminal fallback. A second active call in that plugin instance is refused.
+Profile state and host execution locks remain authoritative across processes.
+
+The SSH endpoint emits nonce/source/plan/VM/stage-bound heartbeats every five
+seconds. They prove only that the endpoint is waiting for its child, not that the
+child is healthy or any postcondition passed. The plugin validates sequence and
+size bounds; a terminal authenticated receipt alone imports completion. Chat
+updates use `setup_progress_interval_seconds` (default 30, range 5–300) and stop
+after 20 interim updates, then send the final result. Raw logs and credentials
+never appear. Messaging failure, unload or sender revocation cancels the local
+SSH wait; the remote child may continue. Query `setup --run progress` once the
+remote lock is free and inspect uncertain state; do not replay mutations.
+
+These are updates for an explicit active call, **not scheduled reminders**.
+No cron jobs or reminders are created. No computer_use screenshot is verified.
+Setup-key retirement remains manual until complete acceptance: remove only its
+exact authorized_keys entry, verify that it fails and both runtime keys still
+work, then remove its private operator copy. Never remove unrelated keys.

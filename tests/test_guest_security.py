@@ -54,3 +54,11 @@ class GuestSecurityTests(unittest.TestCase):
         (self.state / 'guest-password').write_text('fixture')
         with contextlib.redirect_stderr(io.StringIO()): self.assertEqual(secure.main(), 2)
         run.assert_not_called()
+
+    @patch.object(secure.subprocess, 'run')
+    def test_recovery_password_never_appears_in_host_process_argv(self, run):
+        run.return_value = subprocess.CompletedProcess([], 0, '26.1\n', '')
+        with contextlib.redirect_stdout(io.StringIO()): self.assertEqual(secure.main(), 0)
+        secret = (self.state/'guest-password').read_text().strip()
+        for invocation in run.call_args_list:
+            self.assertNotIn(secret, ' '.join(invocation.args[0]))
