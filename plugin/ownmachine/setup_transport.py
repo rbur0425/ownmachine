@@ -1,4 +1,5 @@
 """Operator setup RPC over pinned OpenSSH; only channel-bound receipts are imported."""
+import contextvars
 import json
 import os
 from pathlib import Path
@@ -9,9 +10,11 @@ import subprocess
 import time
 from .onboarding_state import digest
 
-STEPS = ('preflight', 'build', 'provision', 'firewall', 'relay', 'keys', 'driver', 'permissions', 'viewer', 'verify')
+STEPS = ('preflight', 'build', 'provision', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'verify')
 READ_ONLY = {'preflight', 'firewall', 'permissions', 'verify', 'progress'}
 KEY = 'setup_execution'
+EVENT = contextvars.ContextVar('ownmachine_setup_event', default=None)
+CANCEL = contextvars.ContextVar('ownmachine_setup_cancel', default=None)
 
 
 def settings(ctx, plan):
@@ -41,8 +44,11 @@ def summary(ctx, plan):
 
 
 def exchange(argv, request, timeout):
+    cancel = CANCEL.get()
+    if cancel is not None and cancel.is_set(): raise ValueError('setup_cancelled')
     process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     output = bytearray()
+    total = sequence = 0
     try:
         process.stdin.write(json.dumps(request).encode())
         process.stdin.close()
@@ -50,12 +56,31 @@ def exchange(argv, request, timeout):
         with selectors.DefaultSelector() as selector:
             selector.register(process.stdout, selectors.EVENT_READ)
             while True:
+                cancel = CANCEL.get()
+                if cancel is not None and cancel.is_set(): raise ValueError("setup_cancelled")
                 remaining = deadline - time.monotonic()
                 if remaining <= 0: raise ValueError('setup_timeout')
                 if not selector.select(min(remaining, 1)): continue
                 data = os.read(process.stdout.fileno(), 4096)
                 if not data: break
                 output.extend(data)
+                total += len(data)
+                if total > 4*1024*1024: raise ValueError('oversized_setup_stream')
+                while request.get('stream') and b'\n' in output:
+                    line, _, rest = output.partition(b'\n')
+                    message = json.loads(line)
+                    if not isinstance(message, dict) or 'event' not in message: break
+                    binding = {k:request[k] for k in ('format','nonce','source_sha256','plan_digest','vm','step')}
+                    if (set(message) != set(binding)|{'event','sequence','elapsed_seconds'}
+                            or any(message.get(k) != v for k,v in binding.items())
+                            or message['event'] != 'running' or type(message['sequence']) is not int
+                            or message['sequence'] != sequence+1 or type(message['elapsed_seconds']) is not int
+                            or not 0 <= message['elapsed_seconds'] <= 7500):
+                        raise ValueError('invalid_setup_event')
+                    sequence += 1
+                    output = bytearray(rest)
+                    callback = EVENT.get()
+                    if callback: callback(message)
                 if len(output) > 65536: raise ValueError('oversized_setup_receipt')
         if process.wait(timeout=max(.01, deadline-time.monotonic())) != 0:
             raise ValueError('setup_channel_failed')
@@ -77,6 +102,7 @@ def dispatch(ctx, plan, step, apply=False):
     nonce = secrets.token_hex(32)
     request = dict(format=1, nonce=nonce, source_sha256=source, plan_digest=digest(plan),
                    vm=plan['vm_name'], step=step, apply=apply)
+    if EVENT.get() is not None: request['stream'] = True
     binding = {k: request[k] for k in ('format','nonce','source_sha256','plan_digest','vm','step')}
     pending = dict(binding, host_alias=alias, transport_digest=digest({'alias':alias,'config':ctx.get_config('setup_ssh_config','')}), stage='awaiting_remote_result', observed_at=int(time.time()))
     # Persist uncertainty before sending anything; never replay automatically.

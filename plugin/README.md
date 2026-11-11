@@ -157,7 +157,8 @@ cloud-model requests local or hide them from that provider.
 CuaDriver 0.44.0 from official `trycua/cua` GitHub releases, verify pinned SHA-256
 checksums and Apple code-signing identities, and provision a macOS guest using
 Apple restore media. No executable binary is bundled in this plugin. The host
-firewall installer and guest hardening require explicit administrator commands;
+the host firewall installer requires explicit administrator action; fresh guest
+hardening is an explicit host-side guided stage;
 Accessibility, Screen Recording and final capture consent require human approval
 inside the guest. Setup retains private SSH material, a guest password and runtime
 configuration in operator-owned files. Lume and driver telemetry are disabled by
@@ -217,4 +218,4 @@ their own terms. Earlier valid license grants are not revoked. See
 The owner has confirmed license and SSH eligibility for submission. OwnMachine
 has not been submitted to or admitted by the Hermes catalog.
 
-Remote terminal execution and channel-bound progress: see [setup transport](../docs/setup-transport.md). The setup command derives its live guide URL from the installed plugin version; development operators may pin a full commit through setup_guide_ref.
+Remote terminal/chat execution, guided fresh-guest hardening and channel-bound progress: see [setup transport](../docs/setup-transport.md). The setup command derives its live guide URL from the installed plugin version; development operators may pin a full commit through setup_guide_ref.

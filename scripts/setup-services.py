@@ -18,11 +18,11 @@ from setup_support import ROOT, mac, module, private_read, install_exact, events
 
 relay = module('setup_host_relay', 'host/ownmachine_host.py')
 keys = module('setup_host_keys', 'scripts/render-host-keys.py')
-STEPS = ('preflight', 'firewall', 'relay', 'keys', 'driver', 'permissions', 'viewer', 'verify')
-MUTATIONS = {'relay', 'keys', 'driver', 'viewer'}
+STEPS = ('preflight', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'verify')
+MUTATIONS = {'relay', 'keys', 'harden', 'driver', 'viewer'}
 FIELDS = {'vm_name', 'storage_dir', 'lume_app', 'vnc_port', 'guest_ssh_alias', 'python',
           'agent_public_key', 'viewer_public_key', 'agent_host_alias', 'viewer_host_alias',
-          'control_dir', 'access_dir', 'viewer_port', 'viewer_python'}
+          'control_dir', 'access_dir', 'viewer_port', 'viewer_python', 'guest_user'}
 
 
 def config(path):
@@ -30,18 +30,19 @@ def config(path):
     if not isinstance(data, dict) or set(data) - FIELDS:
         raise ValueError('invalid_service_configuration')
     data = {**dict(vm_name='ownmachine', vnc_port=0, viewer_port=0, python=sys.executable,
-                viewer_python=sys.executable), **data}
+                viewer_python=sys.executable, guest_user='lume'), **data}
     for name, value in data.items():
         if name.endswith('port'):
             if type(value) is not int or not 0 <= value <= 65535:
                 raise ValueError('invalid_port')
         elif not isinstance(value, str) or any(ord(c) < 32 or ord(c) == 127 for c in value):
             raise ValueError('invalid_text')
-        elif name.endswith('alias') or name == 'vm_name':
+        elif name.endswith('alias') or name in {'vm_name', 'guest_user'}:
             if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]{0,63}', value):
                 raise ValueError('invalid_identifier')
         elif not Path(value).is_absolute():
             raise ValueError('absolute_paths_required')
+    if data.get('guest_user') == 'root': raise ValueError('non_root_guest_required')
     return data
 
 
@@ -122,6 +123,96 @@ def install_keys(c):
             if os.path.exists(name): os.unlink(name)
 
 
+def hardening_state(c):
+    return Path.home()/'.local/state/ownmachine'/c['vm_name']
+
+
+def hardening_prerequisites(c):
+    state = hardening_state(c)
+    report = json.loads(private_read(state/'provision.json'))
+    if (report.get('phase') != 'created' or report.get('vm_name') != c['vm_name']
+            or report.get('storage_dir') != str(Path(c['storage_dir']).resolve())):
+        raise ValueError('fresh_provision_receipt_required')
+    if (state/'guest-password').exists() or (state/'guest-password').is_symlink():
+        raise ValueError('existing_credentials_require_inspection')
+    mac.verify_build(Path(c['lume_app']))
+    # Refuse collision before changing credentials. Existing aliases are never overwritten.
+    result = call(['ssh', '-G', c['guest_ssh_alias']]).stdout.decode()
+    resolved = dict(line.split(' ', 1) for line in result.splitlines() if ' ' in line)
+    if resolved.get('hostname') != c['guest_ssh_alias']:
+        raise ValueError('guest_alias_already_configured')
+
+
+def hardening_ssh(c):
+    state = hardening_state(c)
+    return ['ssh', '-T', '-F', '/dev/null', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
+            '-o', 'IdentitiesOnly=yes', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
+            '-o', 'ConnectTimeout=10', '-o', 'UserKnownHostsFile='+str(state/'guest_known_hosts'),
+            '-o', 'HostKeyAlias=ownmachine-guest-'+c['vm_name'], '-i', str(state/'guest_ed25519'),
+            c.get('guest_user', 'lume')+'@'+guest_address(c)]
+
+
+def install_hardening(c):
+    import time
+    import socket
+    state = hardening_state(c)
+    rows = json.loads(call([str(binary(c)), 'ls', '--format', 'json', '--storage', c['storage_dir']]).stdout)
+    selected = [row for row in rows if row.get('name') == c['vm_name']]
+    if len(selected) != 1 or selected[0].get('status') != 'stopped':
+        raise ValueError('fresh_guest_must_be_stopped')
+    # No weak/default VNC listener during bootstrap; private detached logs only.
+    log = state/'hardening-boot.log'
+    install_exact(log, b'')
+    call([str(binary(c)), 'run', c['vm_name'], '--detach', '--display', 'none', '--vnc', 'disabled',
+          '--log-file', str(log), '--storage', c['storage_dir']])
+    for attempt in range(60):
+        try:
+            address = guest_address(c)
+            with socket.create_connection((address, 22), timeout=2): pass
+            break
+        except (ValueError, OSError):
+            if attempt == 59: raise
+            time.sleep(2)
+    call([sys.executable, str(ROOT/'scripts/secure-guest.py'), '--name', c['vm_name'],
+          '--guest-user', c.get('guest_user', 'lume'), '--guest-ip', address], timeout=240)
+    # Recovery credential is read only by this host-side operator script, never Hermes.
+    password = private_read(state/'guest-password')
+    call(hardening_ssh(c) + ['sudo -S -p "" /bin/bash -s -- '+shlex.quote(c.get('guest_user', 'lume'))],
+         data=password+(ROOT/'scripts/install-guest-lifecycle.sh').read_bytes())
+    config_path = Path.home()/'.ssh/config'
+    mac.private_dir(config_path.parent)
+    current = private_read(config_path) if config_path.exists() or config_path.is_symlink() else b''
+    block = ('Host '+c['guest_ssh_alias']+'\n  HostName '+address+'\n  User '+c.get('guest_user', 'lume')+
+             '\n  IdentityFile '+json.dumps(str(state/'guest_ed25519'))+
+             '\n  UserKnownHostsFile '+json.dumps(str(state/'guest_known_hosts'))+
+             '\n  HostKeyAlias ownmachine-guest-'+c['vm_name']+
+             '\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n  BatchMode yes\n  ForwardAgent no\n\n').encode()
+    import tempfile
+    fd, tmp = tempfile.mkstemp(dir=config_path.parent, prefix='.guest-config-')
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(block+current); stream.flush(); os.fsync(stream.fileno())
+        now = private_read(config_path) if config_path.exists() or config_path.is_symlink() else b''
+        if now != current: raise ValueError('ssh_config_changed')
+        os.replace(tmp, config_path)
+    finally:
+        if os.path.exists(tmp): os.unlink(tmp)
+
+
+def verify_hardening(c):
+    state = hardening_state(c)
+    report = json.loads(private_read(state/'hardening.json'))
+    if any(report.get(key) is not True for key in ('key_auth_verified', 'password_rotated',
+            'password_ssh_disabled', 'autologin_updated', 'keychain_updated')):
+        raise ValueError('guest_hardening_incomplete')
+    # Recheck live effective sshd configuration using the private recovery credential.
+    script = (b"set -eu\n/usr/sbin/sshd -t\n/usr/sbin/sshd -T | /usr/bin/grep -q '^passwordauthentication no$'\n"
+              b"/usr/sbin/sshd -T | /usr/bin/grep -q '^kbdinteractiveauthentication no$'\n"
+              b"/usr/sbin/sshd -T | /usr/bin/grep -q '^permitrootlogin no$'\n")
+    call(hardening_ssh(c)+['sudo -S -p "" /bin/sh -s'], data=private_read(state/'guest-password')+script)
+    call(guest_argv(c)+['test -x "$HOME/.local/lib/ownmachine/vm-shutdown.sh" && sudo -n -l /sbin/shutdown -h now'])
+
+
 def install_driver(c):
     # Only reviewed fixed-name scripts are sent over already pinned, key-only SSH.
     names = ('install-guest-driver.sh', 'install-permission-guide.sh', 'install-guest-mcp.sh')
@@ -167,7 +258,9 @@ def viewer_check(c, probe=False):
 
 
 def verify(step, c):
-    if step == 'relay':
+    if step == 'harden':
+        verify_hardening(c)
+    elif step == 'relay':
         for path, expected in desired_relay(c):
             if private_read(path) != expected: raise ValueError('relay_installation_differs')
     elif step == 'keys':
@@ -209,7 +302,9 @@ def verify(step, c):
 
 def preflight_mutation(step, c):
     # Missing prerequisites are safe to fix and retry: no running checkpoint yet.
-    if step == 'relay':
+    if step == 'harden':
+        hardening_prerequisites(c)
+    elif step == 'relay':
         firewall(c)
         mac.verify_build(Path(c['lume_app']))
         host_settings(c)
@@ -224,7 +319,9 @@ def preflight_mutation(step, c):
 
 
 def apply(step, c):
-    if step == 'relay':
+    if step == 'harden':
+        install_hardening(c)
+    elif step == 'relay':
         mac.private_dir(Path(c['storage_dir']))
         for path, content in desired_relay(c): install_exact(path, content)
     elif step == 'keys':

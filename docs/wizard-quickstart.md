@@ -183,3 +183,14 @@ the issue. The runners report sanitized liveness events. The dedicated SSH endpo
 imports authenticated final outcomes into Hermes progress; streaming liveness
 into chat/UI remains pending. Keep the planned opt-in reminders disabled
 until their consent, cancellation and deduplication design is implemented.
+
+
+### Continue from Hermes chat
+
+After the operator has paired and pinned the separate setup identity, configured
+its reviewed source/plan allowlist, and granted the exact chat sender, use
+`/ownmachine setup --run preflight`, then the same explicit stages and `--apply`
+flags as the terminal. Progress appears in the invoking conversation without
+blocking the chat. See [setup transport](setup-transport.md) for the new `harden`
+stage, heartbeat limits, VNC-disabled bootstrap and viewer-role restart before
+permission setup. No secrets are requested in chat and no reminders are scheduled.

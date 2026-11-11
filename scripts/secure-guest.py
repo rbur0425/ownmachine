@@ -46,7 +46,7 @@ def main():
     if not identity.exists():
         subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-C', 'ownmachine-guest', '-f', str(identity)], check=True)
     known_hosts = state / 'guest_known_hosts'
-    common = ['ssh', '-T', '-o', 'ConnectTimeout=10', '-o', 'ForwardAgent=no',
+    common = ['ssh', '-T', '-F', '/dev/null', '-o', 'ClearAllForwardings=yes', '-o', 'ConnectTimeout=10', '-o', 'ForwardAgent=no',
               '-o', 'IdentitiesOnly=yes', '-o', f'UserKnownHostsFile={known_hosts}',
               '-o', f'HostKeyAlias=ownmachine-guest-{args.name}', '-i', str(identity)]
     destination = f'{args.guest_user}@{args.guest_ip}'
@@ -77,8 +77,9 @@ def main():
     q = shlex.quote
     # Change the account password as its owner with the known old credential;
     # root-only reset can fail for macOS accounts with secure-token state.
-    rotation = subprocess.run(key_ssh + [f'/usr/bin/dscl . -passwd /Users/{args.guest_user} lume {q(password)}'],
-                              capture_output=True, timeout=30)
+    rotation = subprocess.run(key_ssh + ['/bin/sh -s'],
+                              input=f'exec /usr/bin/dscl . -passwd /Users/{args.guest_user} lume {q(password)}\n',
+                              text=True, capture_output=True, timeout=30)
     if rotation.returncode:
         print('Password rotation failed; inspect retained recovery material.', file=sys.stderr)
         return 1
@@ -99,8 +100,9 @@ printf '%s\\n' 'PasswordAuthentication no' 'KbdInteractiveAuthentication no' 'Pe
         return 1
     # Keep the login keychain aligned with the new autologin password. A failure
     # here is reported, not hidden; no guest data has been imported yet.
-    keychain = subprocess.run(key_ssh + [f'/usr/bin/security set-keychain-password -o lume -p {q(password)} "$HOME/Library/Keychains/login.keychain-db"'],
-                              capture_output=True, timeout=30)
+    keychain = subprocess.run(key_ssh + ['/bin/sh -s'],
+                              input=f'exec /usr/bin/security set-keychain-password -o lume -p {q(password)} "$HOME/Library/Keychains/login.keychain-db"\n',
+                              text=True, capture_output=True, timeout=30)
     check = subprocess.run(key_ssh + ['sw_vers -productVersion'], capture_output=True, text=True, timeout=20)
     report = {'key_auth_verified': check.returncode == 0, 'password_rotated': True,
               'password_ssh_disabled': True, 'autologin_updated': True,

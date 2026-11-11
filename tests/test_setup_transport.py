@@ -100,3 +100,30 @@ class TransportTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'invalid_setup_execution_state'):
                     t.dispatch(self.ctx,self.plan,'preflight')
             self.assertEqual(self.ctx.state.get(t.KEY),old)
+
+class StreamTests(unittest.TestCase):
+    def test_bound_events_and_terminal_receipt_over_real_pipe(self):
+        request = dict(format=1,nonce='a'*64,source_sha256='b'*64,plan_digest='c'*64,vm='fixture',step='preflight',apply=False,stream=True)
+        binding = {k:v for k,v in request.items() if k not in {'apply','stream'}}
+        final = dict(binding,ok=True,outcomes={})
+        event = dict(binding,event='running',sequence=1,elapsed_seconds=5)
+        received=[]
+        token=t.EVENT.set(received.append)
+        try:
+            script='import sys; sys.stdin.read(); print('+repr(json.dumps(event))+'); print('+repr(json.dumps(final))+')'
+            self.assertEqual(t.exchange([sys.executable,'-c',script],request,5),final)
+            self.assertEqual(received,[event])
+            for field,value in [('nonce','wrong'),('sequence',2),('elapsed_seconds',-1)]:
+                bad=dict(event,**{field:value})
+                script='import sys; sys.stdin.read(); print('+repr(json.dumps(bad))+'); print('+repr(json.dumps(final))+')'
+                with self.assertRaises(ValueError):t.exchange([sys.executable,'-c',script],request,5)
+        finally:t.EVENT.reset(token)
+
+    def test_transport_cancellation_kills_local_ssh_process(self):
+        import threading
+        cancel=threading.Event();cancel.set()
+        token=t.CANCEL.set(cancel)
+        try:
+            with self.assertRaisesRegex(ValueError,'setup_cancelled'):
+                t.exchange([sys.executable,'-c','import time; time.sleep(30)'],{},60)
+        finally:t.CANCEL.reset(token)

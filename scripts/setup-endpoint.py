@@ -69,8 +69,35 @@ def command(c,plan,step,apply):
     return argv
 
 
+from contextlib import contextmanager
+import threading
+
+
+@contextmanager
+def heartbeat(request):
+    stopped = threading.Event()
+    start = time.monotonic()
+    def send():
+        sequence = 0
+        while not stopped.wait(5):
+            sequence += 1
+            event = {k: request[k] for k in ('format','nonce','source_sha256','plan_digest','vm','step')}
+            event.update(event='running', sequence=sequence, elapsed_seconds=int(time.monotonic()-start))
+            try: print(json.dumps(event), flush=True)
+            except (BrokenPipeError, OSError): return
+    thread = threading.Thread(target=send, daemon=True) if request.get('stream') else None
+    if thread: thread.start()
+    try: yield
+    finally:
+        stopped.set()
+        if thread: thread.join()
+
+
 def execute(request,c,plan):
     expected={'format','nonce','source_sha256','plan_digest','vm','step','apply'}
+    if isinstance(request, dict) and 'stream' in request:
+        expected.add('stream')
+        if request['stream'] is not True: raise ValueError('invalid_stream_request')
     if (not isinstance(request,dict) or set(request)!=expected or type(request['format']) is not int or request['format']!=1
             or not isinstance(request['nonce'],str) or not re.fullmatch('[a-f0-9]{64}',request['nonce'])
             or request['source_sha256']!=c['source_sha256'] or request['plan_digest']!=digest(plan)
@@ -106,7 +133,8 @@ def execute(request,c,plan):
             stage='needs_inspection'
             try:
                 # Child writes only a bounded final result on stdout, never logs.
-                result=subprocess.run(argv,capture_output=True,text=True,timeout=7300)
+                with heartbeat(request):
+                    result=subprocess.run(argv,capture_output=True,text=True,timeout=7300)
                 if len(result.stdout)<=65536:
                     report=json.loads(result.stdout)
                     if isinstance(report,dict) and result.returncode==0 and report.get('ok') is True and report.get('stage') in {'verified','checks_passed','observed'}:
@@ -122,7 +150,7 @@ def execute(request,c,plan):
             mac.write_state(path,saved)
         outcomes=saved['outcomes'] if step=='progress' else {step:saved['outcomes'][step]}
         ok=not any(v['stage'] in {'running','needs_attention','needs_inspection'} for v in outcomes.values())
-        return {**{k:v for k,v in request.items() if k!='apply'},'ok':ok,'outcomes':outcomes}
+        return {**{k:v for k,v in request.items() if k not in {'apply','stream'}},'ok':ok,'outcomes':outcomes}
 
 
 def main():

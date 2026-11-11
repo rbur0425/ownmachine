@@ -221,7 +221,7 @@ def execute(ctx, args):
         return (json.dumps(report) if args.as_json else render_doctor(report)), (0 if report['ok'] else 1)
     return ('OwnMachine: /ownmachine setup | hermes ownmachine setup | hermes ownmachine doctor\n'
             'Setup resumes the saved plan. Use --save to persist it, or --target existing --connect to configure a prepared relay.\n'
-            'Use setup --run STAGE for the approved SSH endpoint; mutating stages require --apply in the operator terminal. Never paste passwords or private keys into chat.\n' + PREREQUISITE), 0
+            'Use setup --run STAGE for the approved SSH endpoint; mutating stages require --apply and chat requires an allowed sender. Never paste passwords or private keys into chat.\n' + PREREQUISITE), 0
 
 
 def interactive(ctx, args):
@@ -266,6 +266,8 @@ def authorized_sender(ctx, context):
 
 
 def register_commands(ctx):
+    from .chat_setup import ChatSetup
+    chat_setup = ChatSetup(ctx)
     def cli(args):
         try:
             previewed = interactive(ctx, args)
@@ -295,7 +297,9 @@ def register_commands(ctx):
                 return 'Use /ownmachine help, or hermes ownmachine setup --help in a terminal.'
             args = parser.parse_args(tokens)
             if args.ownmachine_command == 'setup' and getattr(args, 'run', None):
-                return 'Run remote setup stages with hermes ownmachine setup --run in the operator terminal. Chat remains nonblocking; /ownmachine status shows imported progress.'
+                if not authorized_sender(ctx, kwargs):
+                    return 'OwnMachine: remote setup requires an explicitly allowed sender; use the operator terminal or configure setup_allowed_senders.'
+                return chat_setup.start(args, kwargs)
             if args.ownmachine_command == 'setup' and (args.save or args.connect):
                 if not authorized_sender(ctx, kwargs):
                     return 'OwnMachine: configuration changes in chat require an explicitly allowed sender. Use the local terminal setup command, or configure setup_allowed_senders with verified platform, user_id and chat_id values. No settings were changed.'
