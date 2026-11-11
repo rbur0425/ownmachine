@@ -187,8 +187,10 @@ session before viewing the permission guide. The agent key cannot perform this.
 ## Live chat progress and interruption
 
 Configure exact `setup_allowed_senders` entries before invoking remote setup in
-chat, including read-only steps. Missing identity fails closed. This requires
-Hermes public `spawn_task` and `apost_message` APIs; older versions receive a
+chat, including read-only steps. Missing identity fails closed. Chat execution
+requires the explicitly selected dedicated `in_process` profile: Hermes message
+handles cannot cross plugin-host IPC. Planning remains available in host mode.
+This uses Hermes public `spawn_task` and `apost_message` APIs; older versions receive a
 terminal fallback. A second active call in that plugin instance is refused.
 Profile state and host execution locks remain authoritative across processes.
 

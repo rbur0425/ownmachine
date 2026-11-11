@@ -15,10 +15,12 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         ctx = Context(dict(setup_allowed_senders=[grant], setup_plan=dict(o.DEFAULTS, target='remote',
             storage_dir='/example/storage', host_alias='runtime'), setup_host_alias='setup', setup_source_sha256='a'*64))
         ctx.messages = []
-        async def edit(text): ctx.messages.append(text)
+        async def edit(text):
+            ctx.messages.append(text)
+            return {'ok':True}
         async def post(text):
             ctx.messages.append(text)
-            return SimpleNamespace(aedit=edit)
+            return SimpleNamespace(aedit=edit, ok=True)
         def spawn(coro, name):
             ctx.job = asyncio.create_task(coro, name=name)
             return ctx.job
@@ -70,6 +72,17 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         async def fail(text): raise RuntimeError('unavailable')
         ctx.apost_message = fail
         with patch.object(t, 'exchange', side_effect=AssertionError('network')):
-            await ctx.slash('setup --run preflight', **source)
-            await ctx.job
+            answer = await ctx.slash('setup --run preflight', **source)
+            self.assertIn('in_process', answer)
+            self.assertFalse(hasattr(ctx, 'job'))
         self.assertIsNone(ctx.state.get(t.KEY))
+
+
+    async def test_unsuccessful_message_handle_refuses_execution(self):
+        ctx, source = self.context()
+        async def refused(text): return SimpleNamespace(ok=False, error='no_conversation')
+        ctx.apost_message = refused
+        with patch.object(t, 'exchange', side_effect=AssertionError('network')):
+            answer = await ctx.slash('setup --run preflight', **source)
+            self.assertIn('No remote call', answer)
+        self.assertFalse(hasattr(ctx, 'job'))
