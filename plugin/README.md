@@ -124,8 +124,9 @@ OwnMachine does not register `browser_vault`, `ctx.register_login_backend`, an
 OAuth client, or a password-manager integration. It requests the `community` tier,
 not `verified` or `official`. Guest/VNC provisioning passwords belong to the
 separate operator setup; they are not a browser login backend. This distinction
-does not establish an exemption for OpenSSH authentication under the credential
-rule. Both SSH eligibility and license eligibility remain unresolved.
+does not remove OpenSSH authentication from the credential-policy disclosure.
+The owner has confirmed license and SSH eligibility; upstream review is still
+required.
 
 ## Tested behavior and preview limits
 
