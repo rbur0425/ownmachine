@@ -8,6 +8,8 @@ from .ownmachine.workspace import status as host_status
 def register(ctx):
     from .ownmachine.onboarding import register_commands
     register_commands(ctx)
+    from .ownmachine.reminders import register_hooks
+    register_hooks(ctx)
     from .ownmachine.middleware import control_gate_result
     # Hermes category discovery uses a provider-only collector without middleware.
     # The full plugin context still registers the control-gate verdict middleware.

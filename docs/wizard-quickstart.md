@@ -182,7 +182,7 @@ Read-only firewall/permission/readiness checks can be repeated after a human fix
 the issue. The runners report sanitized liveness events. The dedicated SSH endpoint now
 imports authenticated final outcomes and conversation-bound liveness into Hermes.
 See [reminder controls](onboarding-reminders.md) for explicit next-visit consent;
-scheduled reminders remain unavailable.
+scheduled reminders require a matching running Hermes gateway and an explicitly approved destination. See [reminder controls](onboarding-reminders.md).
 
 
 ### Continue from Hermes chat

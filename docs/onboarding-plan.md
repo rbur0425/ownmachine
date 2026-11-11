@@ -106,14 +106,20 @@ working viewer and independently verified desktop task, not only a green doctor.
 
 ## Current implementation boundary
 
-The Hermes command layer implements Phase 1. `--save` stores a plan under the active profile's
-OwnMachine settings; `--connect` explicitly saves an existing relay's connection.
-Those Hermes commands do not yet dispatch the separately implemented operator
-build/provision and service stages. They do not create an account, VM, firewall
-rule, SSH key, viewer service or permission grant. Remote preflight remains pending
-until checked on the actual host. Plans never
-claim provisioning has completed. See the companion acceptance document for the
-exact checks run.
+Hermes now dispatches explicit setup stages over a separately paired restricted
+SSH endpoint and imports authenticated, source-bound progress. Provisioning,
+firewall checks, relay/key installation, guest hardening, driver/permission checks,
+capture verification and setup-key retirement have deterministic stage handlers.
+Administrator bootstrap, first account login, guest consent and viewer ownership
+remain explicit handoffs. `setup --next` explains the next action; `--later`
+offers opt-in reminders without stopping a running operation.
+
+The current reminder implementation and its exact delivery semantics are in
+[onboarding-reminders.md](onboarding-reminders.md). The public scheduler route
+has now delivered one user-confirmed Discord test. Full candidate Docker-to-Mac
+acceptance remains in progress; see [docker-reminder-acceptance.md](docker-reminder-acceptance.md).
+Older phase notes below record earlier review boundaries and are superseded by
+these current implementation and acceptance documents where they differ.
 
 ## Sources informing the design
 
@@ -430,14 +436,10 @@ This status supersedes the earlier open items above.
 - [x] Opt-in next-visit reminders: preview/confirmation, exact sender/profile/chat
   binding, persisted consent, maximum three accepted nudges per verified advance,
   daily spacing, opt-out, completion suppression and interrupted-delivery guard.
-- [ ] Scheduled tomorrow reminders. Actual current-Hermes CLI testing returned
-  `Unknown tool: cronjob_manage` through public `ctx.dispatch_tool`. The standalone
-  delivery helper cannot safely recheck the live job with that API either. This
-  mode explicitly reports unavailable and creates no job. Request a supported
-  scheduler API usable from standalone plugin commands before enabling it.
-- [ ] Automatic “next time I open Hermes” nudges. The current session-start hook
-  lacks the verified sender/chat/thread identity needed for routing. The shipped
-  option means the next matching **OwnMachine command**, not opening Hermes.
+- [x] Scheduled tomorrow reminders through public gateway attach, `cron.manage`
+  inspection and CLI paused creation. Delivery-time checks use this same route.
+- [x] Local session-open/resume and authenticated chat-admission next-visit hooks.
+  Chat delivery means the next admitted message, not a generic session-open event.
 - [ ] Independently verified real-model desktop task remains separate acceptance;
   a valid screenshot does not certify task completion.
 
@@ -446,30 +448,18 @@ See [verification acceptance](verification-retirement-acceptance.md) and
 full cross-machine unattended orchestration are not claimed by this increment.
 
 
-### Phase 2 progress — Next (partly implemented)
+### Reminder phase — implemented; acceptance in progress
 
-- [x] `remind later`, `remind status` and `remind off` in the terminal and chat
-  for explicitly allowed senders. `later` defaults to the available `next-visit`
-  mode; an explicit `--mode tomorrow` explains the limitation and schedules nothing.
-- [x] Preview then confirmation token, valid for 15 minutes; a preview or silence
-  never enables reminders. Both terminal and chat use the same mode default.
-- [x] Configurable 1–3 accepted nudges (default 3), at least 24 hours apart. A newly
-  verified stage advance resets the count; retrying the same stage does not.
-  Explicit fresh consent can renew an exhausted budget without bypassing the
-  daily spacing. Initial consent can nudge on the next eligible command immediately.
-- [x] Recheck plan/source/setup identity, sender authority and completion before
-  delivery. Invalidated consent is disabled when checked, not by a background job.
-- [x] Bind terminal nudges to the active Hermes profile across terminal windows;
-  bind chat nudges to the approved platform/sender/chat/thread. No nudge is added
-  to machine-readable JSON output or reminder-management commands.
-- [ ] Offer a reminder choice automatically after a Later/Pause action. Current
-  behavior requires an explicit reminder command, stricter than the target plan.
-- [ ] Next-day scheduled reminders: the tested standalone plugin-command context
-  cannot dispatch `cronjob_manage`, including the delivery-time inspection helper.
-  This is not a claim that Hermes lacks a scheduler or that every chat context
-  lacks the tool. A supported end-to-end scheduler route remains required.
-- [ ] New-session reminders: the available session-start hook does not provide
-  the verified sender/chat/thread identity needed to route safely. Next-visit
-  currently means the next eligible OwnMachine command, not any new session.
-- [ ] Real external chat delivery acceptance; prior integration tests recorded
-  delivery locally and sent no external messages.
+- [x] Terminal and authorized-chat status/later/off; next-visit remains the default.
+- [x] Preview plus 15-minute confirmation; installation and silence grant no consent.
+- [x] Configurable daily budget, verified-stage reset, binding and opt-out checks.
+- [x] Later/Pause offers reminder choices without stopping active work.
+- [x] Paused one-shot creation, exact job verification, delivery-time recheck,
+  silent helper errors and delivery receipt reconciliation through public APIs.
+- [x] Local session and authenticated chat-message visit hooks; command fallback.
+- [x] One real Discord reminder independently confirmed by the recipient; job removed.
+- [x] Cron cleaned-environment helper reached the same profile's plugin state.
+- [ ] Complete final Docker-to-Mac candidate installation, guest consent, viewer
+  input, native capture and retirement acceptance; do not infer this from unit tests.
+
+See [Docker/reminder acceptance](docker-reminder-acceptance.md) for observed results.

@@ -48,7 +48,9 @@ def add_arguments(parser):
     for name in ('cpu', 'memory-gb', 'disk-gb', 'min-free-gb'):
         setup.add_argument('--' + name, type=int)
     from .setup_transport import STEPS
-    setup.add_argument('--run', choices=(*STEPS, 'progress'), help='Run a reviewed stage over the dedicated setup SSH identity (terminal only)')
+    setup.add_argument('--run', choices=(*STEPS, 'progress'), help='Run a reviewed stage over the dedicated setup SSH identity (terminal or explicitly allowed chat)')
+    setup.add_argument('--next', action='store_true', dest='show_next', help='Explain the next stage or human handoff without running it')
+    setup.add_argument('--later', '--pause', action='store_true', dest='later', help='Defer setup and offer reminder choices; does not stop a running VM or process')
     setup.add_argument('--apply', action='store_true', help='Explicitly authorize a remote mutating step or opening the guest guide')
     setup.add_argument('--save', action='store_true', help='Save the plan in the active Hermes profile')
     setup.add_argument('--connect', action='store_true', help='Save existing relay connection settings; does not start the VM')
@@ -57,8 +59,9 @@ def add_arguments(parser):
     status = subs.add_parser('status', help='Show saved onboarding progress without contacting the Mac')
     status.add_argument('--json', action='store_true', dest='as_json')
     remind = subs.add_parser('remind', help='Explicit opt-in onboarding reminders')
-    remind.add_argument('remind_action', choices=['status','later','off'])
-    remind.add_argument('--mode', choices=['tomorrow','next-visit'], default='next-visit', help='Reminder delivery mode (default: next-visit; tomorrow is unavailable)')
+    remind.add_argument('remind_action', choices=['status','later','off','emit'])
+    remind.add_argument('--mode', choices=['tomorrow','next-visit'], default='next-visit', help='Reminder delivery mode (default: next-visit)')
+    remind.add_argument('--token', help=argparse.SUPPRESS)
     remind.add_argument('--confirm', help='Confirm the exact time/destination preview token')
     doctor = subs.add_parser('doctor', help='Read-only configured host, permissions and MCP checks')
     doctor.add_argument('--json', action='store_true', dest='as_json')
@@ -114,6 +117,19 @@ def preflight(plan):
 
 
 def setup(ctx, args):
+    if getattr(args,'show_next',False) or getattr(args,'later',False):
+        if getattr(args,'run',None) or args.apply or args.save or args.connect or any(getattr(args,k,None) is not None for k in FIELDS):
+            raise InputError('Use --next or --later separately from execution and plan edits.')
+        if getattr(args,'show_next',False) and getattr(args,'later',False):
+            raise InputError('Choose --next or --later separately.')
+        saved=ctx.get_config('setup_plan',{})
+        if not saved:raise InputError('Save a setup plan first with setup --save.')
+        plan={k:saved.get(k,DEFAULTS[k]) for k in FIELDS};validate_plan(plan)
+        if getattr(args,'later',False):
+            return dict(ok=True,stage='deferred',prerequisite=PREREQUISITE,
+                        next='Remind you later? Choose remind later --mode tomorrow, remind later --mode next-visit, or remind off. A reminder preview requires confirmation; nothing was scheduled. Running work was not stopped.')
+        from .setup_next import next_step
+        return dict(ok=True,prerequisite=PREREQUISITE,**next_step(ctx,plan))
     if getattr(args, 'run', None):
         from .setup_transport import dispatch
         saved = ctx.get_config('setup_plan', {})
@@ -207,7 +223,16 @@ def render_setup(report):
 def execute(ctx, args):
     if args.ownmachine_command == 'remind':
         from .reminders import execute as remind
-        return remind(ctx,args), 0
+        try:
+            return remind(ctx,args), 0
+        except ValueError as exc:
+            messages = {
+                'scheduler_unavailable_start_matching_profile_gateway': 'The matching Hermes profile gateway is unavailable or lacks the required scheduler API. Start that profile’s gateway and inspect remind status; no new reminder was enabled.',
+                'reminder_outcome_uncertain_use_status_or_off_do_not_repeat': 'The reminder scheduling outcome is uncertain and consent was disabled. Use remind status or remind off; do not repeat creation.',
+                'reminder_cleanup_required': 'A previous reminder needs cleanup. Start the matching profile gateway, then run remind off before creating another.',
+            }
+            if str(exc) in messages: raise InputError(messages[str(exc)]) from None
+            raise
     if args.ownmachine_command == 'setup':
         report = setup(ctx, args)
         if getattr(args, 'run', None):
@@ -322,7 +347,7 @@ def register_commands(ctx):
                 return 'Use /ownmachine help, or hermes ownmachine setup --help in a terminal.'
             args = parser.parse_args(tokens)
             if args.ownmachine_command == 'remind':
-                if not authorized_sender(ctx,kwargs):
+                if args.remind_action=='emit' or not authorized_sender(ctx,kwargs):
                     return 'OwnMachine: reminder controls require an explicitly allowed sender.'
                 from .reminders import execute as remind
                 import asyncio

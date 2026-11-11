@@ -153,7 +153,11 @@ def execute(args):
             return dict(report, stage='verified', next='Previously completed step reverified; nothing repeated.')
         if args.step == 'build':
             if args.app.exists() or args.app.is_symlink():
-                raise ValueError('Existing app is not owned by this execution checkpoint; will not replace it')
+                if not getattr(args,'use_existing_build',False):
+                    raise ValueError('Existing app requires explicit --use-existing-build verification; will not replace it')
+                verify_build(args.app)
+                write_state(path,dict(schema_version=1,identity=identity,stage='verified',adopted=True))
+                return dict(report,stage='verified',next='Existing signed build and pinned patches verified; no rebuild or replacement.')
             ancestor = args.build_dir
             while not ancestor.exists():
                 ancestor = ancestor.parent
@@ -190,6 +194,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plan-file', required=True, type=Path)
     parser.add_argument('--step', choices=['build', 'provision'], required=True)
+    parser.add_argument('--use-existing-build', action='store_true', help='Verify an existing signed app against pinned source/patches instead of replacing it')
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--events', action='store_true', help='Print sanitized NDJSON liveness events during execution')
     parser.add_argument('--ipsw', default='latest', help='macOS restore image accepted by the pinned provisioner')

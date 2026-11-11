@@ -58,7 +58,7 @@ class ReminderTests(unittest.TestCase):
 
     def test_stage_retry_never_resets_budget_but_verified_advance_does(self):
         self.consent('next-visit');r.nudge(self.ctx,None,lambda text:True)
-        self.ctx.state.set('setup_execution',dict(plan_digest=r.digest(self.ctx.settings['setup_plan']),source_sha256='',transport_digest=r.digest(dict(alias='',config='')),outcomes={'build':{'stage':'verified'}}))
+        self.ctx.state.set('setup_execution',dict(plan_digest=r.digest(r.canonical_plan(self.ctx)),source_sha256='',transport_digest=r.digest(dict(alias='',config='')),outcomes={'build':{'stage':'verified'}}))
         self.run_command('status');self.assertEqual(r.load(self.ctx)['count'],0)
         self.now+=86400;r.nudge(self.ctx,None,lambda text:True)
         self.run_command('status');self.assertEqual(r.load(self.ctx)['count'],1)
@@ -69,8 +69,9 @@ class ReminderTests(unittest.TestCase):
         self.assertEqual(self.ctx.state.get(r.KEY),{'format':99})
 
 
-    def test_scheduled_mode_explicitly_unavailable(self):
-        self.assertIn('Scheduled reminders are unavailable',self.run_command('later','--mode','tomorrow'))
+    def test_scheduled_mode_requires_live_gateway(self):
+        with patch('ownmachine.reminder_scheduler.jobs',side_effect=ValueError('unavailable')):
+            with self.assertRaises(ValueError):self.run_command('later','--mode','tomorrow')
         self.assertEqual(self.calls,[])
         self.assertFalse(r.load(self.ctx)['enabled'])
 
@@ -90,7 +91,7 @@ class ReminderTests(unittest.TestCase):
         r.nudge(self.ctx,None,lambda text:self.fail('unexpected delivery'))
         self.consent()
         from ownmachine.setup_acceptance import identity
-        self.ctx.state.set('setup_acceptance',dict(identity(self.ctx,self.ctx.settings['setup_plan']),stage='complete'))
+        self.ctx.state.set('setup_acceptance',dict(identity(self.ctx,r.canonical_plan(self.ctx)),stage='complete'))
         r.nudge(self.ctx,None,lambda text:self.fail('unexpected delivery'))
         self.assertFalse(r.load(self.ctx)['enabled'])
 
@@ -133,3 +134,16 @@ class ReminderTests(unittest.TestCase):
                 self.assertTrue(r.load(self.ctx)['enabled'])
                 self.assertEqual(r.load(self.ctx)['mode'],'next-visit')
         self.assertEqual(self.calls,[])
+
+    def test_public_visit_hooks_ignore_background_and_unapproved_senders(self):
+        import asyncio
+        hooks={};self.ctx.register_hook=lambda name,fn:hooks.__setitem__(name,fn)
+        r.register_hooks(self.ctx)
+        with patch.object(r,'nudge') as nudge:
+            hooks['on_session_open'](platform='cron',reason='create')
+            nudge.assert_not_called()
+            hooks['on_session_open'](platform='cli',reason='resume')
+            nudge.assert_called_once_with(self.ctx,None)
+        self.consent('next-visit')
+        self.ctx.post_message=lambda message:self.fail('unauthorized delivery')
+        self.assertIsNone(asyncio.run(hooks['post_gateway_admission'](platform='discord',source=dict(user_id='stranger',chat_id='chat'))))

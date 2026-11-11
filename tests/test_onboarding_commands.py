@@ -53,6 +53,17 @@ class OnboardingCommandsTests(unittest.TestCase):
         self.assertIn('hermes ownmachine doctor', ctx.slash('help'))
         self.assertIn('NEEDS INPUT', ctx.slash('setup'))
 
+    def test_next_and_later_are_read_only_and_explain_handoffs(self):
+        ctx=Context({'setup_plan':dict(o.DEFAULTS,target='remote')})
+        original=dict(ctx.settings)
+        result=o.setup(ctx,args('setup','--next'))
+        self.assertEqual(result['stage'],'pairing_required')
+        result=o.setup(ctx,args('setup','--later'))
+        self.assertIn('nothing was scheduled',result['next'])
+        self.assertEqual(ctx.settings,original)
+        self.assertEqual(ctx.state.values,{})
+        with self.assertRaises(o.InputError):o.setup(ctx,args('setup','--later','--apply'))
+
     def test_noninteractive_never_prompts_or_saves(self):
         ctx = Context(); o.register_commands(ctx)
         with patch('sys.stdin.isatty', return_value=False), patch('builtins.input', side_effect=AssertionError('prompt')):
