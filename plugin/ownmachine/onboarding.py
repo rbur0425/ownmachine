@@ -56,6 +56,10 @@ def add_arguments(parser):
     setup.add_argument('--json', action='store_true', dest='as_json')
     status = subs.add_parser('status', help='Show saved onboarding progress without contacting the Mac')
     status.add_argument('--json', action='store_true', dest='as_json')
+    remind = subs.add_parser('remind', help='Explicit opt-in onboarding reminders')
+    remind.add_argument('remind_action', choices=['status','later','off'])
+    remind.add_argument('--mode', choices=['tomorrow','next-visit'], default='tomorrow')
+    remind.add_argument('--confirm', help='Confirm the exact time/destination preview token')
     doctor = subs.add_parser('doctor', help='Read-only configured host, permissions and MCP checks')
     doctor.add_argument('--json', action='store_true', dest='as_json')
     subs.add_parser('help', help='Show setup entry points')
@@ -117,6 +121,11 @@ def setup(ctx, args):
             raise InputError('Save/review the plan separately before running a remote stage; do not combine plan edits with execution.')
         plan = {k: saved.get(k, DEFAULTS[k]) for k in FIELDS}
         validate_plan(plan)
+        if args.run == 'verify':
+            from .setup_acceptance import finish
+            return finish(ctx, plan, args.apply)
+        if args.run == 'retire':
+            raise InputError('Use verify --apply: retirement requires a fresh native screenshot and all runtime checks.')
         return dispatch(ctx, plan, args.run, args.apply)
     if getattr(args, 'apply', False):
         raise InputError('--apply requires --run.')
@@ -196,6 +205,9 @@ def render_setup(report):
 
 
 def execute(ctx, args):
+    if args.ownmachine_command == 'remind':
+        from .reminders import execute as remind
+        return remind(ctx,args), 0
     if args.ownmachine_command == 'setup':
         report = setup(ctx, args)
         if getattr(args, 'run', None):
@@ -210,6 +222,10 @@ def execute(ctx, args):
         from . import setup_transport
         if ctx.state.get(setup_transport.KEY, default=None) is not None:
             report['execution'] = setup_transport.summary(ctx, plan)
+        from .setup_acceptance import KEY as acceptance_key, matches
+        acceptance = ctx.state.get(acceptance_key, default=None)
+        if matches(ctx, plan, acceptance):
+            report['acceptance'] = acceptance
         text = 'OwnMachine onboarding: ' + report['stage'].replace('_', ' ').upper() + '\n' + report['next']
         if 'execution' in report:
             text += '\nRemote execution: ' + report['execution']['stage']
@@ -278,6 +294,13 @@ def register_commands(ctx):
                     print('Existing connection saved. Run hermes ownmachine doctor; start a new session after configuring the provider.')
             else:
                 print(text)
+            if args.ownmachine_command != 'remind':
+                from .reminders import nudge
+                def delivered(message):
+                    print(message,flush=True)
+                    return True
+                try: nudge(ctx,None,delivered)
+                except (ValueError,OSError,RuntimeError): pass
             return code
         except InputError as error:
             print('OwnMachine: ' + str(error), file=sys.stderr)
@@ -296,6 +319,16 @@ def register_commands(ctx):
             if '--help' in tokens or '-h' in tokens:
                 return 'Use /ownmachine help, or hermes ownmachine setup --help in a terminal.'
             args = parser.parse_args(tokens)
+            if args.ownmachine_command == 'remind':
+                if not authorized_sender(ctx,kwargs):
+                    return 'OwnMachine: reminder controls require an explicitly allowed sender.'
+                from .reminders import execute as remind
+                import asyncio
+                async def run_reminder():
+                    try: return await asyncio.to_thread(remind,ctx,args,kwargs)
+                    except (ValueError,OSError,RuntimeError):
+                        return 'OwnMachine: reminder operation could not be confirmed. Inspect remind status; no automatic retry or fallback was performed.'
+                return run_reminder()
             if args.ownmachine_command == 'setup' and getattr(args, 'run', None):
                 if not authorized_sender(ctx, kwargs):
                     return 'OwnMachine: remote setup requires an explicitly allowed sender; use the operator terminal or configure setup_allowed_senders.'
@@ -303,7 +336,12 @@ def register_commands(ctx):
             if args.ownmachine_command == 'setup' and (args.save or args.connect):
                 if not authorized_sender(ctx, kwargs):
                     return 'OwnMachine: configuration changes in chat require an explicitly allowed sender. Use the local terminal setup command, or configure setup_allowed_senders with verified platform, user_id and chat_id values. No settings were changed.'
-            return execute(ctx, args)[0]
+            text = execute(ctx, args)[0]
+            if authorized_sender(ctx,kwargs):
+                from .reminders import nudge
+                try: nudge(ctx,kwargs)
+                except (ValueError,OSError,RuntimeError): pass
+            return text
         except InputError as error:
             return 'OwnMachine: ' + str(error)
         except (ValueError, TypeError, OSError, RuntimeError):

@@ -10,7 +10,7 @@ import subprocess
 import time
 from .onboarding_state import digest
 
-STEPS = ('preflight', 'build', 'provision', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'verify')
+STEPS = ('preflight', 'build', 'provision', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'verify', 'retire')
 READ_ONLY = {'preflight', 'firewall', 'permissions', 'verify', 'progress'}
 KEY = 'setup_execution'
 EVENT = contextvars.ContextVar('ownmachine_setup_event', default=None)
@@ -93,7 +93,7 @@ def exchange(argv, request, timeout):
         if not process.stdin.closed: process.stdin.close()
 
 
-def dispatch(ctx, plan, step, apply=False):
+def dispatch(ctx, plan, step, apply=False, *, capture=None):
     if step not in (*STEPS, 'progress') or type(apply) is not bool:
         raise ValueError('invalid_setup_step')
     if step not in READ_ONLY and not apply:
@@ -102,6 +102,7 @@ def dispatch(ctx, plan, step, apply=False):
     nonce = secrets.token_hex(32)
     request = dict(format=1, nonce=nonce, source_sha256=source, plan_digest=digest(plan),
                    vm=plan['vm_name'], step=step, apply=apply)
+    if step == 'retire': request['capture'] = capture
     if EVENT.get() is not None: request['stream'] = True
     binding = {k: request[k] for k in ('format','nonce','source_sha256','plan_digest','vm','step')}
     pending = dict(binding, host_alias=alias, transport_digest=digest({'alias':alias,'config':ctx.get_config('setup_ssh_config','')}), stage='awaiting_remote_result', observed_at=int(time.time()))
@@ -147,3 +148,16 @@ def dispatch(ctx, plan, step, apply=False):
     except (OSError, ValueError, subprocess.SubprocessError):
         ctx.state.set(KEY, dict(pending, stage='needs_inspection'))
         raise ValueError('setup_outcome_uncertain_use_progress_do_not_replay') from None
+
+
+def prove_retired(ctx, plan):
+    alias, _, _ = settings(ctx, plan)
+    argv = ['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
+            '-o', 'IdentitiesOnly=yes', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
+            '-o', 'IdentityAgent=none', '-o', 'PreferredAuthentications=publickey',
+            '-o', 'ConnectTimeout=10', alias, 'ownmachine-setup-v1']
+    if ctx.get_config('setup_ssh_config', ''): argv[1:1] = ['-F',ctx.get_config('setup_ssh_config','')]
+    result = subprocess.run(argv, input=b'{}', capture_output=True, timeout=20,
+                            env=dict(os.environ, LC_ALL='C', LANG='C'))
+    if result.returncode != 255 or b'Permission denied (publickey' not in result.stderr:
+        raise ValueError('setup_key_revocation_not_proven')

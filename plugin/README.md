@@ -71,7 +71,11 @@ Use `/ownmachine status` or `hermes ownmachine status --json` to see the saved
 checkpoint without contacting the Mac. Plan or connection edits invalidate stale
 progress; corrupt/newer state is preserved and reported, not silently reset.
 A saved connection means awaiting verification, never completed onboarding.
-No background reminders or cron jobs are scheduled. Never put passwords,
+Reminders are disabled by default. Explicit `remind later --mode next-visit`
+previews a consent-bound nudge on a later matching OwnMachine command; confirm
+its token to enable it, or use `remind off`. Scheduled reminders remain unavailable
+until Hermes exposes the required standalone scheduler API. No cron job is created.
+Never put passwords,
 private keys or viewer tokens in it or in chat. Resource choices and storage
 budgets are configurable; remote capacity is not inferred from the local machine.
 

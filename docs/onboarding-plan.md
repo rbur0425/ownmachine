@@ -181,7 +181,7 @@ checkpoint write fails after saving choices, the choices remain available; statu
 reports absent/stale progress, and an explicit save retries the checkpoint. No
 provisioning or readiness success is inferred from that partial save.
 
-## Complete reminder design — planned, not implemented
+## Complete reminder design — target design; implementation status below
 
 Reminders are part of the onboarding roadmap. They must help an operator resume
 without creating messages or background work merely because a question went
@@ -320,7 +320,7 @@ This ledger is the current status; historical phase notes above describe earlier
 increments. Phase 1 is implemented. **Phase 2 is in progress**, not complete.
 PR #5 supplied Mac-side execution/checkpoint primitives, not the complete Phase 2
 or a completed Phase 3. Phase 3 welcome/polish and live end-to-end acceptance
-remain pending. No reminders or cron jobs are currently scheduled.
+remain pending. No reminders or cron jobs are enabled by installation. The verification increment below adds opt-in next-visit reminders; scheduled delivery remains blocked.
 
 | Requirement | Current increment | Remaining acceptance/work |
 | --- | --- | --- |
@@ -337,7 +337,7 @@ remain pending. No reminders or cron jobs are currently scheduled.
 | Mac progress linked to Hermes | Pending | Import only authenticated, nonce/plan/source/VM-bound sanitized receipts into profile-local state; reject replay, forged/newer schemas and mismatched identities; never trust copied JSON as completion evidence |
 | Progress during execution | Optional NDJSON start/liveness/finish events on both operator runners | Transport events into Hermes nonblocking progress; emit measured milestones where available; heartbeats are not fabricated percentages |
 | Custom guest storage | Relay status, MCP, lifecycle and VNC now propagate configured storage_dir; service installation writes matching host.json | Live non-default storage acceptance; keep old default behavior when field omitted |
-| Opt-in reminders | Still planned, not implemented; complete consent/scheduling design above remains required | Consent, dismissal, cancel/resume, cross-channel deduplication and delivery tests; no reminders inferred from silence |
+| Opt-in reminders | Next-visit consent, profile/destination binding, limits and opt-out implemented | Scheduled delivery and automatic session-open nudges need supported Hermes routing; no inferred consent |
 | Command manifest inventory | ownmachine listed as advisory commands metadata; current Hermes actually loads public ctx.register_command/register_cli_command registrations | Follow a supported manifest registration field if upstream introduces one; do not claim advisory YAML changes runtime behavior |
 | Guide link and wizard quickstart | Current development guide link replaces the fixed v0.6.0 link; wizard-based quickstart documents the actual handoffs | Release docs should link the matching reviewed version; do not execute mutable documentation links as code |
 | PR #4 post-review changes | Planning progress and exact setup_allowed_senders authorization are already merged | Retain tests and explicitly show changes in future review descriptions; these are not proof of execution completion |
@@ -412,3 +412,35 @@ See [transport and trust setup](setup-transport.md) for configuration and limits
 This increment supersedes the earlier manual-hardening and terminal-only entries;
 initial operator pairing/source transfer and cross-machine viewer installation
 remain explicit. See setup-transport.md for commands, limits and recovery.
+
+
+## Screenshot, retirement and reminder increment
+
+This status supersedes the earlier open items above.
+
+- [x] Fresh laptop guest Accessibility, Screen Recording and capture consent;
+  live permissions guide completed, no host desktop grant.
+- [x] Final verification captures and validates a PNG through OwnMachine's native
+  Hermes computer_use provider after status, role separation and viewer checks.
+  Only image digest/dimensions/time enter setup state; pixels never enter chat.
+- [x] `setup --run verify --apply` removes the exact temporary setup authorization,
+  checks SSH rejects it, and verifies the runtime identity still works. Completion
+  is bound to plan/source/transport. Lost acknowledgement requires inspection;
+  already-completed verification returns its receipt without replaying retirement.
+- [x] Opt-in next-visit reminders: preview/confirmation, exact sender/profile/chat
+  binding, persisted consent, maximum three accepted nudges per verified advance,
+  daily spacing, opt-out, completion suppression and interrupted-delivery guard.
+- [ ] Scheduled tomorrow reminders. Actual current-Hermes CLI testing returned
+  `Unknown tool: cronjob_manage` through public `ctx.dispatch_tool`. The standalone
+  delivery helper cannot safely recheck the live job with that API either. This
+  mode explicitly reports unavailable and creates no job. Request a supported
+  scheduler API usable from standalone plugin commands before enabling it.
+- [ ] Automatic “next time I open Hermes” nudges. The current session-start hook
+  lacks the verified sender/chat/thread identity needed for routing. The shipped
+  option means the next matching **OwnMachine command**, not opening Hermes.
+- [ ] Independently verified real-model desktop task remains separate acceptance;
+  a valid screenshot does not certify task completion.
+
+See [verification acceptance](verification-retirement-acceptance.md) and
+[reminder controls](onboarding-reminders.md). Real external reminder delivery and
+full cross-machine unattended orchestration are not claimed by this increment.
