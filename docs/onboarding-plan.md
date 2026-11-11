@@ -294,3 +294,20 @@ above. Validate the full path on both a local Mac and remote/Docker Hermes;
 measure user interactions and actual download/build time rather than promising
 an untested fixed installation duration. Completion requires verified desktop
 capture/input, saved-result readback and handoff, not merely a stored stage value.
+
+### Phase 2 increment: Mac-side execution runner
+
+Implemented in the setup-execution branch: reviewed full-source operator runner
+with explicit build/provision apply steps, private durable checkpoints, per-VM
+execution lock, plan/source identity checks, and postcondition verification.
+Successful steps reverify without repeating mutations; interrupted/failed work
+requires inspection. Provisioning passes the selected storage path explicitly and
+keeps VNC disabled. Wizard resource/display bounds now match the provisioner.
+See [execution instructions and boundaries](setup-execution.md).
+
+Still pending: authenticated receipt import into Hermes progress, remote bootstrap
+transport, integrated firewall/guest hardening/driver/keys/viewer execution,
+custom-storage propagation through the runtime relay, cancellation with descendant
+process tracking, actionable repair flow, live fresh-install acceptance, and the
+complete opt-in reminder design above. The existing three command entry points
+remain available; they do not claim these pending steps are automated.
