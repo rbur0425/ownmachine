@@ -394,8 +394,12 @@ See [transport and trust setup](setup-transport.md) for configuration and limits
 - [x] Supervised, sender-authorized chat calls through public Hermes APIs, with
   authenticated bounded SSH heartbeat frames and conversation-bound progress.
   Heartbeats are liveness observations, never completion or percentages.
-- [ ] Fresh laptop guest acceptance of the full new hardening/onboarding path;
-  preserve the existing guest until recreation is explicitly authorized.
+- [x] Fresh laptop provision, hardening and driver acceptance after explicit
+  guest-recreation approval: real Hermes CLI/slash handlers, pinned SSH, authenticated
+  heartbeat import and repeat verification without credential rotation.
+- [ ] Complete fresh-guest consent and full onboarding acceptance. The permissions
+  stage correctly stops at `needs_attention`; no TCC grants or screenshot were
+  claimed. See [recorded results](guided-hardening-acceptance.md).
 - [ ] Final computer_use screenshot and independently verified desktop task.
   Existing runtime status/role-denial/VNC checks remain only partial verification.
 - [ ] Retire temporary setup access after complete acceptance: remove only the
