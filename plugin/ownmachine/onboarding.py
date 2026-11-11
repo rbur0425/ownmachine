@@ -6,6 +6,7 @@ import platform
 import shlex
 import shutil
 import sys
+from . import onboarding_state
 from .config import Config
 from .diagnostics import diagnose, render as render_doctor
 
@@ -41,6 +42,8 @@ def add_arguments(parser):
     setup.add_argument('--connect', action='store_true', help='Save existing relay connection settings; does not start the VM')
     setup.add_argument('--replace', action='store_true', help='Allow replacement of different existing connection settings')
     setup.add_argument('--json', action='store_true', dest='as_json')
+    status = subs.add_parser('status', help='Show saved onboarding progress without contacting the Mac')
+    status.add_argument('--json', action='store_true', dest='as_json')
     doctor = subs.add_parser('doctor', help='Read-only configured host, permissions and MCP checks')
     doctor.add_argument('--json', action='store_true', dest='as_json')
     subs.add_parser('help', help='Show setup entry points')
@@ -114,6 +117,7 @@ def setup(ctx, args):
             'prerequisite': PREREQUISITE, 'next': 'Run setup --target local|remote|existing; use --help in the terminal for options. No passwords or private keys in chat.'}
     validate_plan(plan)
     checks = preflight(plan)
+    previous = onboarding_state.load(ctx) if args.save or args.connect else None
     if args.connect:
         if plan['target'] != 'existing' or not plan['host_alias'] or not plan['control_dir']:
             raise InputError('--connect requires target existing, a verified SSH alias and an absolute shared control directory.')
@@ -132,10 +136,12 @@ def setup(ctx, args):
                 ctx.set_config(key, old[key])
             raise
     if args.save or args.connect:
-        ctx.set_config('setup_plan', {**plan, 'schema_version': 1, 'stage': 'planned'})
+        ctx.set_config('setup_plan', {**plan, 'schema_version': 1})
+        onboarding_state.checkpoint(ctx, plan, checks, connected=args.connect, previous=previous)
     return {'ok': not any(c['status'] == 'fail' for c in checks), 'stage': 'planned',
             'saved': bool(args.save or args.connect), 'connection_saved': bool(args.connect),
             'plan': plan, 'checks': checks,
+            'progress': onboarding_state.summary(ctx, {k: ctx.get_config('setup_plan', {}).get(k, DEFAULTS[k]) for k in FIELDS}) if ctx.get_config('setup_plan', {}) else {'stage': 'not_started'},
             'steps': ['Check Mac capacity and build tools', 'Prepare dedicated account and restricted SSH keys',
                       'Install and verify firewall', 'Provision guest without Apple sign-in',
                       'Approve guest Accessibility, Screen Recording and capture consent',
@@ -154,6 +160,8 @@ def render_setup(report):
         lines.extend(f'{key}: {value or "not selected"}' for key, value in report['plan'].items())
     lines.extend(f'[{c["status"].upper()}] {c["check"]}: {c["detail"]}' for c in report.get('checks', []))
     lines.extend(f'{i}. {step}' for i, step in enumerate(report.get('steps', []), 1))
+    if 'progress' in report:
+        lines.append('Saved progress: ' + report['progress']['stage'])
     lines.append(report['prerequisite'])
     lines.append(report['next'])
     if 'guide' in report:
@@ -165,6 +173,16 @@ def execute(ctx, args):
     if args.ownmachine_command == 'setup':
         report = setup(ctx, args)
         return (json.dumps(report) if args.as_json else render_setup(report)), (0 if report['ok'] else 2)
+    if args.ownmachine_command == 'status':
+        saved = ctx.get_config('setup_plan', {})
+        if not isinstance(saved, dict):
+            raise InputError('Saved plan is invalid; review plugin settings before continuing.')
+        plan = {k: saved.get(k, DEFAULTS[k]) for k in FIELDS} if saved else {}
+        report = onboarding_state.summary(ctx, plan)
+        text = 'OwnMachine onboarding: ' + report['stage'].replace('_', ' ').upper() + '\n' + report['next']
+        if report.get('blocked_checks'):
+            text += '\nBlocked checks: ' + ', '.join(report['blocked_checks'])
+        return (json.dumps(report) if args.as_json else text), 0
     if args.ownmachine_command == 'doctor':
         report = diagnose(configuration(ctx))
         return (json.dumps(report) if args.as_json else render_doctor(report)), (0 if report['ok'] else 1)
@@ -199,6 +217,21 @@ def interactive(ctx, args):
     return True
 
 
+def authorized_sender(ctx, context):
+    """Transport identity is not authorization; command text never supplies identity."""
+    source = context.get('source')
+    platform_name = context.get('platform')
+    user = getattr(source, 'user_id', None)
+    chat = getattr(source, 'chat_id', None)
+    if not all(isinstance(v, str) and v for v in (platform_name, user, chat)):
+        return False
+    allowed = ctx.get_config('setup_allowed_senders', [])
+    return isinstance(allowed, list) and any(
+        isinstance(entry, dict) and entry.get('platform') == platform_name
+        and entry.get('user_id') == user and entry.get('chat_id') == chat
+        for entry in allowed)
+
+
 def register_commands(ctx):
     def cli(args):
         try:
@@ -214,8 +247,8 @@ def register_commands(ctx):
         except InputError as error:
             print('OwnMachine: ' + str(error), file=sys.stderr)
             return 2
-        except (ValueError, TypeError, OSError, EOFError):
-            print('OwnMachine: setup could not complete. Check non-secret settings and directory permissions; no provisioning was performed.', file=sys.stderr)
+        except (ValueError, TypeError, OSError, RuntimeError, EOFError):
+            print('OwnMachine: setup could not complete. Check non-secret settings, saved state and directory permissions; existing state is preserved and no provisioning was performed.', file=sys.stderr)
             return 2
     def slash(raw_args='', **kwargs):
         parser = Parser(prog='/ownmachine', add_help=False)
@@ -225,11 +258,14 @@ def register_commands(ctx):
             if '--help' in tokens or '-h' in tokens:
                 return 'Use /ownmachine help, or hermes ownmachine setup --help in a terminal.'
             args = parser.parse_args(tokens)
+            if args.ownmachine_command == 'setup' and (args.save or args.connect):
+                if not authorized_sender(ctx, kwargs):
+                    return 'OwnMachine: configuration changes in chat require an explicitly allowed sender. Use the local terminal setup command, or configure setup_allowed_senders with verified platform, user_id and chat_id values. No settings were changed.'
             return execute(ctx, args)[0]
         except InputError as error:
             return 'OwnMachine: ' + str(error)
-        except (ValueError, TypeError, OSError):
-            return 'OwnMachine: invalid or unavailable setup settings. Use /ownmachine help. No provisioning was performed.'
+        except (ValueError, TypeError, OSError, RuntimeError):
+            return 'OwnMachine: invalid or unavailable setup settings/state. Existing state is preserved. Use /ownmachine help. No provisioning was performed.'
         except SystemExit:
             return 'Use /ownmachine help, or hermes ownmachine setup --help in a terminal.'
     if hasattr(ctx, 'register_cli_command'):
@@ -237,4 +273,4 @@ def register_commands(ctx):
                                  setup_fn=add_arguments, handler_fn=cli)
     if hasattr(ctx, 'register_command'):
         ctx.register_command('ownmachine', handler=slash,
-                             description='Plan desktop setup or run read-only diagnostics', args_hint='setup | doctor | help')
+                             description='Plan desktop setup or run read-only diagnostics', args_hint='setup | status | doctor | help')

@@ -10,9 +10,16 @@ sys.path.insert(0, str(Path(__file__).parents[1] / 'plugin'))
 from ownmachine import onboarding as o
 
 
+class MemoryState:
+    def __init__(self): self.values = {}
+    def get(self, key, default=None): return deepcopy(self.values.get(key, default))
+    def set(self, key, value): self.values[key] = deepcopy(value)
+
+
 class Context:
     def __init__(self, settings=None):
         self.settings = deepcopy(settings or {})
+        self.state = MemoryState()
         self.cli = None
         self.slash = None
     def get_config(self, key, default=None):
@@ -173,6 +180,15 @@ class HermesOnboardingTests(unittest.TestCase):
             saved = cli('setup', '--target', 'remote', '--memory-gb', '12', '--save', '--json')
             self.assertEqual(saved.returncode, 0, saved.stderr)
             self.assertTrue(json.loads(saved.stdout)['saved'])
+            progress = json.loads(cli('status', '--json').stdout)
+            self.assertEqual(progress['stage'], 'await_host_setup')
+            state_files = list((home/'plugin-data').rglob('state.json'))
+            owned = [p for p in state_files if 'onboarding' in json.loads(p.read_text())]
+            self.assertEqual(len(owned), 1)
+            self.assertEqual(owned[0].stat().st_mode & 0o777, 0o600)
+            state_bytes = owned[0].read_bytes()
+            self.assertEqual(json.loads(cli('status', '--json').stdout)['created_at'], progress['created_at'])
+            self.assertEqual(owned[0].read_bytes(), state_bytes)
             resumed = cli('setup', '--json')
             self.assertEqual(json.loads(resumed.stdout)['plan']['memory_gb'], 12)
             before = (home/'config.yaml').read_bytes()
@@ -199,3 +215,88 @@ class HermesOnboardingTests(unittest.TestCase):
             result = subprocess.run([sys.executable, '-c', code], env=env,
                                     capture_output=True, text=True, timeout=120)
             self.assertEqual(result.returncode, 0, result.stderr)
+
+class OnboardingProgressTests(unittest.TestCase):
+    def test_checkpoint_survives_new_context_and_status_does_not_probe(self):
+        ctx = Context()
+        o.setup(ctx, args('setup', '--target', 'remote', '--save'))
+        second = Context(ctx.settings); second.state = ctx.state
+        with patch.object(o, 'preflight', side_effect=AssertionError('probe')), patch.object(o, 'diagnose', side_effect=AssertionError('network')):
+            text, code = o.execute(second, args('status', '--json'))
+        import json
+        report = json.loads(text)
+        self.assertEqual(report['stage'], 'await_host_setup')
+        self.assertEqual(report['last_completed'], 'plan_saved')
+        self.assertLessEqual(report['created_at'], report['updated_at'])
+        self.assertEqual(code, 0)
+        self.assertNotIn('plan', report)
+
+    def test_changed_plan_invalidates_checkpoint(self):
+        ctx = Context()
+        o.setup(ctx, args('setup', '--target', 'remote', '--save'))
+        ctx.settings['setup_plan']['memory_gb'] = 16
+        self.assertIn('plan_changed', o.execute(ctx, args('status', '--json'))[0])
+        o.setup(ctx, args('setup', '--save'))
+        self.assertIn('await_host_setup', o.execute(ctx, args('status', '--json'))[0])
+
+    def test_connect_is_not_complete_and_runtime_edits_invalidate(self):
+        ctx = Context()
+        o.setup(ctx, args('setup', '--target', 'existing', '--host-alias', 'example', '--control-dir', '/example', '--connect'))
+        o.setup(ctx, args('setup', '--save'))
+        self.assertIn('await_verification', o.execute(ctx, args('status', '--json'))[0])
+        self.assertEqual(ctx.state.get('onboarding')['last_completed'], 'connection_saved')
+        ctx.settings['host_alias'] = 'changed'
+        self.assertIn('connection_changed', o.execute(ctx, args('status', '--json'))[0])
+        o.setup(ctx, args('setup', '--save'))
+        self.assertEqual(ctx.state.get('onboarding')['last_completed'], 'plan_saved')
+
+    def test_failed_preflight_records_only_safe_check_codes(self):
+        ctx = Context()
+        with patch.object(o.platform, 'system', return_value='Linux'):
+            o.setup(ctx, args('setup', '--target', 'local', '--save'))
+        record = ctx.state.get('onboarding')
+        self.assertEqual(record['stage'], 'preflight_blocked')
+        self.assertEqual(record['blocked_checks'], ['local_mac'])
+        self.assertNotIn('storage_dir', record)
+
+    def test_corrupt_or_future_state_is_preserved_before_settings_write(self):
+        for bad in [{'schema_version': 99}, 'invalid']:
+            ctx = Context(); ctx.state.set('onboarding', bad)
+            with self.assertRaises(ValueError):
+                o.setup(ctx, args('setup', '--target', 'remote', '--save'))
+            self.assertEqual(ctx.state.get('onboarding'), bad)
+            self.assertEqual(ctx.settings, {})
+
+    def test_old_saved_plan_is_read_without_marking_execution_complete(self):
+        ctx = Context({'setup_plan': {**o.DEFAULTS, 'target': 'remote', 'stage': 'planned'}})
+        report, _ = o.execute(ctx, args('status', '--json'))
+        self.assertIn('plan_saved_without_checkpoint', report)
+        self.assertEqual(ctx.state.values, {})
+
+    def test_chat_mutations_require_exact_transport_identity(self):
+        from types import SimpleNamespace
+        ctx = Context({'setup_allowed_senders': [{'platform': 'telegram', 'user_id': '123', 'chat_id': '456'}]})
+        o.register_commands(ctx)
+        original = deepcopy(ctx.settings)
+        command = 'setup --target remote --save'
+        for identity in [{}, {'platform': 'telegram', 'source': None},
+                         {'platform': 'telegram', 'source': SimpleNamespace(user_id='123', chat_id='other')},
+                         {'platform': 'discord', 'source': SimpleNamespace(user_id='123', chat_id='456')}]:
+            self.assertIn('explicitly allowed sender', ctx.slash(command, **identity))
+            self.assertEqual(ctx.settings, original)
+            self.assertEqual(ctx.state.values, {})
+        result = ctx.slash(command, platform='telegram', source=SimpleNamespace(user_id='123', chat_id='456'))
+        self.assertIn('PLANNED', result)
+        self.assertEqual(ctx.state.get('onboarding')['stage'], 'await_host_setup')
+
+
+    def test_checkpoint_write_failure_can_resume_without_false_progress(self):
+        ctx = Context()
+        with patch.object(ctx.state, 'set', side_effect=OSError('write failed')):
+            with self.assertRaises(OSError):
+                o.setup(ctx, args('setup', '--target', 'remote', '--save'))
+        self.assertEqual(ctx.settings['setup_plan']['target'], 'remote')
+        self.assertEqual(ctx.state.values, {})
+        self.assertIn('plan_saved_without_checkpoint', o.execute(ctx, args('status', '--json'))[0])
+        o.setup(ctx, args('setup', '--save'))
+        self.assertEqual(ctx.state.get('onboarding')['stage'], 'await_host_setup')

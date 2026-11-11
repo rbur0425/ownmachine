@@ -63,7 +63,7 @@ non-secret plans, configurable resource choices, local preflight, existing-relay
 connection configuration and the existing doctor engine. Refuse unintended
 replacement of configured connections. Registration and preview are read-only.
 
-The first implementation saves planning choices, not execution checkpoints.
+The first implementation saves planning choices and a separate durable planning/connection checkpoint, not provisioning execution checkpoints.
 Fresh-install execution is explicitly pending. Selecting a native provider,
 in-process loading and the hardened dedicated runtime profile remain in the
 operator guide. Do not silently change unrelated Hermes settings.
@@ -119,3 +119,61 @@ exact checks run.
 - [Catalog admission and onboarding tier restrictions](https://github.com/NousResearch/hermes-agent/blob/3bcd071226d3d605a2bb3b4f3933e7d583e189d6/plugin-catalog/README.md)
 - [Lume unattended setup](https://github.com/trycua/cua/blob/main/libs/lume/README.md)
 - [Apple guest permission flow reference](https://support.apple.com/guide/mac-help/control-access-screen-system-audio-recording-mchld6aa7d23/mac)
+
+## Review of the tentative plan — additions to Phase 1
+
+Adopted now:
+
+- Keep operator choices in `setup_plan` and runtime progress in Hermes `ctx.state`,
+  not a second ad-hoc file writer. Hermes provides profile scoping, locking,
+  atomic replacement and a 0600 state file. Store schema version, timestamps,
+  plan digest, last completed planning action and bounded blocked-check codes.
+- Add `/ownmachine status` and `hermes ownmachine status [--json]` for saved
+  progress without SSH/VM probes. Saving a connection is `await_verification`,
+  not `complete`; readiness remains evidence-based through doctor.
+- Invalidate progress when chosen settings or the configured connection change.
+  Preserve malformed/future state and report an error; do not erase it to resume.
+- Require explicit stable platform/user/chat identity grants before chat setup
+  can change configuration. Missing source identity fails closed. The local CLI
+  is the operator fallback; model tools remain read-only status only.
+
+Adopt in later phases:
+
+- Probe → act → verify for each provisioning stage; typed JSON progress from
+  host scripts, no parsing prose. Add execution locks and durable verified
+  checkpoints only when those stages exist. Never replay an uncertain write.
+- A single quickstart transcript, prefilled non-secret choices and concise remedies.
+- Optional reminders only after an explicit request, with a clear delivery target,
+  bounded count, quiet/off controls and cancellation after completion. Silence or
+  an unanswered prompt is not consent to create a cron job. No reminder jobs or
+  hooks are included in this PR.
+
+Corrections to assumptions in the tentative plan:
+
+- The restricted agent SSH key only supports status/MCP; viewer keys support a
+  different fixed allowlist. Neither is a general SCP/shell provisioning key.
+  Bootstrap must use a distinct, explicitly authorized operator path that is
+  retired afterward. Do not broaden runtime keys to make setup convenient.
+- Verify host fingerprints using the Mac's host public key through an independent
+  trusted channel; `ssh-keyscan` alone does not establish identity. Never switch
+  to `accept-new` merely to bypass a mismatch.
+- Hermes's native doctor already dispatches to OwnMachine's provider; it is not
+  exclusively a CuaDriver-only command. Our doctor entry point reuses our existing
+  diagnostics without requiring the provider to be selected first.
+- Hermes has public message APIs, but hook/session routing and recipient authority
+  still need verification. Do not assume a hook return automatically posts a nudge.
+- Public APIs alone do not make every registration surface work in host isolation:
+  the tested CLI/native-provider limitation remains documented.
+- macOS is the tested guest target. Linux/cloud-init and cloud Mac support are
+  separate future work, not silently added by adopting this plan.
+- Existing resources should be verified and reused when compatible, not overwritten
+  or unconditionally rejected. Repair actions such as key rotation need separate
+  explicit approval; running setup again must never silently perform them.
+- Only declare actual supported manifest fields/capabilities. New setup/bootstrap
+  authority needs its own review; prior acceptance of runtime OpenSSH is not a
+  blanket approval of arbitrary remote execution.
+
+Planning state is not a cross-file transaction with Hermes configuration. If a
+checkpoint write fails after saving choices, the choices remain available; status
+reports absent/stale progress, and an explicit save retries the checkpoint. No
+provisioning or readiness success is inferred from that partial save.

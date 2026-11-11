@@ -38,7 +38,13 @@ hermes ownmachine setup --target existing --host-alias example-mac \
   --control-dir /absolute/shared/control --connect
 ```
 
-The same options work after `/ownmachine setup` in chat. `--connect` saves the
+Read-only previews work after `/ownmachine setup` in chat. Saving or connecting
+from chat requires an exact `setup_allowed_senders` grant containing `platform`,
+`user_id` and `chat_id`, matched against Hermes-provided sender identity. Missing
+identity is refused, including local chat surfaces that do not supply it. Configure
+grants locally in plugin settings using verified stable IDs, never display names
+or values supplied in the command. The local terminal wizard remains available
+without a chat grant. `--connect` saves the
 connection in the active profile; it requires `--replace` if different connection
 settings already exist. It does not select the native provider or change Hermes
 isolation/toolsets: follow the dedicated-profile setup below and start a new
@@ -48,7 +54,13 @@ session after configuration changes. `hermes ownmachine doctor --json` and
 This first onboarding phase provides planning, resume, connection configuration
 and diagnosis. **Fresh account/VM/firewall/viewer installation remains a guided
 operator workflow**, not an action performed by these commands. Setup stores
-non-secret choices in the active profile's `setup_plan`; never put passwords,
+non-secret choices in the active profile's `setup_plan`. Progress is stored
+separately through Hermes's profile-scoped atomic `ctx.state` API (0600 state file).
+Use `/ownmachine status` or `hermes ownmachine status --json` to see the saved
+checkpoint without contacting the Mac. Plan or connection edits invalidate stale
+progress; corrupt/newer state is preserved and reported, not silently reset.
+A saved connection means awaiting verification, never completed onboarding.
+No background reminders or cron jobs are scheduled. Never put passwords,
 private keys or viewer tokens in it or in chat. Resource choices and storage
 budgets are configurable; remote capacity is not inferred from the local machine.
 

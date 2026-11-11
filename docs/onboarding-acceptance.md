@@ -73,3 +73,25 @@ doctor, existing-relay connection configuration and installed-package validation
 Example-only connection settings were used; no real SSH keys were supplied. The
 control directory was not created. This test proves command installation and
 configuration behavior, not a new live guest deployment.
+
+## Tentative-plan review additions
+
+Added profile-scoped durable progress using public `ctx.state`, separate from
+user-editable configuration. Real-Hermes tests verify the state file is 0600,
+status preserves its bytes and timestamps across new processes, and setup resumes
+the saved plan. Plan/connection changes invalidate old progress. Corrupt or future
+state is preserved; failed checkpoint writes can be retried without claiming that
+provisioning completed. Existing plan-only settings remain readable.
+
+Added a no-network `status` command in chat and CLI. State distinguishes waiting
+for host setup, waiting for verification and blocked preflight. It never marks
+onboarding complete. Doctor remains read-only and does not create success records.
+
+Chat mutation tests verify missing identity, wrong platform and wrong chat are
+rejected before any config/state write. Only exact operator-configured platform,
+user and chat IDs permit save/connect. Local CLI setup remains available without
+transport identity. No owner IDs are hardcoded and no new model-facing write tool
+is registered. Preview/status/doctor behavior is unchanged by this mutation gate.
+
+No reminder, cron job, remote bootstrap privilege or new guest OS was added. The
+plan documents explicit reminder opt-in and the separate setup-authorization path.
