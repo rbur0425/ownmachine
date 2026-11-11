@@ -5,7 +5,10 @@
 OwnMachine runtime/plugin source is unchanged from v0.6.0
 (`8431db09c3abd251ba1f2d18a2f09d127816a119`). This preparation adds documentation
 and real viewer screenshots; the draft catalog entry identifies the exact
-content commit to review. Nothing was submitted to Hermes.
+content commit to review:
+`5966a19820aae0b5bb574b26d065cc0ebb9b1365`. The subsequent preparation commit
+adds the YAML and this final validation record; it does not change the pinned
+plugin, screenshots or runtime. Nothing was submitted to Hermes.
 
 Hermes upstream `main` was resolved and checked out at
 `3bcd071226d3d605a2bb3b4f3933e7d583e189d6`. Its Git description was
@@ -33,11 +36,22 @@ configuration were supplied to the validator or offline tests.
 | Runtime overrides of Hermes core | None detected |
 | Local `python3 -m unittest discover -s tests -v` | 229 run; 207 passed, 22 expected Hermes-only skips |
 | Current-Hermes `python scripts/check-tests.py --require-hermes` on macOS | 229 passed; no skips, failures or errors |
+| Upstream catalog schema validator | One draft entry valid |
+| Upstream `scripts/ci/catalog_validate_pinned_entries.py` | Passed against a fresh public clone at the exact draft SHA |
+| Pinned source confinement, executable-payload and self-updater gates | Passed |
+| Pinned screenshot URLs | Both downloaded publicly and matched reviewed local bytes |
+| Pinned root/package licenses | Byte-identical PolyForm Noncommercial 1.0.0 |
+| Node viewer pointer regression | Passed |
 
 The validator reports the default plugin-host isolation setting. The documented
 native computer-use deployment requires in-process loading; the current-Hermes
 suite separately exercises native provider discovery with that configuration.
 A capability-probe pass alone is not proof of live VM control.
+
+The pinned-source script ran locally without modification, using the same Hermes
+revision and a restricted environment with no SSH agent or GitHub/model tokens.
+On macOS its GNU `timeout` dependency was supplied through the tool PATH. Its
+fresh-clone result does not substitute for the future upstream Linux CI run.
 
 ## Policy and acceptance limits
 
