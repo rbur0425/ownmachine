@@ -9,9 +9,19 @@ mouse/keyboard input, and return control. Your personal host desktop is not the
 computer-use target.
 
 This is a preview, not an approved Hermes catalog listing. It requires Hermes
-0.23.1 or later (tested on 0.23.1), OpenSSH, and a compatible Apple Silicon Mac
+0.23.1 or later (release testing on 0.23.1; current-upstream validation
+is recorded in the catalog readiness report), OpenSSH, and a compatible Apple Silicon Mac
 running the Lume guest. Hermes may run on another machine; a Linux Docker runtime
 has been tested. Cloud Mac hosting has not been acceptance-tested.
+
+## Browser viewer and handoff
+
+Actual browser captures from the dedicated acceptance guest, using demonstration
+text. The viewer is a separate operator service, not a Hermes Desktop extension.
+
+![Human reservation enables guest mouse and keyboard input](../docs/media/catalog/human-control.png)
+
+![Returning control leaves the human viewer read-only](../docs/media/catalog/agent-control.png)
 
 ## Install and configure
 
@@ -69,7 +79,10 @@ reverse SSH tunnel. OpenSSH uses the runtime account's SSH configuration, verifi
 known-hosts file and restricted key or SSH agent; OwnMachine does not parse private
 keys or read Hermes/vendor credential stores. This operator-managed authentication
 must be reviewed against the catalog credential policy; no policy exception is
-claimed. The subprocess receives only PATH, HOME, SSH_AUTH_SOCK and LANG from its
+claimed. Passing the automated scanner does not settle this policy question.
+No secret is declared in `requires_env` or `config_schema`; if future functionality
+needs one, it must use the applicable Hermes secret-scope or credentialed-request
+API, not direct environment or credential-file reads. The subprocess receives only PATH, HOME, SSH_AUTH_SOCK and LANG from its
 environment.
 
 **State and access outside this package:** the plugin reads/writes its configured
@@ -104,11 +117,23 @@ catalog-installed subdirectory.
 Read the [security model](https://github.com/rbur0425/ownmachine/blob/v0.6.0/SECURITY.md)
 and [recovery guide](https://github.com/rbur0425/ownmachine/blob/v0.6.0/docs/recovery.md).
 
+## Password-manager policy
+
+OwnMachine does not register `browser_vault`, `ctx.register_login_backend`, an
+OAuth client, or a password-manager integration. It requests the `community` tier,
+not `verified` or `official`. Guest/VNC provisioning passwords belong to the
+separate operator setup; they are not a browser login backend. This distinction
+does not establish an exemption for OpenSSH authentication under the credential
+rule. Both SSH eligibility and license eligibility remain unresolved.
+
 ## Tested behavior and preview limits
 
 Clean guest setup, a real-model Accessibility document task with independent
 verification, live browser input/handoff, persistence and operator-assisted host
-reboot recovery have been tested. Screenshot/pixel-click model acceptance is
+reboot recovery have been tested in the scopes recorded below. The new security
+account/firewall arrangement has not had physical-host reboot acceptance or an
+independent application-firewall-only random-port check. An initial guest hang
+required a power-off; later normal lifecycle checks passed. Screenshot/pixel-click model acceptance is
 deferred after a capture-expiry failure. There is no claim of reliable control
 across every app or model. Guest backup/restore, unattended host unlock/startup,
 cloud Mac acceptance and native-viewer password-dialog paste remain outside the
