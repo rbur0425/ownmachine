@@ -81,14 +81,20 @@ def diagnose(config, permission_mode="standard"):
         add('guest','fail','guest_not_ready','Check guest GUI login, the relay guest SSH configuration, verified guest key, and guest readiness helper. Guest addresses are resolved dynamically.')
         return result()
     add('guest','pass','guest_reachable')
-    for key, label in [('accessibility','Accessibility'),('screen_recording','Screen Recording')]:
+    linux = remote.get('guest_os') == 'linux'
+    for key, label in ([] if linux else [('accessibility','Accessibility'),('screen_recording','Screen Recording')]):
         add(key,'pass' if remote.get(key) else 'fail',key+'_granted' if remote.get(key) else key+'_required',
             '' if remote.get(key) else 'Open the guided permission setup inside the guest and approve '+label+'. Follow any restart prompt, then rerun doctor.')
-    add('capture_consent','pass' if remote.get('capture_consent_verified') else 'fail',
-        'capture_consent_recorded' if remote.get('capture_consent_verified') else 'capture_consent_required',
-        '' if remote.get('capture_consent_verified') else 'Complete the guided capture check in the guest and approve the macOS capture prompt. Doctor does not trigger or approve it.')
+    if linux:
+        for key in ('graphical_session', 'accessibility_bus', 'standard_mode'):
+            add(key, 'pass' if remote.get(key) else 'fail', key + ('_ready' if remote.get(key) else '_required'),
+                '' if remote.get(key) else 'Log into the Linux guest graphical session and inspect the OwnMachine user service. Do not enable linger or bypass the driver authorization mode.')
+    else:
+        add('capture_consent','pass' if remote.get('capture_consent_verified') else 'fail',
+            'capture_consent_recorded' if remote.get('capture_consent_verified') else 'capture_consent_required',
+            '' if remote.get('capture_consent_verified') else 'Complete the guided capture check in the guest and approve the macOS capture prompt. Doctor does not trigger or approve it.')
     if not remote.get('driver_ready'):
-        add('driver','fail','driver_not_ready','Finish guest permission setup and start the signed CuaDriver app in the logged-in desktop session. Check the pinned driver version and login launcher.')
+        add('driver','fail','driver_not_ready','Check the pinned guest driver and graphical-session launcher. On macOS, finish the signed app permission guide; on Linux, inspect the OwnMachine user service.')
         return result()
     add('driver','pass','driver_ready')
     transport=MCPTransport(config)

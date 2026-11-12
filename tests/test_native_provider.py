@@ -263,3 +263,13 @@ class NativeProviderTests(unittest.TestCase):
   code += "; import json; from pathlib import Path; from model_tools import _select_tool_names; from toolsets import resolve_toolset; cfg=json.loads(Path(__import__('os').environ['HERMES_HOME']).joinpath('config.yaml').read_text()); disabled=cfg['agent']['disabled_toolsets']; selected=_select_tool_names(['terminal','file','code_execution','computer_use'],disabled,True); assert not (set(resolve_toolset('terminal')+resolve_toolset('file')+resolve_toolset('code_execution')) & selected); assert resolve_toolset('computer_use') and set(resolve_toolset('computer_use')) <= selected"
   result=subprocess.run([sys.executable,'-c',code],env={**os.environ,'HERMES_HOME':str(home)},capture_output=True,text=True,timeout=30)
   self.assertEqual(result.returncode,0,result.stderr)
+
+ def test_omarchy_defaults_foreground_and_refuses_background(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='omarchy')
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  self.b.type_text('foreground test')
+  self.assertEqual(self.fake.calls[-1][1]['delivery_mode'],'foreground')
+  count=len(self.fake.calls)
+  self.assertEqual(self.b.type_text('blocked',delivery_mode='background').code,'linux_background_input_not_certified')
+  self.assertEqual(len(self.fake.calls),count)

@@ -26,10 +26,14 @@ def status(config):
         state = state if isinstance(state, str) and state in states else 'not_probed'
         flags = {key: data.get(key) is True for key in
                  ('guest_reachable', 'accessibility', 'screen_recording', 'capture_consent_verified')}
-        ready = (state == 'ready' and data.get('vm_state') == 'running' and all(flags.values())
+        linux = data.get('guest_os') == 'linux' and data.get('guest_profile') == 'omarchy'
+        linux_flags = {key: data.get(key) is True for key in
+                       ('graphical_session', 'accessibility_bus', 'driver_running', 'standard_mode')} if linux else {}
+        readiness = all(linux_flags.values()) and flags['guest_reachable'] if linux else all(flags.values())
+        ready = (state == 'ready' and data.get('vm_state') == 'running' and readiness
                  and data.get('driver_ready') is True)
         if state == 'ready' and not ready: state = 'invalid_response'
-        return {**flags, 'host_reachable': True,
+        return {**flags, **linux_flags, **({'guest_os': 'linux', 'guest_profile': 'omarchy'} if linux else {}), 'host_reachable': True,
                 'lume_installed': data.get('lume_installed') is True,
                 'vm_state': data.get('vm_state') if data.get('vm_state') in
                     {'not_probed', 'lume_not_installed', 'running', 'stopped', 'provisioning', 'absent', 'unknown'} else 'unknown',

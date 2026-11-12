@@ -22,11 +22,27 @@ import re
 import subprocess
 
 
+CONFIG_PATH = None
+
+
+def read_settings():
+    path = CONFIG_PATH or Path.home() / '.config/ownmachine/host.json'
+    return json.loads(path.read_text()) if path.exists() else {}
+
+
+def runtime_state():
+    base = Path.home()/'.local/state/ownmachine'
+    if CONFIG_PATH is None:
+        return base
+    import hashlib
+    return base/'relays'/hashlib.sha256(str(CONFIG_PATH).encode()).hexdigest()
+
+
 def configuration():
-    path = Path.home() / '.config/ownmachine/host.json'
-    data = json.loads(path.read_text()) if path.exists() else {}
-    if not isinstance(data, dict) or set(data) - {'vm_name', 'lume_path', 'guest_ssh_alias', 'enable_mcp', 'enable_lifecycle', 'display_mode', 'enable_vnc', 'vnc_port', 'storage_dir'}:
+    data = read_settings()
+    if not isinstance(data, dict) or set(data) - {'vm_name', 'lume_path', 'guest_ssh_alias', 'enable_mcp', 'enable_lifecycle', 'display_mode', 'enable_vnc', 'vnc_port', 'storage_dir', 'guest_os', 'guest_profile'}:
         raise ValueError('invalid_host_configuration')
+    guest_profile(data)
     storage_arguments(data)
     name = data.get('vm_name', 'ownmachine')
     if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]{0,63}', name):
@@ -48,6 +64,13 @@ def configuration():
         raise ValueError('fixed_vnc_port_required')
     return name, binary, guest
 
+
+def guest_profile(settings):
+    system = settings.get('guest_os', 'macos')
+    profile = settings.get('guest_profile', 'macos' if system == 'macos' else 'omarchy')
+    if (system, profile) not in {('macos', 'macos'), ('linux', 'omarchy')}:
+        raise ValueError('unsupported_guest_profile')
+    return system, profile
 
 
 def storage_arguments(settings):
@@ -131,7 +154,7 @@ def vnc_password(state):
     return password
 
 
-def guest_status(alias, address):
+def guest_status(alias, address, guest_os='macos'):
     result = {'guest_reachable': False, 'driver_ready': False,
               'driver_state': 'guest_unreachable', 'accessibility': False,
               'screen_recording': False, 'capture_consent_verified': False}
@@ -142,11 +165,15 @@ def guest_status(alias, address):
             return result
         # The VM address comes only from Lume's selected guest. The alias supplies
         # operator-owned identity and HostKeyAlias, never model-controlled options.
+        if guest_os not in {'macos', 'linux'}:
+            return result
+        command = ('exec /usr/bin/python3 "$HOME/.local/lib/ownmachine/linux-guest.py" status'
+                   if guest_os == 'linux' else 'exec "$HOME/.local/bin/cua-driver" permissions status --json')
         argv = ['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
                 '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
                 '-o', 'ConnectTimeout=5', '-o', 'ServerAliveInterval=2',
                 '-o', 'ServerAliveCountMax=2', '-o', 'HostName=' + str(ip), alias,
-                'exec "$HOME/.local/bin/cua-driver" permissions status --json']
+                command]
         probe = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True,
                                text=True, timeout=8, check=False)
         if probe.returncode != 0:
@@ -157,6 +184,17 @@ def guest_status(alias, address):
             return result
         data = json.loads(probe.stdout)
         if not isinstance(data, dict): return result
+        if guest_os == 'linux':
+            fields = ('graphical_session', 'accessibility_bus', 'driver_running', 'standard_mode', 'driver_ready')
+            if (data.get('schema_version') != 1 or data.get('guest_os') != 'linux'
+                    or data.get('guest_profile') != 'omarchy'
+                    or any(type(data.get(k)) is not bool for k in fields)):
+                return result
+            ready = all(data[k] for k in fields)
+            result.update(guest_os='linux', guest_profile='omarchy',
+                          **{k: data[k] for k in fields if k != 'driver_ready'},
+                          driver_ready=ready, driver_state='ready' if ready else 'not_running')
+            return result
         source = data.get('source')
         if not isinstance(source, dict) or source.get('bundle_id') != 'com.trycua.driver':
             return result
@@ -186,7 +224,7 @@ def guest_status(alias, address):
     return result
 
 
-def status(name='ownmachine', binary=None, guest_alias=None, storage_dir=None):
+def status(name='ownmachine', binary=None, guest_alias=None, storage_dir=None, guest_os='macos'):
     candidates = [Path(binary)] if binary else [
         Path.home() / '.local/bin/lume', Path('/opt/homebrew/bin/lume'),
         Path('/usr/local/bin/lume')]
@@ -214,12 +252,15 @@ def status(name='ownmachine', binary=None, guest_alias=None, storage_dir=None):
             'driver_ready': False, 'driver_state': 'not_configured' if not guest_alias else 'vm_not_running',
             'viewer_state': 'not_probed', 'controller': 'not_initialized'}
     if guest_alias and vm_state == 'running':
-        result.update(guest_status(guest_alias, vm.get('ipAddress')))
+        if vm.get('os', 'macos').lower() != guest_os:
+            result.update(driver_state='invalid_response')
+        else:
+            result.update(guest_status(guest_alias, vm.get('ipAddress'), guest_os))
     return result
 
 
 def mcp(name, binary, guest):
-    config = json.loads((Path.home()/'.config/ownmachine/host.json').read_text())
+    config = read_settings()
     if config.get('enable_mcp') is not True or not guest:
         raise ValueError('mcp_not_enabled')
     candidates = [Path(binary)] if binary else [Path.home()/'.local/bin/lume',
@@ -232,6 +273,8 @@ def mcp(name, binary, guest):
     if not isinstance(rows, list): raise ValueError('invalid_listing')
     vm = next((x for x in rows if isinstance(x, dict) and x.get('name')==name), None)
     if not vm or vm.get('status') != 'running': raise ValueError('vm_not_running')
+    if vm.get('os', 'macos').lower() != guest_profile(config)[0]:
+        raise ValueError('guest_os_mismatch')
     address = vm.get('ipAddress')
     if not isinstance(address, str): raise ValueError('guest_unreachable')
     ip = ipaddress.ip_address(address)
@@ -244,7 +287,7 @@ def mcp(name, binary, guest):
 
 
 def lifecycle(operation, name, binary, guest):
-    settings=json.loads((Path.home()/'.config/ownmachine/host.json').read_text())
+    settings=read_settings()
     if settings.get('enable_lifecycle') is not True or not guest:
         raise ValueError('lifecycle_not_enabled')
     candidates=[Path(binary)] if binary else [Path.home()/'.local/bin/lume',Path('/opt/homebrew/bin/lume'),Path('/usr/local/bin/lume')]
@@ -259,8 +302,9 @@ def lifecycle(operation, name, binary, guest):
         if not isinstance(rows,list):raise ValueError('invalid_listing')
         vm=next((x for x in rows if isinstance(x,dict) and x.get('name')==name),None)
         if vm is None:raise ValueError('vm_absent') # never let lume run pull/create an image
+        if vm.get('os', 'macos').lower() != guest_profile(settings)[0]:raise ValueError('guest_os_mismatch')
         return vm
-    state=private_directory(Path.home()/'.local/state/ownmachine')
+    state=private_directory(runtime_state())
     private_directory(Path.home()/'.lume')
     private_directory(selected_storage(settings))
     with (state/'lifecycle.lock').open('a') as lock:
@@ -307,7 +351,7 @@ def lifecycle(operation, name, binary, guest):
 
 
 def vnc(name,binary):
-    settings=json.loads((Path.home()/'.config/ownmachine/host.json').read_text())
+    settings=read_settings()
     if settings.get('enable_vnc') is not True:raise ValueError('vnc_not_enabled')
     private_directory(Path.home()/'.lume')
     private_directory(selected_storage(settings))
@@ -319,6 +363,7 @@ def vnc(name,binary):
     rows=json.loads(probe.stdout)
     vm=next((x for x in rows if isinstance(x,dict) and x.get('name')==name),None)
     if not vm or vm.get('status')!='running':raise ValueError('vm_not_running')
+    if vm.get('os', 'macos').lower() != guest_profile(settings)[0]:raise ValueError('guest_os_mismatch')
     url=urlsplit(vm.get('vncUrl') or '')
     if url.scheme!='vnc' or url.hostname not in {'127.0.0.1','localhost','::1'} or url.port != settings['vnc_port'] or not url.password:
         raise ValueError('private_vnc_unavailable')
@@ -327,7 +372,7 @@ def vnc(name,binary):
     password=unquote(url.password)
     if not re.fullmatch(r'[A-Za-z0-9._~-]{8}', password):
         raise ValueError('invalid_vnc_metadata')
-    stored = Path.home()/'.local/state/ownmachine/vnc-password'
+    stored = runtime_state()/'vnc-password'
     fd = os.open(stored, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd) as stream:
         info = os.fstat(stream.fileno())
@@ -377,9 +422,8 @@ def main(role='agent'):
         if os.environ.get('SSH_ORIGINAL_COMMAND') != f'ownmachine-host status --vm {name}':
             print(json.dumps({'code': 'unsupported_operation'}))
             return 2
-        settings_path = Path.home()/'.config/ownmachine/host.json'
-        settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-        print(json.dumps(status(name, binary, guest, settings.get('storage_dir'))))
+        settings = read_settings()
+        print(json.dumps(status(name, binary, guest, settings.get('storage_dir'), guest_profile(settings)[0])))
         return 0
     except (ValueError, OSError, subprocess.SubprocessError):
         print(json.dumps({'code': 'invalid_host_configuration'}))
@@ -390,4 +434,9 @@ if __name__ == '__main__':
     import argparse
     parser=argparse.ArgumentParser()
     parser.add_argument('--role',choices=['agent','viewer'],required=True)
-    raise SystemExit(main(parser.parse_args().role))
+    parser.add_argument('--config', type=Path, help='Operator-pinned config path in the SSH forced command')
+    args = parser.parse_args()
+    if args.config is not None and not args.config.is_absolute():
+        parser.error('Configuration path must be absolute')
+    CONFIG_PATH = args.config
+    raise SystemExit(main(args.role))

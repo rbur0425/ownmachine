@@ -72,13 +72,14 @@ def run(argv, **kwargs):
                           env=dict(os.environ, LUME_TELEMETRY_ENABLED='false'), **kwargs)
 
 
-def verify_build(app):
+def verify_build(app, linux=False):
     resources = app / 'Contents/Resources'
     if (resources / 'ownmachine-upstream-revision').read_text().strip() != REVISION:
         raise ValueError('Unexpected Lume revision')
     actual = [line.split()[0] for line in (resources / 'ownmachine-patch-sha256').read_text().splitlines()]
     expected = [hashlib.sha256((ROOT / 'patches' / p).read_bytes()).hexdigest() for p in PATCHES]
-    if actual != expected:
+    extended = expected + [hashlib.sha256((ROOT / 'patches/lume-0.7.0-linux-isolation.patch').read_bytes()).hexdigest()]
+    if actual != extended and (linux or actual != expected):
         raise ValueError('Lume patches differ')
     run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(app)])
     exe = str(app / 'Contents/MacOS/lume')

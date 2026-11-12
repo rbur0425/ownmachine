@@ -1,6 +1,6 @@
 # Omarchy Phase 1 acceptance
 
-Date: 2026-11-12. Status: Phase 1 compatibility spike in progress; installed ARM64 desktop, native Wayland capture and foreground GTK file creation verified. Targeted accessibility remains open; Chromium foreground navigation and typing pass. Not a Linux support claim.
+Date: 2026-11-12. Status: Phase 1 compatibility spike in progress; installed ARM64 desktop, native Wayland capture and foreground GTK file creation verified. The initial findings below are followed by the successful 0.47.19 discovery/accessibility retest. Chromium foreground navigation and typing pass. Not a Linux support claim.
 
 ## Environment and scope
 
@@ -90,9 +90,48 @@ Capture timings include local SSH/MCP round trips, use three samples only, and d
 
 **Continue an experimental foreground-only Linux path; do not offer it as supported automation yet.** ARM64 boot, capture and an independently verified GUI file save justify further work. Targeted native window discovery/GTK accessibility still needs closure. Chromium foreground navigation and post-reboot input now pass the bounded smoke checks; full Hermes/OwnMachine integration remains later work. The optional Hyprland plugin has not been built or loaded; its exact-ABI compatibility and separate input opt-in must be evaluated before relying on it. Keep these limitations visible rather than treating the desktop-wide fallback as background control acceptance.
 
+## Continued development: discovery and targeted accessibility
+
+The initial 0.44.0 failure was traced to Hyprland 0.57 omitting `id` on an unused `specialWorkspace`. Upstream driver 0.47.19 handles that omission. Its ARM64 binary archive SHA-256 is `5a1daed6820e6063f33dddbd3e5403d89dc27b8cf197b45df9af0fddd4fd50bb`; both the release checksum and Sigstore workflow identity verified. This is a Linux-only version change; the released macOS driver stays pinned to 0.44.0.
+
+With the optional plugin unloaded, 0.47.19 discovered Mousepad's exact native window, returned its GTK AT-SPI tree and a valid window screenshot, and performed `set_value` on a snapshot-bound text element. The action returned `effect: confirmed`, `route: accessibility` and an exact value readback. A subsequent tree and window capture showed `OwnMachine targeted accessibility verified.`. Discovery no longer needs a compositor plugin workaround.
+
+Built the optional plugin from driver tag source commit `ef1e84d6c880ab8aee7587c3d0057a288e764b69` against installed Hyprland 0.57.2, using GNU C++ 16.1.1 (matching the compositor's compiler family/version). Both default discovery and `CUA_HYPRLAND_INPUT=ON` builds passed **21/21 CTest tests**. Live load reported matching compiled/runtime ABI `11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947_aq_0.16_hu_0.14_hg_0.6_hc_0.1_hlg_0.6`.
+
+The default build advertised discovery-only status, not application targeting. After explicitly enabling the input build in this disposable guest, targeted foreground click/type inserted `PLUGIN` at the editor caret; AT-SPI readback confirmed the insertion. Turning the plugin transport off and reloading caused the next targeted type to return `foreground_unavailable`, `effect: refused`; the sentinel text did not appear. This is a bounded foreground/refusal smoke, not independent-seat or background isolation certification. Desktop restart remains the safe module-replacement lifecycle.
+
+A new portable guest-only installer, `scripts/linux-guest.py`, installed a pinned driver and a user systemd service tied to `graphical-session.target`. Its live readiness probe confirmed the graphical session, accessibility bus, running daemon and standard permission mode. No linger or macOS-style TCC grants are fabricated. The host relay/doctor now have a separate Linux readiness path. Reproducible Linux isolation is an explicit native-build option, `OWNMACHINE_LINUX_GUESTS=1`; existing macOS-only builds remain accepted for macOS. The Linux-capable build completed and passed provenance/signature verification. Full provision/viewer/onboarding integration is still in progress in PR #15.
+
+## Shared Linux layer follow-up
+
+The portable hardener passed inside the disposable guest. Key-only SSH remained
+usable; the dedicated nftables service and user driver were active; unrestricted
+`sudo -n /usr/bin/true` was refused; and the guest-side recovery-password transfer
+file was removed. The systemd MCP launcher returned a GTK tree and screenshot
+in 0.135 seconds before restart. These are direct MCP tests, not a Hermes model run.
+
+The first VNC-enabled boot correctly failed isolation because upstream Lume adds
+an automatic configuration folder. The Linux patch now also omits that folder and
+its VNC credential file. The rebuilt app booted through the relay with a protected
+password file, a fixed port, current root firewall attestation and an independently
+confirmed application block. A distinct Linux bundle identifier resolved the
+observed firewall registration collision. After guest shutdown/start, all Linux
+readiness checks passed again. The viewer-role pipe produced the expected RFB
+3.8 greeting; the agent role refused VNC and the viewer role refused MCP. These
+local forced-command tests do not yet prove separate-user SSH/noVNC handoff.
+
+The new provisioner's live creation test made a separate empty Linux VM and a
+verified checkpoint. Repeating the same command returned the checkpoint without
+recreating its disk. Base/desktop installer integration remains open.
+
+A post-hardening sample with Mousepad open showed 1.11 GB guest used memory and
+10.15 GB filesystem use (decimal), with 8.31 GB visible guest memory. This is a
+single sample, not an installation-peak measurement or a supported minimum.
+The driver/plugin builds and retained package caches affect disk consumption.
+
 ## Repository validation
 
-- Full suite with the established Hermes validation environment: **340 tests passed, zero skips**.
+- Full suite with the established Hermes validation environment: **354 tests passed, zero skips**; the subsequent host OS-mismatch guard also passed all 29 host tests.
 - An initial system-Python run lacked `websockets`/Hermes: 7 errors and 28 skips; rerunning in the correct dependency environment passed. No code was changed to suppress tests.
 - Hermes plugin validation with `--install-deps`: **passed**, safe security scan; existing in-process-only isolation warning remains disclosed. Hermes checkout: `b5f15a6d3188e94f815d504d5ebbeb926e1bd08a`.
 

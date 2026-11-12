@@ -53,7 +53,7 @@ def select_window(windows):
 
 class OwnMachineProvider(ComputerUseProvider):
     name = 'ownmachine'
-    display_name = 'OwnMachine (private macOS VM)'
+    display_name = 'OwnMachine (private desktop VM)'
 
     def is_available(self):
         try: return bool(configured().control_dir and shutil.which('ssh'))
@@ -293,6 +293,10 @@ class OwnMachineBackend(ComputerUseBackend):
             return ActionResult(False,name,code='pixel_capture_required')
         if delivery_mode not in {None,'background','foreground'}:
             return ActionResult(False,name,code='unsupported_delivery_mode')
+        if self.config.guest_profile == 'omarchy':
+            if delivery_mode == 'background':
+                return ActionResult(False,name,code='linux_background_input_not_certified',meta={'dispatched':False})
+            delivery_mode = 'foreground'
         if name == 'click' and 'x' in args:
             if not isinstance(self.capture_id, str) or not self.capture_id:
                 return ActionResult(False,name,code='fresh_pixel_capture_required',message='Capture a fresh screenshot before this pixel click.',meta={'dispatched':False})

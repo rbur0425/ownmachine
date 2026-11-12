@@ -8,10 +8,13 @@ class Config:
     host_alias: str = ""
     control_dir: str = ""
     vm_name: str = "ownmachine"
+    guest_profile: str = "macos"
     connect_timeout_seconds: int = 15
     action_timeout_seconds: int = 30
 
     def validate(self):
+        if self.guest_profile not in {"macos", "omarchy"}:
+            raise ValueError("unsupported_guest_profile")
         for value in (self.host_alias, self.vm_name):
             if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,63}", value):
                 raise ValueError("invalid_configuration")

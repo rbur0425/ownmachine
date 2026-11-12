@@ -1,18 +1,33 @@
 # Omarchy guest plan
 
-Status: experimental; Phase 1 started 2026-11-12. ARM64 boot, native Wayland foreground control, Chromium and guest reboot smoke checks pass; native window discovery/GTK accessibility remains open. No Linux profile is offered by the released installer. See [Phase 1 evidence](omarchy-phase1-acceptance.md).
+Status: experimental; Phase 1 started 2026-11-12. ARM64 boot, native Wayland foreground control, Chromium and guest reboot smoke checks pass; native window discovery and GTK accessibility now pass with the Linux-only driver 0.47.19 pin. No Linux profile is offered by the released installer. See [Phase 1 evidence](omarchy-phase1-acceptance.md).
 
 ## Scope and decisions
 
-Use Apple Silicon and the existing patched Lume first. The baseline is foreground agent control, not isolated background control. CuaDriver 0.44.0 has Linux ARM64 release artifacts; Hyprland compatibility and artifact verification are the questions to test. Native Wayland and the optional seat plugin are separate experiments. Chromium/Electron must use foreground actions; never imply that their input is isolated or that focus/pointer state is restored.
+Use Apple Silicon and the existing patched Lume first. The baseline is foreground agent control, not isolated background control. CuaDriver 0.47.19 is the verified Linux ARM64 pin (macOS remains 0.44.0); Hyprland compatibility and artifact verification are the questions to test. Native Wayland and the optional seat plugin are separate experiments. Chromium/Electron must use foreground actions; never imply that their input is isolated or that focus/pointer state is restored.
 
 Use Cua's Archboot ARM64 installation followed by Omarchy source commit `13f18b2cb7286fb54f87daf571a031aa6af3d8f0` (4.0.1). Do not conflate this with upstream edge/nightly Omarchy ISOs. Pin every downloaded input and verify it before use. Arch repositories remain rolling: record resolved package versions; a pinned source commit alone does not make package installation reproducible.
 
 Install with VNC disabled, or through OwnMachine's relay-fronted viewer using the password-file patch, protected fixed port, and verified firewall readiness. Never expose stock weak-password VNC, including during creation. Do not attach Rosetta or host directory shares. Keep credentials and machine-specific configuration outside the repository.
 
+## PR scope and progress
+
+All Omarchy implementation and acceptance work stays in PR #15 until reviewed. The existing macOS release remains the production baseline. Checkboxes require recorded evidence; a successful build alone is not a runtime pass. Release preparation belongs here; merging, tagging and publishing still follow the repository Gitflow approval rules.
+
+- [x] Verify installation inputs and boot the isolated ARM64 guest.
+- [x] Verify native Wayland foreground capture, editor save, Chromium and guest reboot.
+- [x] Resolve native window discovery and targeted GTK accessibility (0.47.19, without plugin).
+- [x] Build/test the optional Hyprland plugin against the exact compositor ABI; record limitations (21 tests per build; bounded foreground smoke and disabled-transport refusal).
+- [ ] Measure installation peak and idle resources.
+- [ ] Implement shared Linux provisioning, hardening, graphical-session driver and lifecycle. Creation/resume, hardening, service and protected start smoke pass; base/desktop orchestration remains open.
+- [ ] Verify private viewer, SSH roles and human/agent handoff for Linux. Protected RFB greeting and local role refusals pass; separate-user SSH/browser handoff remains open.
+- [ ] Add configurable experimental Omarchy onboarding, resume and doctor checks.
+- [ ] Complete fresh Docker-to-Mac and real Hermes model acceptance.
+- [ ] Finish resource guidance, catalog disclosures, evaluator docs and release validation.
+
 ## Phases
 
-### 1. Compatibility spike (first evidence/documentation PR)
+### 1. Compatibility spike
 
 - Independently confirm Archboot's GPG fingerprint using Arch Linux's developer directory; verify signed checksum manifest and ISO.
 - Pin Cua installer scripts and audit them before running only inside the disposable guest.
@@ -23,7 +38,7 @@ Install with VNC disabled, or through OwnMachine's relay-fronted viewer using th
 - Reboot and repeat capture/input checks. Record exact versions, commands, failures, workarounds and independent observations.
 - Gate: written go/no-go. Foreground-only may justify experimental viewer plus best-effort agent support; it is not full background-control acceptance. If ARM64 control fails outright, evaluate x86_64 on a separate backend.
 
-Phase 1 follow-ups from the laptop run: resolve native window discovery/GTK AT-SPI targeting; assess the optional plugin against the installed Hyprland ABI; sample installation peak and idle resources. Preserve foreground-only scope until those results justify more. Default 2x scaling clipped GTK dialogs, so Linux setup needs an explicit configurable scale. Native console modifier injection, missing live `gptfdisk`, Chromium first-run terms/keyring prompts and persistent first-login notifications must become documented/bootstrap-handled steps. Do not count direct MCP smoke tests as full Hermes acceptance.
+Phase 1 follow-ups from the laptop run: native discovery/GTK targeting and bounded optional-plugin tests now pass; sample installation peak and idle resources. The optional plugin does not have broad background-control certification. Preserve foreground-only scope until those results justify more. Default 2x scaling clipped GTK dialogs, so Linux setup needs an explicit configurable scale. Native console modifier injection, missing live `gptfdisk`, Chromium first-run terms/keyring prompts and persistent first-login notifications must become documented/bootstrap-handled steps. Do not count direct MCP smoke tests as full Hermes acceptance.
 
 ### 2. Shared Linux guest layer
 
@@ -56,3 +71,5 @@ CPU, RAM, disk location/capacity, display dimensions, VM name, versions, ports a
 - [CuaDriver 0.44.0 assets](https://github.com/trycua/cua/releases/tag/cua-driver-rs-v0.44.0)
 - [Arch Linux developer fingerprint](https://archlinux.org/people/developers/#tpowa)
 - [Omarchy ARM status](https://github.com/omacom/omarchy/discussions/15702)
+
+Implementation commands and safety boundaries: [Linux development guide](linux-development.md).
