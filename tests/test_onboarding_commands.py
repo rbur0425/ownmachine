@@ -313,10 +313,10 @@ class OnboardingProgressTests(unittest.TestCase):
         self.assertEqual(ctx.state.get('onboarding')['stage'], 'await_host_setup')
 
 
-    def test_only_macos_is_offered_without_an_os_selector(self):
+    def test_macos_default_and_explicit_experimental_profile(self):
         report = o.setup(Context(), args('setup', '--target', 'remote'))
         self.assertEqual(report['guest_os'], 'macos')
-        self.assertIn('only supported image', o.render_setup(report))
+        self.assertIn('macOS (default', o.render_setup(report))
         for option in ('--os', '--image', '--guest-os'):
             with self.assertRaises(o.InputError):
                 args('setup', option, 'linux')

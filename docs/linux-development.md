@@ -2,7 +2,7 @@
 
 Omarchy is an experimental ARM64 guest on an Apple Silicon Mac. macOS remains
 the released installation path. All Linux work is tracked in PR #15 and the
-[Omarchy plan](omarchy-plan.md); the guided installer does not offer Linux yet.
+[Omarchy plan](omarchy-plan.md); the experimental setup planner accepts `--guest-profile omarchy`; macOS is the default.
 
 ## Isolated host build
 
@@ -34,10 +34,35 @@ repeating the same verified creation validates the existing guest without
 recreating it. Changed inputs, existing unowned guests and interrupted creation
 require inspection. The boot stage opens a native console with VNC disabled.
 
-Base Arch and Omarchy installation still require the reviewed guest-side steps
-in the [acceptance record](omarchy-phase1-acceptance.md). This is not yet an
-unattended installer or an authenticated Hermes setup stage. Do not run guest
-installation/hardening scripts on the Mac host.
+The authenticated setup endpoint routes `build` and `provision` through
+`scripts/setup-linux.py`, then `linux-base` and `linux-desktop` through
+`scripts/install-linux-desktop.py`. Supply the verified ISO and SHA-256 in the
+operator-owned endpoint configuration. The service configuration must match the
+plan's profile, VM and storage directory. It also supplies `guest_ssh_alias` and
+`guest_user`; `display_scale` accepts 1 (default) or 2. The endpoint never accepts
+arbitrary installer URLs or unverified script inputs.
+
+There are still explicit handoffs: boot the live ISO with VNC disabled, pair a
+key-only guest SSH identity and independently confirm its host-key fingerprint
+from the native console, then shut down and boot the installed disk without the
+ISO after the base stage. Preserve that host key across the handoff. The base
+stage requires an Apple-virtualized Archboot live root and an empty `/dev/vda`;
+it refuses partitions, existing filesystem signatures or a mounted `/mnt`.
+A verified checkpoint resumes without reinstalling. A running, failed or changed
+checkpoint requires inspection; never delete it just to force a retry.
+
+The live Archboot SSH service may use a different port. Explicit bootstrap must
+stop that listener and use a reviewed key-only configuration; do not expose a
+password-based live console. Native modifier injection remains unreliable in
+this experimental viewer, so inspect entered commands before execution. This
+handoff is not yet a certified unattended installation.
+
+After the installed desktop boots, the shared setup-service stages route
+hardening, driver and readiness checks to Linux implementations. Guest scripts
+must never be run directly on the Mac host. A Linux readiness result means a
+Wayland session, accessibility bus and standard-mode driver are ready; it does
+not represent macOS TCC consent. The viewer and diagnostic CLIs accept
+`--guest-profile omarchy` and keep their existing configurable SSH/control paths.
 
 Inside the graphical Linux guest, as its desktop user,
 `scripts/linux-guest.py install` verifies the pinned ARM64 CuaDriver archive and

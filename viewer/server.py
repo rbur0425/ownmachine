@@ -379,6 +379,7 @@ def bind_server(viewer, requested_port=0):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--host-alias',required=True)
+    parser.add_argument('--guest-profile', choices=['macos','omarchy'], default='macos')
     parser.add_argument('--vm-name',default='ownmachine')
     parser.add_argument('--control-dir',required=True)
     parser.add_argument('--access-dir',help='Private viewer-user directory outside shared control state')
@@ -395,7 +396,7 @@ def main():
     args=parser.parse_args()
     if not 0<=args.port<=65535:parser.error('invalid port')
     os.umask(0o077)
-    viewer=Viewer(Config(host_alias=args.host_alias,vm_name=args.vm_name,control_dir=args.control_dir,connect_timeout_seconds=args.connect_timeout_seconds,action_timeout_seconds=args.action_timeout_seconds),interval=args.frame_interval,max_dimension=args.max_image_dimension,allow_input=not args.read_only,mode=args.viewer_mode,quality=args.quality,compression=args.compression,swap_red_blue=args.swap_red_blue,access_dir=args.access_dir)
+    viewer=Viewer(Config(host_alias=args.host_alias,vm_name=args.vm_name,guest_profile=args.guest_profile,control_dir=args.control_dir,connect_timeout_seconds=args.connect_timeout_seconds,action_timeout_seconds=args.action_timeout_seconds),interval=args.frame_interval,max_dimension=args.max_image_dimension,allow_input=not args.read_only,mode=args.viewer_mode,quality=args.quality,compression=args.compression,swap_red_blue=args.swap_red_blue,access_dir=args.access_dir)
     server=None
     try:
         server=bind_server(viewer,args.port)

@@ -78,6 +78,26 @@ class LinuxGuestTests(unittest.TestCase):
 hardener = load('linux_hardening_tested', 'scripts/secure-linux-guest.py')
 
 class LinuxIsolationTests(unittest.TestCase):
+    def test_every_new_support_parent_gets_desktop_ownership(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home=Path(directory).resolve()
+            with patch.object(hardener.os,'chown') as ownership:
+                hardener.user_support(home,os.getuid(),os.getgid())
+            self.assertEqual([c.args[0] for c in ownership.call_args_list],
+                             [home/'.local',home/'.local/lib',home/'.local/lib/ownmachine'])
+            ownership.reset_mock()
+            with patch.object(hardener.os,'chown') as unchanged:
+                hardener.user_support(home,os.getuid(),os.getgid())
+            unchanged.assert_not_called()
+
+    def test_hardener_preserves_required_mode_under_private_umask(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory).resolve()/'sudo-rule'
+            previous=os.umask(0o077)
+            try:hardener.install_file(path,'fixture\n',0o440)
+            finally:os.umask(previous)
+            self.assertEqual(path.stat().st_mode & 0o777,0o440)
+
     def test_guest_firewall_does_not_flush_other_tables(self):
         rules = hardener.firewall_rules('192.0.2.7')
         self.assertNotIn('flush ruleset', rules)

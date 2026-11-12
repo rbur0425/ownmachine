@@ -24,7 +24,7 @@ def capture(ctx, plan):
     from .provider import OwnMachineBackend
     from PIL import Image
     config = configuration(ctx).validate()
-    if any(getattr(config, k) != plan[k] for k in ('host_alias', 'vm_name', 'control_dir')) or not config.control_dir:
+    if any(getattr(config, k) != plan[k] for k in ('host_alias', 'vm_name', 'control_dir', 'guest_profile')) or not config.control_dir:
         raise ValueError('runtime_plan_mismatch')
     backend = OwnMachineBackend(config)
     try:

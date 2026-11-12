@@ -19,9 +19,9 @@ All Omarchy implementation and acceptance work stays in PR #15 until reviewed. T
 - [x] Resolve native window discovery and targeted GTK accessibility (0.47.19, without plugin).
 - [x] Build/test the optional Hyprland plugin against the exact compositor ABI; record limitations (21 tests per build; bounded foreground smoke and disabled-transport refusal).
 - [ ] Measure installation peak and idle resources.
-- [ ] Implement shared Linux provisioning, hardening, graphical-session driver and lifecycle. Creation/resume, hardening, service and protected start smoke pass; base/desktop orchestration remains open.
+- [ ] Implement shared Linux provisioning, hardening, graphical-session driver and lifecycle. Creation/resume and pinned base/desktop orchestration now run on a fresh guest; live hardening exposed mode/parent-ownership bugs that are fixed in code but still require a clean repeat.
 - [ ] Verify private viewer, SSH roles and human/agent handoff for Linux. Protected RFB greeting and local role refusals pass; separate-user SSH/browser handoff remains open.
-- [ ] Add configurable experimental Omarchy onboarding, resume and doctor checks.
+- [ ] Add configurable experimental Omarchy onboarding, resume and doctor checks. Profile routing, Linux stages, no-destructive-replay checks and viewer/doctor flags are implemented; complete authenticated Docker acceptance remains open.
 - [ ] Complete fresh Docker-to-Mac and real Hermes model acceptance.
 - [ ] Finish resource guidance, catalog disclosures, evaluator docs and release validation.
 
@@ -73,3 +73,19 @@ CPU, RAM, disk location/capacity, display dimensions, VM name, versions, ports a
 - [Omarchy ARM status](https://github.com/omacom/omarchy/discussions/15702)
 
 Implementation commands and safety boundaries: [Linux development guide](linux-development.md).
+
+## Fresh provisioning follow-up (2026-11-12)
+
+- [x] Run pinned base and desktop stages against a newly created guest with VNC disabled.
+- [x] Reinstall the base from an empty disk after fixing inherited-umask permissions;
+  verify D-Bus, networking and key-only SSH after boot without a directory repair.
+- [x] Reach the graphical desktop and verify CuaDriver's standard-mode readiness.
+- [x] Add regression checks for sudo rule modes under umask 077 and ownership of
+  every newly created desktop support parent.
+- [ ] Repeat complete provisioning with both hardening fixes included. This run
+  required inspected recovery; do not count it as the no-workaround acceptance.
+- [ ] Verify default scale 1 across first-login dialogs, browser and editor.
+- [ ] Finish the separate-account browser handoff and real Docker/Hermes task.
+
+See the appended fresh-install evidence in the acceptance record. Original failed
+checkpoints remain preserved locally; corrected code does not rewrite that history.

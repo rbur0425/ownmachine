@@ -53,7 +53,23 @@ def install_file(path, value, mode=0o600):
         return
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
     with os.fdopen(fd, 'w') as stream:
+        # The operator deliberately uses umask 077. Sudo requires exactly 0440,
+        # so apply the reviewed destination mode to the open, exclusive inode.
+        os.fchmod(stream.fileno(), mode)
         stream.write(value);stream.flush();os.fsync(stream.fileno())
+
+
+def user_support(home, uid, gid):
+    support=home/'.local/lib/ownmachine'
+    for directory in (home/'.local', home/'.local/lib', support):
+        if directory.is_symlink():raise ValueError('symlink_destination')
+        if not directory.exists():
+            directory.mkdir(mode=0o700)
+            os.chown(directory,uid,gid)
+        info=directory.stat()
+        if info.st_uid!=uid or info.st_mode & 0o022:
+            raise ValueError('unsafe_guest_support_directory')
+    return support
 
 
 def harden(user, source, password_file):
@@ -105,8 +121,7 @@ WantedBy=multi-user.target
         rule.write(sudo_rule);rule.flush()
         command(['visudo','-cf',rule.name])
     install_file(Path('/etc/sudoers.d/ownmachine-shutdown'),sudo_rule,0o440)
-    support=home/'.local/lib/ownmachine'
-    support.mkdir(parents=True,exist_ok=True,mode=0o700)
+    support=user_support(home,account.pw_uid,account.pw_gid)
     helper=support/'vm-shutdown.sh'
     install_file(helper,'#!/bin/sh\nexec /usr/bin/sudo -n /usr/bin/systemctl poweroff\n',0o700)
     os.chown(support,account.pw_uid,account.pw_gid);os.chown(helper,account.pw_uid,account.pw_gid)

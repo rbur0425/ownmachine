@@ -49,6 +49,20 @@ def matches(vm,args):
         and vm.get('diskSize',{}).get('total')==args.disk_gb*1024**3)
 
 
+def receipt(args):
+    directory=Path.home()/'.local/state/ownmachine'/args.vm_name
+    support.private_dir(directory)
+    path=directory/'provision.json'
+    value=dict(phase='created',guest_os='linux',guest_profile=args.profile,vm_name=args.vm_name,
+               storage_dir=str(args.storage_dir.resolve()),checkpoint_dir=str(args.state_dir))
+    if path.exists() or path.is_symlink():
+        from setup_support import private_read
+        if json.loads(private_read(path))!=value:raise ValueError('provision_receipt_differs')
+    else:
+        fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'w') as stream:json.dump(value,stream)
+
+
 def execute(args):
     validate(args)
     if not args.apply:return {'stage':'planned','guest_os':'linux','guest_profile':args.profile,'vnc':'disabled','step':args.step}
@@ -68,7 +82,8 @@ def execute(args):
         vm=listing(args)
         if args.step=='create':
             if old:
-                if old.get('stage')=='verified' and matches(vm,args):return old
+                if old.get('stage')=='verified' and matches(vm,args):
+                    receipt(args);return old
                 raise ValueError('interrupted_creation_requires_inspection')
             if vm or (args.storage_dir/args.vm_name).exists():raise ValueError('existing_vm_preserved')
             if shutil.disk_usage(args.storage_dir).free<args.min_free_gb*1024**3:raise ValueError('insufficient_free_storage')
@@ -83,7 +98,7 @@ def execute(args):
                 if not matches(vm,args) or vm.get('status')!='stopped':raise ValueError('created_vm_mismatch')
             except Exception:
                 state['stage']='needs_inspection';support.write_state(checkpoint,state);raise
-            state['stage']='verified';support.write_state(checkpoint,state);return state
+            state['stage']='verified';support.write_state(checkpoint,state);receipt(args);return state
         if not old or old.get('stage')!='verified' or not matches(vm,args):raise ValueError('verified_create_required')
         if vm.get('status')!='stopped':raise ValueError('guest_must_be_stopped')
         # Never detach the installer, mount host directories, or open weak VNC.

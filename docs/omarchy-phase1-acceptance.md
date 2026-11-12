@@ -167,3 +167,38 @@ vzConfig.directorySharingDevices = []
 ```
 
 The removed section creates audio devices, the Spice clipboard console port, configured directory shares and the automatic Rosetta share. Build the modified Lume target, sign the isolated app using the upstream local entitlements, and verify its signature before using the configurable commands above. This source-level isolation is separate from production runtime API hardening, which remains open.
+
+
+## Fresh provisioning orchestration (2026-11-12)
+
+A separate empty Linux guest ran the pinned base and desktop installers over
+independently pinned, temporary key-only SSH. VNC remained disabled. Resource
+configuration was 4 CPUs, 8 GiB RAM, 64 GiB sparse disk and 1900x1200 display;
+no host directories, Rosetta, audio or clipboard devices were attached.
+
+The first base installation inherited umask 077, creating `/etc` as 0700 and
+preventing D-Bus/network startup. After adding an explicit base-install umask 022
+and an `/etc` mode assertion, the disposable disk was emptied and base installation
+repeated. The second boot passed D-Bus, NetworkManager and SSH checks without
+repair; the independently confirmed host key survived the live-to-disk handoff.
+
+Desktop installation completed and the native viewer visibly showed Omarchy.
+Hardening then exposed two separate problems: the same private umask changed a
+requested sudoers 0440 mode to 0400, and recursive root directory creation left a
+0700 parent of the desktop helper owned by root. Both are fixed in code, with
+regression tests for exact descriptor modes and each created parent's ownership.
+The live test required an inspected mode/ownership repair and completion of the
+remaining hardening steps. Its original failed checkpoints and partial driver
+installation were preserved for diagnosis. **This is not a clean hardening pass.**
+
+After recovery, the guest firewall was active, unrestricted passwordless sudo
+was absent, and driver installation/readiness passed in the graphical Wayland
+session. The native first-login view still showed large default-scale onboarding
+notifications. The new desktop stage sets configurable scale 1 by default (2 is
+available); complete first-login/browser acceptance is still pending.
+
+Resolved packages: linux-aarch64 7.3.4-1, Hyprland 0.57.2-1, Mesa 26.2.6-1,
+Chromium 156.0.8078.79-1 and at-spi2-core 2.62.1-1. A post-boot sample reported
+8.9 GiB used inside the guest filesystem and 1,129 MiB used RAM. These are single
+samples, not measured installation peaks or minimum host-space requirements.
+No Docker-driven model or browser-handoff success is claimed for this run yet.
