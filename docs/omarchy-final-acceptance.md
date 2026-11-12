@@ -2,7 +2,7 @@
 
 Verified 2026-11-12 on an Apple Silicon laptop, through a separate Linux Docker
 Hermes installation. **Decision: Omarchy foreground desktop support is ready for
-PR review for the tested configuration.** This is unreleased PR #15 evidence,
+PR review for the tested configuration.** This records PR #15 acceptance evidence,
 not a merge, release or catalog submission. macOS remains the default.
 Background control remains experimental; this is not universal application or
 full background-seat support.
@@ -161,6 +161,6 @@ Omarchy run does not claim another newly booted macOS guest test.
   remains off and the workspace is left paused. Private logs, identities, runtime
   configuration, bootstrap ISO and VM disks are not release artifacts.
 
-See the [evaluator quickstart](evaluator-quickstart.md#omarchy-foreground-evaluation-unreleased-pr-15)
+See the [evaluator quickstart](evaluator-quickstart.md#omarchy-foreground-evaluation)
 for portable setup and recovery instructions. Release remains paused for explicit
 review and authorization.

@@ -1,6 +1,6 @@
 # Omarchy guest plan
 
-Status: Omarchy foreground support acceptance passed on the final security build, verified 2026-11-12; unreleased PR #15. See [final fresh-install evidence](omarchy-final-acceptance.md). Foreground is the default; an optional bounded GTK background keyboard experiment also passed. Clean provisioning, Docker/Hermes browser/editor tasks, authenticated final screenshot, setup-key retirement and guest-restart persistence pass. The released macOS baseline is unchanged; this work is awaiting PR review and release. See [acceptance evidence](omarchy-phase1-acceptance.md).
+Status: Omarchy foreground support acceptance passed on the final security build, verified 2026-11-12; release-candidate evidence. See [final fresh-install evidence](omarchy-final-acceptance.md). Foreground is the default; an optional bounded GTK background keyboard experiment also passed. Clean provisioning, Docker/Hermes browser/editor tasks, authenticated final screenshot, setup-key retirement and guest-restart persistence pass. The released macOS baseline is unchanged; this work is awaiting PR review and release. See [acceptance evidence](omarchy-phase1-acceptance.md).
 
 ## Scope and decisions
 

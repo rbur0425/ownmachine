@@ -1,6 +1,6 @@
 # Experimental Linux development
 
-This unreleased tree supports the tested ARM64 Omarchy foreground desktop on an Apple Silicon Mac. See [final acceptance and boundaries](omarchy-final-acceptance.md). Background control remains experimental. macOS remains
+OwnMachine supports the tested ARM64 Omarchy foreground desktop on an Apple Silicon Mac. See [final acceptance and boundaries](omarchy-final-acceptance.md). Background control remains experimental. macOS remains
 the released installation path. All Linux work is tracked in PR #15 and the
 [Omarchy plan](omarchy-plan.md); the setup planner accepts `--guest-profile omarchy`; macOS is the default.
 

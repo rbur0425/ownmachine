@@ -56,7 +56,7 @@ isolation/toolsets: follow the dedicated-profile setup below and start a new
 session after configuration changes. `hermes ownmachine doctor --json` and
 `/ownmachine doctor` report bounded read-only readiness.
 
-**macOS remains the default; this unreleased tree also supports Omarchy foreground desktop control on Apple Silicon.** See the [final acceptance and scope](../docs/omarchy-final-acceptance.md). Background input remains experimental. The terminal
+**macOS remains the default; OwnMachine also supports Omarchy foreground desktop control on Apple Silicon.** See the [final acceptance and scope](../docs/omarchy-final-acceptance.md). Background input remains experimental. The terminal
 wizard offers those two profiles. Use `--guest-profile omarchy` for an explicit
 noninteractive choice. Read the [Omarchy evaluator steps](../docs/evaluator-quickstart.md)
 before provisioning: operator trust/bootstrap and firewall approval remain, while
@@ -143,7 +143,7 @@ The updated source requires [separate agent/viewer identities and firewall
 verification](../docs/security-isolation.md).
 Hardened VNC requires the pinned local Lume build with protected-file password
 input (Xcode/Swift required); the upstream binary exposes argv passwords to other
-local accounts. No forked binary is bundled. The v0.7.0 preview includes
+local accounts. No forked binary is bundled. This preview includes
 this hardening. Fresh dedicated Hermes profiles
 disable terminal, file and code-execution toolsets.
 
