@@ -82,3 +82,13 @@ the home independently, do not use it concurrently, and review any interrupted
 operation. The local lock coordinates only this command, not arbitrary writers.
 The receipt detects accidental edits; it is not a signature authenticating the
 publisher, nor protection against another process running as the same account.
+
+## VNC isolation and Omarchy release upgrade
+
+The next release also requires a host Lume rebuild and a true guest cold start;
+this plugin-only command cannot perform that security upgrade. Follow the
+[release candidate's mandatory upgrade sequence and Linux driver-pin policy](release-0.8.0.md).
+Never resume an old saved machine state: it can retain the former credential-share
+device configuration. Preserve the disk, shut down normally, verify no saved state,
+deploy the reviewed build and cold-start through the viewer-role relay to rotate
+the private VNC password before returning control.
