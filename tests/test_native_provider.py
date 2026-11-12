@@ -297,6 +297,22 @@ class NativeProviderTests(unittest.TestCase):
   result=subprocess.run([sys.executable,'-c',code],env={**os.environ,'HERMES_HOME':str(home)},capture_output=True,text=True,timeout=30)
   self.assertEqual(result.returncode,0,result.stderr)
 
+ def test_linux_background_opt_in_preserves_request_without_focus_or_fallback(self):
+  self.b.stop()
+  b=OwnMachineBackend(Config(host_alias='test',control_dir=self.tmp.name,guest_profile='omarchy',experimental_linux_background_input=True),transport=self.fake)
+  b.start();self.addCleanup(b.stop);b.lease.transfer('agent');b.capture(app='Editor')
+  before=len(self.fake.calls)
+  self.assertEqual(b.type_text('x',delivery_mode='background',bring_to_front=True).code,'background_focus_conflict')
+  self.assertEqual(len(self.fake.calls),before)
+  b.type_text('x',delivery_mode='background')
+  self.assertEqual(len(self.fake.calls),before+1)
+  self.assertEqual(self.fake.calls[-1][1]['delivery_mode'],'background')
+  b.lease.transfer('human');before=len(self.fake.calls)
+  self.assertEqual(b.type_text('x',delivery_mode='background').code,'human_takeover')
+  self.assertEqual(len(self.fake.calls),before)
+ def test_background_opt_in_rejects_nonboolean_and_wrong_profile(self):
+  for value,profile in [('true','omarchy'),(True,'macos')]:
+   with self.assertRaises(ValueError):Config(host_alias='test',experimental_linux_background_input=value,guest_profile=profile).validate()
  def test_omarchy_defaults_foreground_and_refuses_background(self):
   from dataclasses import replace
   self.b.config=replace(self.config,guest_profile='omarchy')

@@ -299,8 +299,12 @@ class OwnMachineBackend(ComputerUseBackend):
             return ActionResult(False,name,code='unsupported_delivery_mode')
         if self.config.guest_profile == 'omarchy':
             if delivery_mode == 'background':
-                return ActionResult(False,name,code='linux_background_input_not_certified',meta={'dispatched':False})
-            delivery_mode = 'foreground'
+                if not self.config.experimental_linux_background_input:
+                    return ActionResult(False,name,code='linux_background_input_not_certified',meta={'dispatched':False})
+                if bring_to_front:
+                    return ActionResult(False,name,code='background_focus_conflict',meta={'dispatched':False})
+            else:
+                delivery_mode = 'foreground'
         if name == 'click' and 'x' in args:
             if not isinstance(self.capture_id, str) or not self.capture_id:
                 return ActionResult(False,name,code='fresh_pixel_capture_required',message='Capture a fresh screenshot before this pixel click.',meta={'dispatched':False})

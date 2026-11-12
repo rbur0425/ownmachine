@@ -30,6 +30,23 @@ class LinuxBootTests(unittest.TestCase):
                 launch.assert_not_called()
                 self.assertFalse((state/'setup/linux-boot-installer.json').exists())
 
+    def test_verified_transition_is_observed_without_launch_or_shutdown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();state=root/'state';state.mkdir(mode=0o700);(state/'setup').mkdir(mode=0o700)
+            c=dict(guest_profile='omarchy',vm_name='test',storage_dir=str(root/'vms'),lume_app='/example/Lume.app')
+            records={state/'provision.json':dict(phase='created',guest_os='linux',vm_name='test',storage_dir=c['storage_dir']),
+                     state/'setup/linux-base.json':dict(stage='verified'),
+                     state/'setup/linux-boot-system.json':dict(schema_version=1,stage='verified',identity='fixed')}
+            for path,data in records.items():path.write_text(json.dumps(data));path.chmod(0o600)
+            with patch.object(boot.services,'config',return_value=c),patch.object(boot.services,'hardening_state',return_value=state),patch.object(boot.mac,'verify_build'),patch.object(boot.mac,'digest',return_value='fixed'),patch.object(boot.os,'geteuid',return_value=501),patch.object(boot,'ready',return_value=True) as ready,patch.object(boot,'vm',side_effect=AssertionError('no lifecycle replay')):
+                result=boot.execute(root/'config','linux-boot-system')
+                self.assertFalse(result['replayed']);ready.assert_called_once()
+                records[state/'setup/linux-boot-system.json']['stage']='running'
+                (state/'setup/linux-boot-system.json').write_text(json.dumps(records[state/'setup/linux-boot-system.json']))
+                with self.assertRaisesRegex(ValueError,'uncertain_boot'):
+                    boot.execute(root/'config','linux-boot-system')
+                self.assertEqual(ready.call_count,1)
+
     def test_installer_connection_never_falls_back_to_desktop_identity(self):
         with self.assertRaisesRegex(ValueError,'pinned_bootstrap'):
             boot.connection(dict(guest_ssh_alias='desktop'),True)
