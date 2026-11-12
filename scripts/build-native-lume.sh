@@ -17,6 +17,7 @@ GIT_LFS_SKIP_SMUDGE=1 git -C "$build_root/source" checkout --detach "$revision"
 [ -z "$(git -C "$build_root/source" status --porcelain)" ] || { echo 'Build source has changes; use a fresh build directory.' >&2; exit 1; }
 git -C "$build_root/source" apply "$root/patches/lume-0.7.0-key-clipboard.patch"
 git -C "$build_root/source" apply "$root/patches/lume-0.7.0-private-vnc-password.patch"
+git -C "$build_root/source" apply "$root/patches/lume-0.7.0-no-guest-vnc-credentials.patch"
 case "${OWNMACHINE_LINUX_GUESTS:-0}" in
   0) ;;
   1) git -C "$build_root/source" apply --unidiff-zero "$root/patches/lume-0.7.0-linux-isolation.patch" ;;
@@ -35,7 +36,7 @@ if [ "${OWNMACHINE_LINUX_GUESTS:-0}" = 1 ]; then bundle_id=org.ownmachine.lume.l
 cp -R "$bin/lume_lume.bundle" "$app/Contents/Resources/"
 # This is an explicitly local, ad-hoc build, not the notarized vendor app.
 printf '%s\n' "$revision" > "$app/Contents/Resources/ownmachine-upstream-revision"
-shasum -a 256 "$root/patches/lume-0.7.0-key-clipboard.patch" "$root/patches/lume-0.7.0-private-vnc-password.patch" > "$app/Contents/Resources/ownmachine-patch-sha256"
+shasum -a 256 "$root/patches/lume-0.7.0-key-clipboard.patch" "$root/patches/lume-0.7.0-private-vnc-password.patch" "$root/patches/lume-0.7.0-no-guest-vnc-credentials.patch" > "$app/Contents/Resources/ownmachine-patch-sha256"
 if [ "${OWNMACHINE_LINUX_GUESTS:-0}" = 1 ]; then
   shasum -a 256 "$root/patches/lume-0.7.0-linux-isolation.patch" >> "$app/Contents/Resources/ownmachine-patch-sha256"
 fi

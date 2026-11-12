@@ -312,6 +312,7 @@ def verify(step, c):
             if [old for old in installed if blob in old.split()] != [line]:
                 raise ValueError('restricted_key_verification_failed')
     elif step == 'driver':
+        verify_hardening(c)
         if c.get('guest_profile')=='omarchy':
             import setup_linux
             return setup_linux.ready(linux_service(),c)
@@ -366,6 +367,7 @@ def preflight_mutation(step, c):
         verify('relay', c)
         key_lines(c)
     elif step == 'driver':
+        verify_hardening(c)
         command='test "$(/usr/bin/id -u)" -ne 0 && '+('test "$(uname -s)" = Linux' if c.get('guest_profile')=='omarchy' else '/usr/bin/sw_vers -productVersion')
         call(guest_argv(c) + [command])
     elif step == 'viewer':
@@ -382,6 +384,7 @@ def apply(step, c):
     elif step == 'keys':
         install_keys(c)
     elif step == 'driver':
+        verify_hardening(c)
         install_driver(c)
     elif step == 'viewer':
         path, content = viewer_files(c)

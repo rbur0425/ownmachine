@@ -4,7 +4,7 @@ Status: experimental Omarchy acceptance passed, verified 2026-11-12. Foreground 
 
 ## Scope and decisions
 
-Use Apple Silicon and the existing patched Lume first. The baseline is foreground agent control, not isolated background control. CuaDriver 0.47.19 is the verified Linux ARM64 pin (macOS remains 0.44.0); Hyprland compatibility and artifact verification are the questions to test. Native Wayland and the optional seat plugin are separate experiments. Chromium/Electron must use foreground actions; never imply that their input is isolated or that focus/pointer state is restored.
+Use Apple Silicon and the existing patched Lume first. The baseline is foreground agent control, not isolated background control. CuaDriver 0.47.19 is the verified Linux ARM64 pin (macOS remains 0.44.0); Hyprland compatibility and artifact verification are the questions to test. Native Wayland and the optional seat plugin are separate experiments. Targeted Chromium/Electron keyboard input requires explicit opt-in to the ABI-matched native Hyprland input module; the stock driver alone refused the acceptance task. Chromium/Electron must use foreground actions; never imply that their input is isolated or that focus/pointer state is restored.
 
 Use Cua's Archboot ARM64 installation followed by Omarchy source commit `13f18b2cb7286fb54f87daf571a031aa6af3d8f0` (4.0.1). Do not conflate this with upstream edge/nightly Omarchy ISOs. Pin every downloaded input and verify it before use. Arch repositories remain rolling: record resolved package versions; a pinned source commit alone does not make package installation reproducible.
 
@@ -32,7 +32,7 @@ All Omarchy implementation and acceptance work stays in PR #15 until reviewed. T
 
 - Independently confirm Archboot's GPG fingerprint using Arch Linux's developer directory; verify signed checksum manifest and ISO.
 - Pin Cua installer scripts and audit them before running only inside the disposable guest.
-- Verify CuaDriver 0.44.0 Linux ARM64 SHA-256 and Sigstore identity/bundle before installation.
+- Verify CuaDriver 0.47.19 Linux ARM64 SHA-256 and Sigstore identity/bundle before installation.
 - Test in order: driver status; screenshot via `cua-driver mcp`; GTK AT-SPI tree and accessibility bus; foreground click/type; Chromium foreground navigation/type.
 - Only after baseline tests, try `CUA_DRIVER_RS_ENABLE_WAYLAND=1`, then the optional Hyprland seat plugin. Require explicit experimental-input opt-in for mutations.
 - Disable Hyprland animations. Measure capture latency at 1920x1200 and 1456x920, allocated disk usage, installation peak and idle resources. These test sizes do not change existing defaults.
@@ -69,7 +69,7 @@ CPU, RAM, disk location/capacity, display dimensions, VM name, versions, ports a
 
 - [Lume Linux guest guide](https://cua.ai/docs/lume/guides/linux-guests)
 - [CuaDriver platform support](https://cua.ai/docs/cua-driver/concepts/platform-support)
-- [CuaDriver 0.44.0 assets](https://github.com/trycua/cua/releases/tag/cua-driver-rs-v0.44.0)
+- [CuaDriver 0.47.19 Linux assets](https://github.com/trycua/cua/releases/tag/cua-driver-rs-v0.47.19)
 - [Arch Linux developer fingerprint](https://archlinux.org/people/developers/#tpowa)
 - [Omarchy ARM status](https://github.com/omacom/omarchy/discussions/15702)
 
@@ -168,3 +168,30 @@ post-pairing installation sequence and client interruption/resume. A separately
 opted-in Mousepad background typing/save test also passed while Foot stayed
 foreground in 52 samples; human reservation refused a subsequent background
 write. This is a bounded keyboard experiment, not full background desktop support.
+
+## Security review follow-up
+
+- [x] Remove automatic host VNC credential export for **all** guests, including
+  the `lume-config` VirtioFS share and guest-home SSH fallback, from both normal
+  and USB/recovery VM start paths. The common patch also covers saved-state resume
+  through normal `run`; do not resume an old saved state that contains the former
+  device configuration. Use a cold start after deploying the new build.
+- [x] Install a root-owned SDDM gate **before** the desktop installer can enable
+  graphical boot. Require a root-owned completion receipt plus live SSH,
+  firewall and sudo checks. Missing/failed hardening blocks managed graphical login.
+- [x] Recheck hardening before driver mutation, completed-stage verification,
+  driver installation, daemon startup and MCP startup. These controls prevent
+  accidental stage bypass, not deliberate changes by an administrator inside the guest.
+- [x] Correct the current Linux driver references and scope paragraph; retain the
+  historical 0.44.0 failure evidence and the separate macOS 0.44.0 pin.
+
+Linux 0.47.19 archive SHA-256:
+`5a1daed6820e6063f33dddbd3e5403d89dc27b8cf197b45df9af0fddd4fd50bb`.
+Sigstore issuer: `https://token.actions.githubusercontent.com`.
+Certificate identity:
+`https://github.com/trycua/cua/.github/workflows/cd-rust-cua-driver.yml@refs/tags/cua-driver-rs-v0.47.19`.
+Cosign verified the downloaded archive and its bundle again during this review.
+The upstream release explains that its GitHub “Pre-release” flag prevents
+monorepo Latest-tag collisions; plain SemVer driver versions are stable releases.
+This does not graduate OwnMachine's Linux integration or certify all applications.
+See [security regression evidence](omarchy-security-acceptance.md).

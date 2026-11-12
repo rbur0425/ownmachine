@@ -75,6 +75,14 @@ def user_support(home, uid, gid):
 def harden(user, source, password_file):
     if not re.fullmatch('[a-z_][a-z0-9_-]{0,31}', user) or user == 'root':
         raise ValueError('desktop_user_required')
+    # Refuse before password rotation or policy mutation if desktop setup did
+    # not install the root-owned boot gate.
+    gate = Path('/usr/local/libexec/ownmachine-hardening-gate.py')
+    for item in (gate, *gate.parents):
+        info = item.lstat()
+        if info.st_uid != 0 or info.st_mode & 0o022 or stat.S_ISLNK(info.st_mode):
+            raise ValueError('trusted_desktop_hardening_gate_required')
+    if not gate.is_file():raise ValueError('desktop_hardening_gate_required')
     account = pwd.getpwnam(user)
     if account.pw_uid < 1000:raise ValueError('desktop_user_required')
     home = Path(account.pw_dir)
@@ -146,6 +154,9 @@ WantedBy=multi-user.target
     # A noninteractive escalation probe must fail; exact poweroff is not run here.
     probe=subprocess.run(['runuser','-u',user,'--','sudo','-n','/usr/bin/true'],capture_output=True,timeout=10)
     if probe.returncode == 0:raise ValueError('unrestricted_passwordless_sudo_remains')
+    # The receipt is public policy metadata; recovery material remains private.
+    Path('/etc/ownmachine').chmod(0o755)
+    command(['/usr/bin/python3','/usr/local/libexec/ownmachine-hardening-gate.py','--seal',user])
     return dict(hardened=True,guest_os='linux',ssh='key_only',firewall='loaded',sudo='exact_shutdown_only')
 
 

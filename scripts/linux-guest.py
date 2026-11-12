@@ -18,6 +18,8 @@ import tarfile
 import tempfile
 import urllib.request
 
+# Verified Sigstore issuer: https://token.actions.githubusercontent.com
+# Identity: https://github.com/trycua/cua/.github/workflows/cd-rust-cua-driver.yml@refs/tags/cua-driver-rs-v0.47.19
 VERSION = '0.47.19'
 SHA256 = '5a1daed6820e6063f33dddbd3e5403d89dc27b8cf197b45df9af0fddd4fd50bb'
 SESSION_KEYS = {'DISPLAY', 'WAYLAND_DISPLAY', 'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP',
@@ -117,6 +119,7 @@ def readiness():
                   driver_running=False, standard_mode=False, driver_ready=False,
                   foreground_input_ready=False)
     try:
+        require_hardening()
         config = settings()
         env = session_environment()
         result['graphical_session'] = True
@@ -133,9 +136,24 @@ def readiness():
     return result
 
 
+def require_hardening():
+    path=Path('/etc/ownmachine/hardened.json')
+    for item in (path,*path.parents):
+        info=item.lstat()
+        if info.st_uid!=0 or info.st_mode & 0o022 or stat.S_ISLNK(info.st_mode):
+            raise ValueError('untrusted_hardening_receipt')
+    if not path.is_file():raise ValueError('hardening_receipt_required')
+    receipt=json.loads(path.read_text())
+    if receipt.get('schema_version')!=1 or receipt.get('uid')!=os.getuid():
+        raise ValueError('guest_hardening_required')
+    probe=subprocess.run(['sudo','-n','-k','/usr/bin/true'],capture_output=True,timeout=10)
+    if probe.returncode==0:raise ValueError('unrestricted_passwordless_sudo_remains')
+
+
 def install(version, sha256, artifact=None):
     if not re.fullmatch(r'\d+\.\d+\.\d+', version) or not re.fullmatch('[a-f0-9]{64}', sha256):
         raise ValueError('explicit_version_and_sha256_required')
+    require_hardening()
     home = Path.home()
     root = home/'.local/opt/ownmachine'/('cua-driver-' + version)
     config = home/'.config/ownmachine/linux-driver.json'
@@ -210,6 +228,7 @@ def main():
     elif args.operation == 'status':
         print(json.dumps(readiness()))
     else:
+        require_hardening()
         config = settings()
         env = session_environment()
         if args.operation == 'mcp' and not readiness()['driver_ready']:

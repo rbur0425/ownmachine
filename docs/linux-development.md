@@ -273,3 +273,25 @@ does not enable simultaneous human/agent ownership. Chromium/Electron do not bin
 the module's agent seats; Qt keyboard and XWayland routes are not qualified.
 Do not treat module readiness as universal background support. Read the
 [full evidence and limitations](omarchy-guided-acceptance.md).
+
+### Enforced hardening order
+
+The desktop installer installs the root-owned SDDM startup gate before invoking
+upstream installation. Complete the `harden` stage before `linux-start-desktop`
+and `driver`. Restarting early leaves SDDM stopped; use the already paired SSH
+setup connection to finish hardening, then retry the guided desktop start.
+Do not delete the drop-in to work around a failed check.
+
+The hardener publishes `/etc/ownmachine/hardened.json` only after verifying SSH,
+firewall and sudo policy. This is public policy metadata, not a password.
+Every managed SDDM start rechecks live policy; the guest driver requires the
+trusted receipt for installation, readiness, daemon and MCP startup, and refuses
+unrestricted passwordless sudo even if a receipt remains. The host also verifies
+hardening before new or resumed driver stages. An administrator can deliberately
+change these controls; they are not a sandbox against guest root or arbitrary
+manual compositor/driver launches outside OwnMachine.
+
+Existing experimental guests without the gate need reviewed operator repair or
+a fresh guided installation. A completed old checkpoint is not permission to skip
+the new checks. Source-bound onboarding checkpoints prevent replaying installation
+with changed scripts. See [regression evidence](omarchy-security-acceptance.md).

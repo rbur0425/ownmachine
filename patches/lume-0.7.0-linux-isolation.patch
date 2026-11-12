@@ -57,21 +57,3 @@
 +
 +
 +
---- a/libs/lume/src/VM/VM.swift
-+++ b/libs/lume/src/VM/VM.swift
-@@ -330 +330 @@
--            if vncPolicy.isEnabled {
-+            if vncPolicy.isEnabled && getOSType().caseInsensitiveCompare("macOS") == .orderedSame {
-@@ -418,5 +418,7 @@
--                    try? envContent.write(
--                        to: lumeConfigDir.appendingPathComponent("vnc.env"),
--                        atomically: true, encoding: .utf8)
--                    Logger.info("Wrote VNC config to shared directory", metadata: [
--                        "port": "\(port)", "path": lumeConfigDir.path])
-+                    if getOSType().caseInsensitiveCompare("macOS") == .orderedSame {
-+                        try? envContent.write(
-+                            to: lumeConfigDir.appendingPathComponent("vnc.env"),
-+                            atomically: true, encoding: .utf8)
-+                        Logger.info("Wrote VNC config to shared directory", metadata: [
-+                            "port": "\(port)", "path": lumeConfigDir.path])
-+                    }

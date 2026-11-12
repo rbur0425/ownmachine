@@ -35,7 +35,7 @@ class LinuxGuestTests(unittest.TestCase):
                 self.assertFalse(guest.foreground_input_ready({}))
 
     def test_readiness_never_fakes_macos_consent(self):
-        with patch.object(guest, 'settings', return_value={'binary':'/driver'}), \
+        with patch.object(guest, 'require_hardening'), patch.object(guest, 'settings', return_value={'binary':'/driver'}), \
              patch.object(guest, 'session_environment', return_value={}), \
              patch.object(guest, 'call', return_value=subprocess.CompletedProcess([],0,'permission mode: standard (trusted_startup_configuration)')):
             result = guest.readiness()
@@ -44,7 +44,7 @@ class LinuxGuestTests(unittest.TestCase):
         self.assertNotIn('capture_consent_verified', result)
 
     def test_wrong_authorization_mode_refuses_readiness(self):
-        with patch.object(guest, 'settings', return_value={'binary':'/driver'}), \
+        with patch.object(guest, 'require_hardening'), patch.object(guest, 'settings', return_value={'binary':'/driver'}), \
              patch.object(guest, 'session_environment', return_value={}), \
              patch.object(guest, 'call', return_value=subprocess.CompletedProcess([],0,'permission mode: unrestricted (test)')):
             self.assertFalse(guest.readiness()['driver_ready'])
@@ -60,7 +60,7 @@ class LinuxGuestTests(unittest.TestCase):
                 guest.session_environment()
 
     def test_settings_and_install_refuse_existing_symlinks(self):
-        with tempfile.TemporaryDirectory() as directory, patch.object(guest.Path, 'home', return_value=Path(directory).resolve()):
+        with patch.object(guest, 'require_hardening'), tempfile.TemporaryDirectory() as directory, patch.object(guest.Path, 'home', return_value=Path(directory).resolve()):
             root=Path(directory);config=root/'.config/ownmachine';config.mkdir(parents=True)
             target=root/'keep';target.write_text('unchanged')
             (config/'linux-driver.json').symlink_to(target)
@@ -70,7 +70,7 @@ class LinuxGuestTests(unittest.TestCase):
             self.assertEqual(target.read_text(),'unchanged')
 
     def test_checksum_mismatch_does_not_publish_installation(self):
-        with tempfile.TemporaryDirectory() as directory, patch.object(guest.Path, 'home', return_value=Path(directory).resolve()):
+        with patch.object(guest, 'require_hardening'), tempfile.TemporaryDirectory() as directory, patch.object(guest.Path, 'home', return_value=Path(directory).resolve()):
             archive=Path(directory)/'bad.tar.gz';archive.write_bytes(b'not a driver')
             with self.assertRaisesRegex(ValueError,'checksum_mismatch'):
                 guest.install(guest.VERSION,guest.SHA256,archive)

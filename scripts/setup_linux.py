@@ -47,6 +47,7 @@ def verify_hardening(service,c):
     report=json.loads(private_read(service.hardening_state(c)/'linux-hardening.json'))
     if report!={'schema_version':1,'hardened':True}:raise ValueError('linux_hardening_incomplete')
     script=b'''set -eu
+/usr/bin/python3 /usr/local/libexec/ownmachine-hardening-gate.py
 /usr/bin/sshd -t
 /usr/bin/sshd -T | grep -qi '^passwordauthentication no$'
 /usr/bin/sshd -T | grep -qi '^permitrootlogin no$'

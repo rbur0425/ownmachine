@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / 'plugin'))
 from ownmachine.onboarding import DEFAULTS, FIELDS, validate_plan
 
 REVISION = '666c196f42dc9c83dbe075e20318f16c3e3a6d84'
-PATCHES = ('lume-0.7.0-key-clipboard.patch', 'lume-0.7.0-private-vnc-password.patch')
+PATCHES = ('lume-0.7.0-key-clipboard.patch', 'lume-0.7.0-private-vnc-password.patch', 'lume-0.7.0-no-guest-vnc-credentials.patch')
 
 
 def digest(value):
