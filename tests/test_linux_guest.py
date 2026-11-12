@@ -17,6 +17,23 @@ guest = load('linux_guest_tested', 'scripts/linux-guest.py')
 relay = load('linux_host_tested', 'host/ownmachine_host.py')
 
 class LinuxGuestTests(unittest.TestCase):
+    def test_foreground_readiness_requires_private_matching_production_transport(self):
+        data = dict(configured=True, abi=dict(match=True, compiled_hash='abi', runtime_hash='abi'),
+                    transport=dict(ready=True, mode='0600', peer_policy='same_uid'),
+                    input=dict(protocol=3, test_only=False, transport_ready=True))
+        cases = [(None, None, None, True), ('abi','runtime_hash','other',False),
+                 ('abi','match','true',False), ('transport','mode','0666',False),
+                 ('transport','peer_policy','any',False), ('input','test_only',True,False),
+                 ('input','transport_ready',False,False), ('input','protocol',2,False)]
+        for section,key,value,expected in cases:
+            candidate=json.loads(json.dumps(data))
+            if section:candidate[section][key]=value
+            with self.subTest(section=section,key=key), patch.object(guest,'call',return_value=subprocess.CompletedProcess([],0,json.dumps(candidate))):
+                self.assertEqual(guest.foreground_input_ready({}),expected)
+        for raw in ['unknown request', '{}', 'null']:
+            with patch.object(guest,'call',return_value=subprocess.CompletedProcess([],0,raw)):
+                self.assertFalse(guest.foreground_input_ready({}))
+
     def test_readiness_never_fakes_macos_consent(self):
         with patch.object(guest, 'settings', return_value={'binary':'/driver'}), \
              patch.object(guest, 'session_environment', return_value={}), \

@@ -281,3 +281,27 @@ dispatch and explains `set_value` or an explicitly grounded foreground pixel cli
 A regression test verifies this refusal leaves the gate usable for a value edit.
 The strict local suite passes 364 tests with zero skips; a completed save remains
 pending at this checkpoint.
+
+
+### Independently verified model document task
+
+At candidate `166331f`, the installed plugin passed Hermes validation and the
+real Docker-hosted model completed the GTK task using only `computer_use`.
+Targeted `set_value` wrote and read back the requested text. Ctrl+S opened a
+separate Save As window; the model rediscovered it, set its filename, and used a
+freshly grounded foreground pixel click when the Save button lacked AXPress.
+A fresh capture showed the saved filename with no unsaved marker.
+
+Independent read-only SSH verification confirmed the exact line
+`OwnMachine Linux acceptance: Hermes controls this desktop.` plus the editor's
+trailing newline (58 bytes), and the live saved-file Mousepad title. SHA-256:
+`288029d8c329dbae59db27127ceef23a91405d7083f407c23461d8b8fc8f7fc2`.
+The file did not exist before this run. No operator input or direct filesystem
+write completed the task for the model. This certifies this bounded GTK workflow,
+not arbitrary desktop reliability or module-free foreground input.
+
+Both CI jobs passed on `166331f` (Linux 26 seconds, macOS 1 minute 20 seconds).
+The follow-up guest status probe distinguishes `foreground_input_ready` from
+`driver_ready`; the new probe passed against the running module-enabled guest.
+The full no-workaround provisioning repeat, headless bootstrap, optional module
+installation and first-login polish remain open.

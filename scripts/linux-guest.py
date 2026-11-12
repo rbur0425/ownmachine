@@ -90,14 +90,37 @@ def settings():
     return data
 
 
+def foreground_input_ready(env):
+    """Report the opt-in input transport separately from capture/AT-SPI readiness."""
+    try:
+        raw = call(['hyprctl', '-j', 'cua:status'], env=env).stdout
+        if len(raw) > 65536:
+            return False
+        data = json.loads(raw)
+        abi, transport, inputs = data['abi'], data['transport'], data['input']
+        return (data.get('configured') is True and abi.get('match') is True
+                and bool(abi.get('compiled_hash'))
+                and abi.get('compiled_hash') == abi.get('runtime_hash')
+                and transport.get('ready') is True
+                and transport.get('mode') == '0600'
+                and transport.get('peer_policy') == 'same_uid'
+                and inputs.get('protocol') == 3
+                and inputs.get('test_only') is False
+                and inputs.get('transport_ready') is True)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError):
+        return False
+
+
 def readiness():
     result = dict(schema_version=1, guest_os='linux', guest_profile='omarchy',
                   graphical_session=False, accessibility_bus=False,
-                  driver_running=False, standard_mode=False, driver_ready=False)
+                  driver_running=False, standard_mode=False, driver_ready=False,
+                  foreground_input_ready=False)
     try:
         config = settings()
         env = session_environment()
         result['graphical_session'] = True
+        result['foreground_input_ready'] = foreground_input_ready(env)
         call(['gdbus', 'call', '--session', '--dest', 'org.a11y.Bus',
               '--object-path', '/org/a11y/bus', '--method', 'org.a11y.Bus.GetAddress'], env=env)
         result['accessibility_bus'] = True

@@ -121,3 +121,13 @@ an exact-window action to untargeted desktop input to avoid this refusal.
 First-run Chromium terms remain an explicit user decision. A new-keyring prompt
 may be canceled for a test that stores no logins; setup does not create an empty
 keyring or disable credential protection to suppress that dialog.
+
+
+Linux status reports `foreground_input_ready` separately from `driver_ready`.
+Capture and GTK accessibility readiness do not prove exact-window keyboard/mouse
+support. Foreground input requires the explicit production Hyprland input module,
+an exact compiled/runtime ABI match, enabled protocol-3 transport, and private
+same-user sockets. Missing or unsafe transport reports false; the probe never
+loads a module or changes compositor configuration. Recheck after every desktop
+restart or compositor update. Module installation remains an experimental manual
+step, not a completed guided-onboarding feature.

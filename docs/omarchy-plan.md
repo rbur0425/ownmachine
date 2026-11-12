@@ -20,7 +20,7 @@ All Omarchy implementation and acceptance work stays in PR #15 until reviewed. T
 - [x] Build/test the optional Hyprland plugin against the exact compositor ABI; record limitations (21 tests per build; bounded foreground smoke and disabled-transport refusal).
 - [ ] Measure installation peak and idle resources.
 - [ ] Implement shared Linux provisioning, hardening, graphical-session driver and lifecycle. Creation/resume and pinned base/desktop orchestration now run on a fresh guest; live hardening exposed mode/parent-ownership bugs that are fixed in code but still require a clean repeat.
-- [ ] Verify private viewer, SSH roles and human/agent handoff for Linux. Protected RFB greeting and local role refusals pass; separate-user SSH/browser handoff remains open.
+- [x] Verify private viewer, SSH roles and human/agent handoff for Linux. Separate-account Docker streaming, role refusals, reservation refusal and browser pause/resume passed.
 - [ ] Add configurable experimental Omarchy onboarding, resume and doctor checks. Profile routing, Linux stages, no-destructive-replay checks and viewer/doctor flags are implemented; complete authenticated Docker acceptance remains open.
 - [ ] Complete fresh Docker-to-Mac and real Hermes model acceptance.
 - [ ] Finish resource guidance, catalog disclosures, evaluator docs and release validation.
@@ -85,7 +85,7 @@ Implementation commands and safety boundaries: [Linux development guide](linux-d
 - [ ] Repeat complete provisioning with both hardening fixes included. This run
   required inspected recovery; do not count it as the no-workaround acceptance.
 - [ ] Verify default scale 1 across first-login dialogs, browser and editor.
-- [ ] Finish the separate-account browser handoff and real Docker/Hermes task.
+- [x] Finish the separate-account browser handoff and real Docker/Hermes browser/document tasks.
 
 See the appended fresh-install evidence in the acceptance record. Original failed
 checkpoints remain preserved locally; corrected code does not rewrite that history.
@@ -96,14 +96,19 @@ opt-in Hyprland module. Keep that requirement visible in onboarding and doctor
 output; do not equate driver capture readiness with input support. The first real
 model run reached Chromium discovery/capture and safely stopped on this refusal.
 Private streaming, role checks and a human-reservation input refusal now have
-cross-account Docker evidence; complete browser handoff and model success remain
-unticked until the module-enabled run and independent verification finish.
+cross-account Docker evidence. Module-enabled browser and document tasks now
+pass through real Hermes, with independent guest checks. Complete fresh guided
+setup remains open because hardening required recovery.
 
 
 - [x] Rebuild the optional input module in the fresh guest, pass 21 tests and
   verify exact ABI plus explicitly enabled transport.
 - [x] Complete the module-enabled real Hermes Chromium-to-Google task and
   independently verify the live title and history URL.
-- [ ] Retest the GTK create/save task after correcting Linux cold-launch identity.
+- [x] Retest GTK create/save after correcting Linux launch identity and text activation; independently verify exact saved bytes and live editor title.
 - [ ] Integrate an explicit optional-module installation/readiness path; do not
   advertise module-free targeted Chromium input or silently broaden its target.
+
+Foreground input readiness is now reported separately from driver/capture readiness.
+The live module-enabled probe passes; absent, mismatched, test-only or non-private
+transports report false. Automatic module installation remains unchecked.

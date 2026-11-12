@@ -194,6 +194,7 @@ def guest_status(alias, address, guest_os='macos'):
             result.update(guest_os='linux', guest_profile='omarchy',
                           **{k: data[k] for k in fields if k != 'driver_ready'},
                           driver_ready=ready, driver_state='ready' if ready else 'not_running')
+            result['foreground_input_ready'] = data.get('foreground_input_ready') is True
             return result
         source = data.get('source')
         if not isinstance(source, dict) or source.get('bundle_id') != 'com.trycua.driver':
