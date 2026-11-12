@@ -53,7 +53,7 @@ def select_window(windows):
 
 class OwnMachineProvider(ComputerUseProvider):
     name = 'ownmachine'
-    display_name = 'OwnMachine (private macOS VM)'
+    display_name = 'OwnMachine (private desktop VM)'
 
     def is_available(self):
         try: return bool(configured().control_dir and shutil.which('ssh'))
@@ -91,6 +91,7 @@ class OwnMachineBackend(ComputerUseBackend):
         self.generation = None
         self.tokens = {}
         self.element_actions = {}
+        self.element_roles = {}
         self.target = None
         self.has_pixels = False
         self.capture_id = None
@@ -223,11 +224,14 @@ class OwnMachineBackend(ComputerUseBackend):
         self.target = target or {'scope':'desktop'}
         self.tokens = {e.index:e.element_token for e in elements}
         self.element_actions = {e.index:e.attributes['actions'] for e in elements if isinstance(e.attributes.get('actions'),list)}
+        self.element_roles = {e.index:e.role for e in elements}
         self._last_target = target
         self._last_app = app or data.get('app_name')
         output_mode = mode
         note = 'Pixel coordinates are local to this exact screenshot. Take a fresh capture after every pixel click; its capture binding is single-use. Element clicks invoke AXPress, not mouse focus. For a field without AXPress, use set_value or a fresh screenshot-grounded pixel click. Popup set_value selects only an existing menu option: inspect the open menu first, never guess a destination. File-location popups can list ancestors rather than destinations; use the dialog navigation controls or keyboard shortcuts for other folders. Any operator_review_required result overrides generic retry advice; stop until the operator inspects and acknowledges it. Each new capture replaces earlier tokens.\n'
         note += '\n'.join(f'#{e.index} actions: '+', '.join(str(a) for a in e.attributes['actions']) for e in elements if 'actions' in e.attributes)
+        if self.config.guest_profile == 'omarchy':
+            note += '\nLinux text/entry elements: use set_value to edit their contents; do not use element click to focus them. Foreground compositor input requires the explicitly enabled ABI-matched Hyprland module. Prefer keyboard shortcuts over opening menus: a foreground grab can refuse further compositor input. Experimental background requests never authorize foreground fallback; operator/control-gate refusals override generic escalation advice.\n'
         if mode == 'som' and raw:
             try:
                 from PIL import Image, ImageDraw
@@ -282,6 +286,9 @@ class OwnMachineBackend(ComputerUseBackend):
                     meta={'operator_review_required': True, 'ownmachine_control_gate': True, 'driver_code': data.get('code'),
                           'driver_message': (data.get('summary') or data.get('message') or '\n'.join(p.get('text','') for p in reply.get('content',[]) if p.get('type')=='text'))[:1200]},
                     path=data.get('path') or data.get('route'))
+            if isinstance(e, LeaseError) and str(e) in {'human_takeover','paused','control_changed'}:
+                return ActionResult(False,name,code=str(e),message='The owner controls or has paused this workspace. No input was dispatched. Stop; do not retry, escalate or change delivery mode. The owner must explicitly return control before a fresh capture.',
+                    escalation={'recommended':'operator'},meta={'dispatched':False,'operator_review_required':True,'ownmachine_control_gate':True})
             if isinstance(e, LeaseError) and str(e) == 'transport_outcome_unknown':
                 return ActionResult(False, name, code=str(e), message='No new action was dispatched. A previous action requires operator inspection and acknowledgement. Do not retry or escalate input.', meta={'dispatched': False, 'operator_review_required': True, 'ownmachine_control_gate': True})
             return ActionResult(ok=False, action=name, code=str(e), message=str(e),
@@ -293,6 +300,14 @@ class OwnMachineBackend(ComputerUseBackend):
             return ActionResult(False,name,code='pixel_capture_required')
         if delivery_mode not in {None,'background','foreground'}:
             return ActionResult(False,name,code='unsupported_delivery_mode')
+        if self.config.guest_profile == 'omarchy':
+            if delivery_mode == 'background':
+                if not self.config.experimental_linux_background_input:
+                    return ActionResult(False,name,code='linux_background_input_not_certified',message='Background input is disabled. Stop; this refusal does not authorize foreground input. The operator must explicitly enable the experiment.',escalation={'recommended':'operator'},meta={'dispatched':False,'operator_review_required':True})
+                if bring_to_front:
+                    return ActionResult(False,name,code='background_focus_conflict',message='Background input cannot also raise the window. No input was dispatched. Do not fall back to foreground.',escalation={'recommended':'operator'},meta={'dispatched':False})
+            else:
+                delivery_mode = 'foreground'
         if name == 'click' and 'x' in args:
             if not isinstance(self.capture_id, str) or not self.capture_id:
                 return ActionResult(False,name,code='fresh_pixel_capture_required',message='Capture a fresh screenshot before this pixel click.',meta={'dispatched':False})
@@ -325,6 +340,9 @@ class OwnMachineBackend(ComputerUseBackend):
         name = 'right_click' if button=='right' else 'double_click' if click_count==2 else 'click'
         try:
             args = self._element(element) if element is not None else {'x':x,'y':y}
+            if (element is not None and self.config.guest_profile == 'omarchy'
+                    and self.element_roles.get(element) in {'text','entry','password text'}):
+                return ActionResult(False,name,code='element_press_unsupported',message='Linux text elements are not activation targets. No input was dispatched. Use set_value for text or a fresh screenshot-grounded foreground pixel click to focus.',meta={'dispatched':False})
             if element is not None and name == 'click' and 'AXPress' not in self.element_actions.get(element, ['AXPress']):
                 return ActionResult(False, name, code='element_press_unsupported', message='This element does not advertise AXPress. No input was dispatched. Use an appropriate value action or a fresh screenshot-grounded pixel click.', meta={'dispatched':False})
             if element is None and (x is None or y is None): raise ValueError('coordinates_required')
@@ -366,7 +384,15 @@ class OwnMachineBackend(ComputerUseBackend):
             pid = matches[0].get('pid')
             if not pid:
                 bundle_id = matches[0].get('bundle_id')
-                result = self._write('launch_app', {'bundle_id':bundle_id})
+                launch = {'bundle_id':bundle_id}
+                if self.config.guest_profile == 'omarchy':
+                    # Linux desktop discovery provides a launch_path; the
+                    # macOS bundle_id argument alone cannot launch Linux apps.
+                    path = matches[0].get('launch_path')
+                    if not isinstance(path,str) or not path or any(ord(c)<32 for c in path):
+                        return ActionResult(False,'focus_app',code='linux_launch_identity_missing')
+                    launch = {'launch_path':path}
+                result = self._write('launch_app', launch)
                 if not result.ok or not raise_window: return result
                 # Launch is background-only. Honor an explicitly requested raise,
                 # resolving the new process/window rather than reusing the capture's

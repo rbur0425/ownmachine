@@ -153,9 +153,18 @@ class OnboardingCommandsTests(unittest.TestCase):
             self.assertIn('Invalid', ctx.slash('setup --unknown'))
             self.assertIn('invalid', ctx.slash('setup "'))
 
+    def test_terminal_wizard_offers_only_supported_guest_profiles(self):
+        ctx=Context();parsed=args('setup')
+        with patch('sys.stdin.isatty',return_value=True),patch('sys.stdout.isatty',return_value=True),patch('builtins.input',side_effect=['omarchy','remote','','','/vm','demo','no']):
+            o.interactive(ctx,parsed)
+        self.assertEqual(parsed.guest_profile,'omarchy')
+        report=o.setup(ctx,parsed)
+        self.assertEqual(report['plan']['min_free_gb'],32)
+        self.assertEqual(ctx.settings,{})
+
     def test_terminal_wizard_preview_and_decline(self):
         ctx = Context(); o.register_commands(ctx)
-        with patch('sys.stdin.isatty', return_value=True), patch('sys.stdout.isatty', return_value=True), patch('builtins.input', side_effect=['remote', '', '', '/vm', 'demo', 'no']):
+        with patch('sys.stdin.isatty', return_value=True), patch('sys.stdout.isatty', return_value=True), patch('builtins.input', side_effect=['', 'remote', '', '', '/vm', 'demo', 'no']):
             self.assertEqual(ctx.cli['handler_fn'](args('setup')), 0)
         self.assertEqual(ctx.settings, {})
 
@@ -313,10 +322,10 @@ class OnboardingProgressTests(unittest.TestCase):
         self.assertEqual(ctx.state.get('onboarding')['stage'], 'await_host_setup')
 
 
-    def test_only_macos_is_offered_without_an_os_selector(self):
+    def test_macos_default_and_explicit_experimental_profile(self):
         report = o.setup(Context(), args('setup', '--target', 'remote'))
         self.assertEqual(report['guest_os'], 'macos')
-        self.assertIn('only supported image', o.render_setup(report))
+        self.assertIn('macOS (default', o.render_setup(report))
         for option in ('--os', '--image', '--guest-os'):
             with self.assertRaises(o.InputError):
                 args('setup', option, 'linux')

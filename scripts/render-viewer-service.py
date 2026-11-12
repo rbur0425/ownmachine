@@ -22,7 +22,7 @@ def render(source, python, config, port=0, swap_red_blue=False, read_only=False,
         raise ValueError('source_python_or_control_missing')
     if type(port) is not int or not 0<=port<=65535:raise ValueError('invalid_port')
     command=[str(python),str(source/'viewer/server.py'),'--host-alias',config.host_alias,
-             '--vm-name',config.vm_name,'--control-dir',config.control_dir,'--port',str(port),
+             '--vm-name',config.vm_name,'--guest-profile',config.guest_profile,'--control-dir',config.control_dir,'--port',str(port),
              '--connect-timeout-seconds',str(config.connect_timeout_seconds),
              '--action-timeout-seconds',str(config.action_timeout_seconds)]
     if access_dir:
@@ -40,6 +40,7 @@ def main():
     parser.add_argument('--source',required=True,type=Path)
     parser.add_argument('--python',required=True,type=Path)
     parser.add_argument('--host-alias',required=True)
+    parser.add_argument('--guest-profile', choices=['macos','omarchy'], default='macos')
     parser.add_argument('--vm-name',default='ownmachine')
     parser.add_argument('--control-dir',required=True)
     parser.add_argument('--access-dir')
@@ -51,7 +52,7 @@ def main():
     a=parser.parse_args()
     try:
         unit=render(a.source,a.python,Config(a.host_alias,a.control_dir,a.vm_name,
-                    a.connect_timeout_seconds,a.action_timeout_seconds),a.port,a.swap_red_blue,a.read_only,a.access_dir)
+                    guest_profile=a.guest_profile,connect_timeout_seconds=a.connect_timeout_seconds,action_timeout_seconds=a.action_timeout_seconds),a.port,a.swap_red_blue,a.read_only,a.access_dir)
     except ValueError as error:parser.error(str(error))
     print(unit,end='')
 

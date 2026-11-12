@@ -18,20 +18,37 @@ from setup_support import ROOT, mac, module, private_read, install_exact, events
 
 relay = module('setup_host_relay', 'host/ownmachine_host.py')
 keys = module('setup_host_keys', 'scripts/render-host-keys.py')
-STEPS = ('preflight', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'verify')
+STEPS = ('preflight', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'viewer-check', 'verify')
 MUTATIONS = {'relay', 'keys', 'harden', 'driver', 'viewer'}
 FIELDS = {'vm_name', 'storage_dir', 'lume_app', 'vnc_port', 'guest_ssh_alias', 'python',
           'agent_public_key', 'viewer_public_key', 'agent_host_alias', 'viewer_host_alias',
-          'control_dir', 'access_dir', 'viewer_port', 'viewer_python', 'guest_user'}
+          'control_dir', 'access_dir', 'viewer_port', 'viewer_python', 'guest_user', 'guest_profile', 'relay_config', 'display_scale', 'desktop_theme', 'enable_experimental_input', 'guest_bootstrap_ssh_alias', 'viewer_probe_ssh_alias', 'relay_path', 'viewer_probe_ssh_config', 'runtime_ssh_config'}
+
+
+def linux_service():
+    from types import SimpleNamespace
+    return SimpleNamespace(**globals())
 
 
 def config(path):
     data = json.loads(path.read_text())
     if not isinstance(data, dict) or set(data) - FIELDS:
         raise ValueError('invalid_service_configuration')
+    profile=data.get('guest_profile','macos')
+    if profile not in {'macos','omarchy'}:raise ValueError('unsupported_guest_profile')
     data = {**dict(vm_name='ownmachine', vnc_port=0, viewer_port=0, python=sys.executable,
-                viewer_python=sys.executable, guest_user='lume'), **data}
+                viewer_python=sys.executable, guest_user='omarchy' if profile=='omarchy' else 'lume'), **data}
     for name, value in data.items():
+        if name=='guest_profile':continue
+        if name=='enable_experimental_input':
+            if type(value) is not bool or profile!='omarchy':raise ValueError('linux_input_opt_in_required')
+            continue
+        if name=='display_scale':
+            if type(value) is not int or value not in (1,2):raise ValueError('invalid_display_scale')
+            continue
+        if name=='desktop_theme':
+            if not isinstance(value,str) or not re.fullmatch('[a-z][a-z0-9-]{0,63}',value):raise ValueError('invalid_desktop_theme')
+            continue
         if name.endswith('port'):
             if type(value) is not int or not 0 <= value <= 65535:
                 raise ValueError('invalid_port')
@@ -59,7 +76,7 @@ def binary(c):
 
 def host_settings(c):
     if not 1024 <= c['vnc_port'] <= 65535: raise ValueError('fixed_vnc_port_required')
-    return dict(vm_name=c['vm_name'], storage_dir=c['storage_dir'], lume_path=str(binary(c)),
+    return dict(**({'guest_os':'linux','guest_profile':'omarchy'} if c.get('guest_profile')=='omarchy' else {}), vm_name=c['vm_name'], storage_dir=c['storage_dir'], lume_path=str(binary(c)),
                 guest_ssh_alias=c['guest_ssh_alias'], enable_mcp=True, enable_lifecycle=True,
                 enable_vnc=True, vnc_port=c['vnc_port'], display_mode='none')
 
@@ -74,6 +91,8 @@ def guest_address(c):
     matches = [row for row in rows if row.get('name') == c['vm_name']]
     if len(matches) != 1 or matches[0].get('status') != 'running':
         raise ValueError('selected_guest_not_running')
+    if c.get('guest_profile')=='omarchy' and matches[0].get('os','').lower()!='linux':
+        raise ValueError('guest_os_mismatch')
     address = ipaddress.ip_address(matches[0].get('ipAddress', ''))
     if address.is_loopback or address.is_unspecified or address.is_multicast:
         raise ValueError('invalid_guest_address')
@@ -87,13 +106,13 @@ def guest_argv(c):
 
 
 def desired_relay(c):
-    return ((Path.home()/'.local/lib/ownmachine/ownmachine_host.py', (ROOT/'host/ownmachine_host.py').read_bytes()),
-            (Path.home()/'.config/ownmachine/host.json', json.dumps(host_settings(c), sort_keys=True).encode()))
+    return ((Path(c.get('relay_path',str(Path.home()/'.local/lib/ownmachine/ownmachine_host.py'))), (ROOT/'host/ownmachine_host.py').read_bytes()),
+            (Path(c.get('relay_config',str(Path.home()/'.config/ownmachine/host.json'))), json.dumps(host_settings(c), sort_keys=True).encode()))
 
 
 def key_lines(c):
-    return keys.render(c['python'], Path.home()/'.local/lib/ownmachine/ownmachine_host.py',
-                       Path(c['agent_public_key']).read_text(), Path(c['viewer_public_key']).read_text()).splitlines()
+    return keys.render(c['python'], Path(c.get('relay_path',str(Path.home()/'.local/lib/ownmachine/ownmachine_host.py'))),
+                       Path(c['agent_public_key']).read_text(), Path(c['viewer_public_key']).read_text(),config=c.get('relay_config')).splitlines()
 
 
 def install_keys(c):
@@ -128,6 +147,9 @@ def hardening_state(c):
 
 
 def hardening_prerequisites(c):
+    if c.get('guest_profile')=='omarchy':
+        import setup_linux
+        return setup_linux.prerequisites(linux_service(),c)
     state = hardening_state(c)
     report = json.loads(private_read(state/'provision.json'))
     if (report.get('phase') != 'created' or report.get('vm_name') != c['vm_name']
@@ -153,6 +175,9 @@ def hardening_ssh(c):
 
 
 def install_hardening(c):
+    if c.get('guest_profile')=='omarchy':
+        import setup_linux
+        return setup_linux.harden(linux_service(),c)
     import time
     import socket
     state = hardening_state(c)
@@ -200,6 +225,9 @@ def install_hardening(c):
 
 
 def verify_hardening(c):
+    if c.get('guest_profile')=='omarchy':
+        import setup_linux
+        return setup_linux.verify_hardening(linux_service(),c)
     state = hardening_state(c)
     report = json.loads(private_read(state/'hardening.json'))
     if any(report.get(key) is not True for key in ('key_auth_verified', 'password_rotated',
@@ -214,6 +242,9 @@ def verify_hardening(c):
 
 
 def install_driver(c):
+    if c.get('guest_profile')=='omarchy':
+        import setup_linux
+        return setup_linux.driver(linux_service(),c)
     # Only reviewed fixed-name scripts are sent over already pinned, key-only SSH.
     names = ('install-guest-driver.sh', 'install-permission-guide.sh', 'install-guest-mcp.sh')
     archive = io.BytesIO()
@@ -231,13 +262,13 @@ def install_driver(c):
 
 def viewer_files(c):
     from ownmachine.config import Config
-    cfg = Config(c['viewer_host_alias'], c['control_dir'], c['vm_name']).validate()
+    cfg = Config(c['viewer_host_alias'], c['control_dir'], c['vm_name'],guest_profile=c.get('guest_profile','macos')).validate()
     access, control = Path(c['access_dir']).resolve(), Path(c['control_dir']).resolve()
     if access == control or access in control.parents or control in access.parents:
         raise ValueError('viewer_access_must_be_separate')
     if platform.system() == 'Darwin':
         argv = [c['viewer_python'], str(ROOT/'viewer/server.py'), '--host-alias', cfg.host_alias,
-                '--vm-name', cfg.vm_name, '--control-dir', cfg.control_dir, '--access-dir', c['access_dir'], '--port', str(c['viewer_port'])]
+                '--vm-name', cfg.vm_name,'--guest-profile',cfg.guest_profile, '--control-dir', cfg.control_dir, '--access-dir', c['access_dir'], '--port', str(c['viewer_port'])]
         data = dict(Label='org.ownmachine.viewer', ProgramArguments=argv, RunAtLoad=True,
                     KeepAlive={'SuccessfulExit': False}, ThrottleInterval=10, Umask=0o077,
                     StandardOutPath=str(access/'service.log'), StandardErrorPath=str(access/'service-error.log'))
@@ -249,8 +280,19 @@ def viewer_files(c):
 
 
 def viewer_check(c, probe=False):
+    if c.get('viewer_probe_ssh_alias'):
+        operation='probe' if probe else 'status'
+        argv=['ssh','-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',
+              '-o','IdentitiesOnly=yes','-o','ForwardAgent=no','-o','ClearAllForwardings=yes',
+              '-o','ConnectTimeout=10',c['viewer_probe_ssh_alias'],
+              'ownmachine-viewer-check',operation,'--vm',c['vm_name']]
+        if c.get('viewer_probe_ssh_config'):argv[1:1]=['-F',c['viewer_probe_ssh_config']]
+        result=json.loads(call(argv,timeout=110).stdout)
+        if result!={'ok':True,'vm_name':c['vm_name'],'guest_profile':c.get('guest_profile','macos'),'scope':'viewer_readiness_only'}:
+            raise ValueError('remote_viewer_not_ready')
+        return
     argv = [c['viewer_python'], str(ROOT/'scripts/ownmachine-viewer-doctor.py'),
-            '--host-alias', c['viewer_host_alias'], '--vm-name', c['vm_name'],
+            '--host-alias', c['viewer_host_alias'], '--vm-name', c['vm_name'],'--guest-profile',c.get('guest_profile','macos'),
             '--control-dir', c['control_dir'], '--access-dir', c['access_dir'], '--json']
     if probe: argv.append('--probe-vnc')
     result = json.loads(call(argv, timeout=90).stdout)
@@ -270,49 +312,64 @@ def verify(step, c):
             if [old for old in installed if blob in old.split()] != [line]:
                 raise ValueError('restricted_key_verification_failed')
     elif step == 'driver':
+        verify_hardening(c)
+        if c.get('guest_profile')=='omarchy':
+            import setup_linux
+            return setup_linux.ready(linux_service(),c)
         command = 'test "$("$HOME/.local/bin/cua-driver" --version)" = "cua-driver 0.44.0" && test -f "$HOME/Library/LaunchAgents/org.ownmachine.permission-guide.plist" && test -x "$HOME/.local/lib/ownmachine/driver-mcp.sh"'
         call(guest_argv(c) + [command])
     elif step == 'permissions':
-        result = relay.guest_status(c['guest_ssh_alias'], guest_address(c))
+        result = relay.guest_status(c['guest_ssh_alias'], guest_address(c),'linux' if c.get('guest_profile')=='omarchy' else 'macos')
         if not result['driver_ready']: raise ValueError('guest_permission_or_capture_consent_required')
     elif step == 'firewall':
         firewall(c)
-    elif step == 'viewer':
+    elif step in ('viewer','viewer-check'):
+        if c.get('viewer_probe_ssh_alias'):
+            viewer_check(c)
+            return
         path, expected = viewer_files(c)
         if private_read(path) != expected: raise ValueError('viewer_service_differs')
         viewer_check(c)
     elif step == 'verify':
         from ownmachine.config import Config
         for alias, role in ((c['agent_host_alias'], 'agent'), (c['viewer_host_alias'], 'viewer')):
-            cfg = Config(alias, c['control_dir'], c['vm_name'])
-            result = json.loads(call(cfg.ssh_argv('status')).stdout)
+            cfg = Config(alias, c['control_dir'], c['vm_name'],guest_profile=c.get('guest_profile','macos'))
+            def runtime_argv(operation):
+                argv=cfg.ssh_argv(operation)
+                if c.get('runtime_ssh_config'):argv[1:1]=['-F',c['runtime_ssh_config']]
+                return argv
+            result = json.loads(call(runtime_argv('status')).stdout)
             if result.get('vm_state') != 'running' or result.get('driver_ready') is not True:
                 raise ValueError('runtime_not_ready')
             # Exercise rejection without invoking a permitted operation or mutation.
-            argv = cfg.ssh_argv('status')[:-4] + ['ownmachine-denied-operation']
+            argv = runtime_argv('status')[:-4] + ['ownmachine-denied-operation']
             denied = subprocess.run(argv, capture_output=True, timeout=30)
             if denied.returncode != 2 or json.loads(denied.stdout).get('code') != 'unsupported_operation':
                 raise ValueError('runtime_key_not_restricted')
             forbidden = 'vnc' if role == 'agent' else 'mcp'
-            denied = subprocess.run(cfg.ssh_argv(forbidden), stdin=subprocess.DEVNULL, capture_output=True, timeout=15)
+            denied = subprocess.run(runtime_argv(forbidden), stdin=subprocess.DEVNULL, capture_output=True, timeout=15)
             if denied.returncode != 2 or json.loads(denied.stdout).get('code') != 'unsupported_operation':
                 raise ValueError('runtime_roles_not_separated')
         viewer_check(c, probe=True)
 
 
 def preflight_mutation(step, c):
+    if step=='viewer' and c.get('viewer_probe_ssh_alias'):
+        raise ValueError('install_remote_viewer_under_its_owner_then_check')
     # Missing prerequisites are safe to fix and retry: no running checkpoint yet.
     if step == 'harden':
         hardening_prerequisites(c)
     elif step == 'relay':
         firewall(c)
-        mac.verify_build(Path(c['lume_app']))
+        mac.verify_build(Path(c['lume_app']),linux=c.get('guest_profile')=='omarchy')
         host_settings(c)
     elif step == 'keys':
         verify('relay', c)
         key_lines(c)
     elif step == 'driver':
-        call(guest_argv(c) + ['test "$(/usr/bin/id -u)" -ne 0 && /usr/bin/sw_vers -productVersion'])
+        verify_hardening(c)
+        command='test "$(/usr/bin/id -u)" -ne 0 && '+('test "$(uname -s)" = Linux' if c.get('guest_profile')=='omarchy' else '/usr/bin/sw_vers -productVersion')
+        call(guest_argv(c) + [command])
     elif step == 'viewer':
         viewer_files(c)
         call([c['viewer_python'], '-c', 'from Crypto.Cipher import DES'])
@@ -327,6 +384,7 @@ def apply(step, c):
     elif step == 'keys':
         install_keys(c)
     elif step == 'driver':
+        verify_hardening(c)
         install_driver(c)
     elif step == 'viewer':
         path, content = viewer_files(c)
@@ -352,7 +410,7 @@ def execute(args):
     c = config(args.config)
     step = args.step
     if os.geteuid() == 0: raise ValueError('run_as_dedicated_non_root_account')
-    if step not in ('viewer', 'verify') and (platform.system() != 'Darwin' or platform.machine() != 'arm64'):
+    if step not in ('viewer', 'viewer-check', 'verify') and (platform.system() != 'Darwin' or platform.machine() != 'arm64'):
         raise ValueError('run_on_apple_silicon_mac')
     if step == 'preflight':
         import shutil
@@ -364,10 +422,13 @@ def execute(args):
                     cpu_count=os.cpu_count() or 0,
                     memory_gib=int(call(['/usr/sbin/sysctl', '-n', 'hw.memsize']).stdout.strip())//1024**3,
                     scope='Actual host observation; guest, ports and runtime identities still need checks.')
+    if step=='viewer' and c.get('viewer_probe_ssh_alias') and not args.apply:
+        verify(step,c)
+        return dict(ok=True,step=step,stage='checks_passed',scope='Remote viewer readiness; service installation remains with its owner.')
     if not args.apply and step in MUTATIONS:
         return dict(ok=True, step=step, stage='planned', next='Review configuration, then explicitly apply on the correct account.')
     if step not in MUTATIONS:
-        if step == 'permissions' and args.apply:
+        if step == 'permissions' and args.apply and c.get('guest_profile','macos')=='macos':
             command = ('uid=$(/usr/bin/id -u); domain=gui/$uid; '
                        '/bin/launchctl print "$domain/org.ownmachine.permission-guide" >/dev/null 2>&1 || '
                        '/bin/launchctl bootstrap "$domain" "$HOME/Library/LaunchAgents/org.ownmachine.permission-guide.plist"; '

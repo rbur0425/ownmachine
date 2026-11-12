@@ -78,3 +78,17 @@ accepts only a protected-file path from the relay, including detached children;
 the secret remains in a 0600 file under private host state. The 66-character
 URL-safe alphabet avoids upstream unescaped VNC URL parsing failures. Stock Lume
 without `--vnc-password-file` is not compatible with hardened viewer starts.
+
+### Host VNC credentials stay outside the guest
+
+OwnMachine's common Lume patch removes the automatic `lume-config` VirtioFS
+credential share and the fallback SSH copy to the guest home for both macOS and
+Linux. Host-local session state remains private to the dedicated host account.
+This is independent of the Linux-only clipboard/audio/share isolation patch.
+
+After updating an older build, shut down the guest normally and cold-start it
+through the configured relay: the relay generates a new private VNC password on
+each start. Do not resume a saved VM state made with the old credential-sharing
+device configuration. Old guest or temporary-host copies are not retroactively
+erased by the patch; password rotation makes those copies unusable. Do not
+manually configure a share of the host credential/state directory.

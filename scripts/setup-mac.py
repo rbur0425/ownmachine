@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / 'plugin'))
 from ownmachine.onboarding import DEFAULTS, FIELDS, validate_plan
 
 REVISION = '666c196f42dc9c83dbe075e20318f16c3e3a6d84'
-PATCHES = ('lume-0.7.0-key-clipboard.patch', 'lume-0.7.0-private-vnc-password.patch')
+PATCHES = ('lume-0.7.0-key-clipboard.patch', 'lume-0.7.0-private-vnc-password.patch', 'lume-0.7.0-no-guest-vnc-credentials.patch')
 
 
 def digest(value):
@@ -72,13 +72,14 @@ def run(argv, **kwargs):
                           env=dict(os.environ, LUME_TELEMETRY_ENABLED='false'), **kwargs)
 
 
-def verify_build(app):
+def verify_build(app, linux=False):
     resources = app / 'Contents/Resources'
     if (resources / 'ownmachine-upstream-revision').read_text().strip() != REVISION:
         raise ValueError('Unexpected Lume revision')
     actual = [line.split()[0] for line in (resources / 'ownmachine-patch-sha256').read_text().splitlines()]
     expected = [hashlib.sha256((ROOT / 'patches' / p).read_bytes()).hexdigest() for p in PATCHES]
-    if actual != expected:
+    extended = expected + [hashlib.sha256((ROOT / 'patches/lume-0.7.0-linux-isolation.patch').read_bytes()).hexdigest()]
+    if actual != extended and (linux or actual != expected):
         raise ValueError('Lume patches differ')
     run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(app)])
     exe = str(app / 'Contents/MacOS/lume')
