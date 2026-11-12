@@ -1,6 +1,6 @@
 # Omarchy guest plan
 
-Status: experimental; Phase 1 started 2026-11-12. No Linux profile is offered by the released installer. See [Phase 1 evidence](omarchy-phase1-acceptance.md).
+Status: experimental; Phase 1 started 2026-11-12. ARM64 boot, native Wayland foreground control, Chromium and guest reboot smoke checks pass; native window discovery/GTK accessibility remains open. No Linux profile is offered by the released installer. See [Phase 1 evidence](omarchy-phase1-acceptance.md).
 
 ## Scope and decisions
 
@@ -22,6 +22,8 @@ Install with VNC disabled, or through OwnMachine's relay-fronted viewer using th
 - Disable Hyprland animations. Measure capture latency at 1920x1200 and 1456x920, allocated disk usage, installation peak and idle resources. These test sizes do not change existing defaults.
 - Reboot and repeat capture/input checks. Record exact versions, commands, failures, workarounds and independent observations.
 - Gate: written go/no-go. Foreground-only may justify experimental viewer plus best-effort agent support; it is not full background-control acceptance. If ARM64 control fails outright, evaluate x86_64 on a separate backend.
+
+Phase 1 follow-ups from the laptop run: resolve native window discovery/GTK AT-SPI targeting; assess the optional plugin against the installed Hyprland ABI; sample installation peak and idle resources. Preserve foreground-only scope until those results justify more. Default 2x scaling clipped GTK dialogs, so Linux setup needs an explicit configurable scale. Native console modifier injection, missing live `gptfdisk`, Chromium first-run terms/keyring prompts and persistent first-login notifications must become documented/bootstrap-handled steps. Do not count direct MCP smoke tests as full Hermes acceptance.
 
 ### 2. Shared Linux guest layer
 
