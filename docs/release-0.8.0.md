@@ -96,9 +96,10 @@ and every-application reliability are not claimed.
 - [x] PR #15 head `24f570c969d5ccf696cb53d436006ecce1075111`: macOS and Ubuntu CI green.
 - [x] Fresh final-security Omarchy install, real-model tasks, human gate and restart:
   [independent evidence](omarchy-final-acceptance.md).
-- [ ] Live macOS guest cold start through the relay on the new macOS build, with
-  no saved state and guest credential-share checks. Earlier Swift builder tests
-  do not substitute for this test.
+- [x] Live macOS guest cold start through the relay on the new macOS-only build,
+  with no saved state, independent boot/credential-share checks and live noVNC:
+  [hardware evidence and retained diagnostic failure](macos-cold-start-acceptance.md).
+  This does not claim completed guest onboarding or CuaDriver permission grants.
 - [ ] Revalidate the exact release head, packages/checksums and current-head CI
   after final edits.
 - [ ] On the release branch, remove development banners/wording and update release

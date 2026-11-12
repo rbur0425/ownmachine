@@ -3,6 +3,7 @@
 **Follow-up completed:** the final patched app was subsequently deployed and a
 separate fresh guest passed the complete install, security gates, real-model tasks
 and restart checks. See [final fresh-install report](omarchy-final-acceptance.md).
+The [new macOS-only build also passed a live relay cold start](macos-cold-start-acceptance.md).
 The upgrade/build-only evidence below is retained as the earlier test record.
 
 Tested on Apple Silicon macOS and the existing disposable Omarchy guest on
