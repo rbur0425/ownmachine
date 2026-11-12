@@ -1,6 +1,6 @@
 # Omarchy guest plan
 
-Status: experimental foreground-only go, verified 2026-11-12. Clean provisioning, Docker/Hermes browser/editor tasks, authenticated final screenshot, setup-key retirement and guest-restart persistence pass. The released macOS baseline is unchanged; this work is awaiting PR review and release. See [acceptance evidence](omarchy-phase1-acceptance.md).
+Status: experimental Omarchy acceptance passed, verified 2026-11-12. Foreground is the default; an optional bounded GTK background keyboard experiment also passed. Clean provisioning, Docker/Hermes browser/editor tasks, authenticated final screenshot, setup-key retirement and guest-restart persistence pass. The released macOS baseline is unchanged; this work is awaiting PR review and release. See [acceptance evidence](omarchy-phase1-acceptance.md).
 
 ## Scope and decisions
 
@@ -22,7 +22,7 @@ All Omarchy implementation and acceptance work stays in PR #15 until reviewed. T
 - [x] Implement shared Linux provisioning, hardening, graphical-session driver and lifecycle. A fresh empty-disk repeat passed without guest repairs; see the acceptance record.
 - [x] Verify private viewer, SSH roles and human/agent handoff for Linux. Separate-account Docker streaming, role refusals, reservation refusal and browser pause/resume passed.
 - [x] Add configurable experimental Omarchy onboarding, resume and doctor checks. Creation resume and changed-configuration refusal passed; authenticated remote checks, progress import and retirement passed.
-- [x] Complete fresh Docker-to-Mac and real Hermes model acceptance, with documented operator installer/boot handoffs; not a fully unattended Hermes-created guest.
+- [x] Complete fresh Docker-to-Mac and real Hermes model acceptance; the follow-up below also verifies Hermes-driven installation and boot transitions after operator trust preparation.
 - [x] Finish resource guidance, future catalog disclosures and evaluator docs.
 - [x] Build and verify committed source/plugin bundles and validate the extracted plugin. Final CI status is recorded on PR #15; release/tag/catalog updates require a separate approved release.
 
@@ -128,7 +128,7 @@ transports report false. The explicitly opted-in installer built the module, pas
 - [x] Repeat from an empty disk with palette, verifier and package-keyring fixes included. Base/desktop/hardening/driver readiness all passed without guest repairs.
 - [x] Complete authenticated guided checks/import/screenshot/retirement against that guest, then browser/editor/model acceptance and resource measurements.
 
-## Final acceptance scope
+## Earlier run scope (superseded by the guided follow-up below)
 
 The clean run used operator scripts for bootstrap ISO preparation, base/desktop
 provisioning and boot handoffs. The freshly installed Hermes plugin then invoked
@@ -141,3 +141,30 @@ Foreground-only experimental release preparation is a **go** for the measured
 configuration. Background seats, broad app compatibility, rolling package updates,
 cloud hosts and a new Linux-profile physical-host reboot test are not certified.
 The existing macOS host-reboot evidence does not become a Linux acceptance claim.
+
+## Hermes-driven installation follow-up
+
+PR #15 now includes explicit authenticated `linux-boot-installer`,
+`linux-boot-system` and `linux-start-desktop` transitions. Each checks the selected
+VM, prior stage, pinned guest identity and its own checkpoint; uncertain transitions
+require inspection. Installer/base boots keep VNC disabled. The graphical restart
+requires verified hardening, relay configuration and host firewall readiness.
+
+- [x] Complete a fresh guest from the installed Hermes CLI, including boot transitions.
+- [x] Interrupt the client during base installation, restart the isolated Hermes
+  container, import authenticated progress and continue without destructive replay.
+- [x] Verify final driver/capture, viewer and retirement through that same flow.
+- [x] Record the background-input compatibility boundary separately from the
+  foreground installation acceptance.
+
+Initial trust remains an operator responsibility: verify the source ISO and patched
+Lume build, prepare the private guest bootstrap identity, pin host keys, pair the
+restricted setup/runtime keys and obtain administrator firewall approval. These
+are security prerequisites, not consent that a chat model can silently grant itself.
+
+
+The [Hermes-driven follow-up](omarchy-guided-acceptance.md) now passes the entire
+post-pairing installation sequence and client interruption/resume. A separately
+opted-in Mousepad background typing/save test also passed while Foot stayed
+foreground in 52 samples; human reservation refused a subsequent background
+write. This is a bounded keyboard experiment, not full background desktop support.

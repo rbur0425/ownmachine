@@ -12,7 +12,9 @@ Suggested description once the experimental path is released:
 
 Include these known-issue disclosures alongside existing dependency/license notes:
 
-- Omarchy is experimental and foreground-only. Chromium exact-window input requires
+- Omarchy is experimental and defaults to foreground input. A separately enabled
+  background keyboard experiment has bounded native Wayland Mousepad evidence;
+  Chromium/Electron background input is not supported. Chromium exact-window input requires
   explicitly opting into a native Hyprland module built for the installed compositor
   and compiler. Updates can require a reviewed rebuild; mismatches refuse loading.
 - The host still requires Apple Silicon macOS, a reviewed Linux-capable Lume build,
@@ -25,8 +27,9 @@ Include these known-issue disclosures alongside existing dependency/license note
   Upstream migrations/updates remain operator decisions. Software graphics and
   application/package gaps can affect performance; no broad background-seat or
   every-application reliability claim is made.
-- Creation, installed-disk boot and separate viewer-owner setup have documented
-  operator handoffs. Private bootstrap images contain a generated SSH host key and
+- Trust/bootstrap preparation and separate viewer-owner setup have documented
+  operator handoffs. The paired Hermes endpoint drives creation, installation
+  and guarded boot transitions. Private bootstrap images contain a generated SSH host key and
   must not be redistributed. Shared-control permissions must be initialized before
   either runtime starts.
 

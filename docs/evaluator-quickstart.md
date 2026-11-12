@@ -230,9 +230,11 @@ The ordered handoffs are:
    aliases from its receipt: live root via `guest_bootstrap_ssh_alias`, installed
    desktop user via `guest_ssh_alias`. Never publish the seeded ISO or paste keys
    into Hermes chat. The live web terminal and stock SSH listener stay disabled.
-3. Create the empty VM, boot the installer, run `linux-base`, shut down, and boot
-   the installed disk without the ISO. Run `linux-desktop`, then `harden` before
-   the first graphical restart. The keyring wait, directory modes, user services,
+3. Through Hermes run `setup --run provision --apply`, then
+   `setup --run linux-boot-installer --apply`, `setup --run linux-base --apply`,
+   `setup --run linux-boot-system --apply` and `setup --run linux-desktop --apply`.
+   The boot stages verify the pinned guest and keep installer VNC disabled. Run
+   relay/key setup and `harden`, then `linux-start-desktop`, before driver setup. The keyring wait, directory modes, user services,
    scale and palette fixes are installer work, not evaluator repair commands.
 4. Restart into the graphical session and run `driver`. For exact-window Chromium
    input, set `enable_experimental_input: true` in operator configuration before

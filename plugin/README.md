@@ -59,7 +59,8 @@ session after configuration changes. `hermes ownmachine doctor --json` and
 **macOS is the production guest image; Omarchy is experimental.** The terminal
 wizard offers those two profiles. Use `--guest-profile omarchy` for an explicit
 noninteractive choice. Read the [experimental evaluator steps](../docs/evaluator-quickstart.md)
-before provisioning: operator boot handoffs remain, and targeted foreground input
+before provisioning: operator trust/bootstrap and firewall approval remain, while
+Hermes drives installation and boot transitions. Targeted foreground input
 requires explicit opt-in to the exact-ABI Hyprland module. Linux guest control
 does not require macOS guest Accessibility or Screen Recording permissions.
 
@@ -240,3 +241,14 @@ reach Google, independently verified by a separate screenshot and URL read.
 [Acceptance evidence](../docs/docker-reminder-acceptance.md#fixed-cold-launch-rerun--passed)
 records both the initial cold-launch failure and passing fixed run. This is one
 keyboard/accessibility task; model-driven pixel-click acceptance remains deferred.
+
+
+### Experimental Omarchy background input
+
+Foreground remains the default. `experimental_linux_background_input: true`
+explicitly permits requested background actions to reach the ABI-matched module
+for per-target admission. Native Wayland Mousepad typing and saving passed a
+bounded real-model test; this does not certify Chromium/Electron, XWayland,
+background pointer actions or all GTK apps. No foreground fallback is performed,
+and human reservation still blocks all agent writes. See the [operator guide](../docs/linux-development.md#optional-background-keyboard-experiment)
+and [acceptance evidence](../docs/omarchy-guided-acceptance.md).

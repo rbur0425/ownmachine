@@ -308,7 +308,11 @@ class NativeProviderTests(unittest.TestCase):
   self.assertEqual(len(self.fake.calls),before+1)
   self.assertEqual(self.fake.calls[-1][1]['delivery_mode'],'background')
   b.lease.transfer('human');before=len(self.fake.calls)
-  self.assertEqual(b.type_text('x',delivery_mode='background').code,'human_takeover')
+  refused=b.type_text('x',delivery_mode='background')
+  self.assertEqual(refused.code,'human_takeover')
+  self.assertEqual(refused.escalation,{'recommended':'operator'})
+  self.assertTrue(refused.meta['operator_review_required'])
+  self.assertFalse(refused.meta['dispatched'])
   self.assertEqual(len(self.fake.calls),before)
  def test_background_opt_in_rejects_nonboolean_and_wrong_profile(self):
   for value,profile in [('true','omarchy'),(True,'macos')]:

@@ -231,7 +231,7 @@ class OwnMachineBackend(ComputerUseBackend):
         note = 'Pixel coordinates are local to this exact screenshot. Take a fresh capture after every pixel click; its capture binding is single-use. Element clicks invoke AXPress, not mouse focus. For a field without AXPress, use set_value or a fresh screenshot-grounded pixel click. Popup set_value selects only an existing menu option: inspect the open menu first, never guess a destination. File-location popups can list ancestors rather than destinations; use the dialog navigation controls or keyboard shortcuts for other folders. Any operator_review_required result overrides generic retry advice; stop until the operator inspects and acknowledges it. Each new capture replaces earlier tokens.\n'
         note += '\n'.join(f'#{e.index} actions: '+', '.join(str(a) for a in e.attributes['actions']) for e in elements if 'actions' in e.attributes)
         if self.config.guest_profile == 'omarchy':
-            note += '\nLinux text/entry elements: use set_value to edit their contents; do not use element click to focus them. Foreground compositor input requires the explicitly enabled ABI-matched Hyprland module.\n'
+            note += '\nLinux text/entry elements: use set_value to edit their contents; do not use element click to focus them. Foreground compositor input requires the explicitly enabled ABI-matched Hyprland module. Prefer keyboard shortcuts over opening menus: a foreground grab can refuse further compositor input. Experimental background requests never authorize foreground fallback; operator/control-gate refusals override generic escalation advice.\n'
         if mode == 'som' and raw:
             try:
                 from PIL import Image, ImageDraw
@@ -286,6 +286,9 @@ class OwnMachineBackend(ComputerUseBackend):
                     meta={'operator_review_required': True, 'ownmachine_control_gate': True, 'driver_code': data.get('code'),
                           'driver_message': (data.get('summary') or data.get('message') or '\n'.join(p.get('text','') for p in reply.get('content',[]) if p.get('type')=='text'))[:1200]},
                     path=data.get('path') or data.get('route'))
+            if isinstance(e, LeaseError) and str(e) in {'human_takeover','paused','control_changed'}:
+                return ActionResult(False,name,code=str(e),message='The owner controls or has paused this workspace. No input was dispatched. Stop; do not retry, escalate or change delivery mode. The owner must explicitly return control before a fresh capture.',
+                    escalation={'recommended':'operator'},meta={'dispatched':False,'operator_review_required':True,'ownmachine_control_gate':True})
             if isinstance(e, LeaseError) and str(e) == 'transport_outcome_unknown':
                 return ActionResult(False, name, code=str(e), message='No new action was dispatched. A previous action requires operator inspection and acknowledgement. Do not retry or escalate input.', meta={'dispatched': False, 'operator_review_required': True, 'ownmachine_control_gate': True})
             return ActionResult(ok=False, action=name, code=str(e), message=str(e),
@@ -300,9 +303,9 @@ class OwnMachineBackend(ComputerUseBackend):
         if self.config.guest_profile == 'omarchy':
             if delivery_mode == 'background':
                 if not self.config.experimental_linux_background_input:
-                    return ActionResult(False,name,code='linux_background_input_not_certified',meta={'dispatched':False})
+                    return ActionResult(False,name,code='linux_background_input_not_certified',message='Background input is disabled. Stop; this refusal does not authorize foreground input. The operator must explicitly enable the experiment.',escalation={'recommended':'operator'},meta={'dispatched':False,'operator_review_required':True})
                 if bring_to_front:
-                    return ActionResult(False,name,code='background_focus_conflict',meta={'dispatched':False})
+                    return ActionResult(False,name,code='background_focus_conflict',message='Background input cannot also raise the window. No input was dispatched. Do not fall back to foreground.',escalation={'recommended':'operator'},meta={'dispatched':False})
             else:
                 delivery_mode = 'foreground'
         if name == 'click' and 'x' in args:

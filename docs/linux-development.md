@@ -35,7 +35,8 @@ recreating it. Changed inputs, existing unowned guests and interrupted creation
 require inspection. The boot stage opens a native console with VNC disabled.
 
 The authenticated setup endpoint routes `build` and `provision` through
-`scripts/setup-linux.py`, then `linux-base` and `linux-desktop` through
+`scripts/setup-linux.py`, the three boot transitions through
+`scripts/setup-linux-boot.py`, and `linux-base` and `linux-desktop` through
 `scripts/install-linux-desktop.py`. Supply the verified ISO and SHA-256 in the
 operator-owned endpoint configuration. The service configuration must match the
 plan's profile, VM and storage directory. It also supplies `guest_ssh_alias` and
@@ -45,20 +46,34 @@ before login, disables animations and binds the terminal shortcut to installed
 `foot`, avoiding the unavailable ARM64 `xdg-terminal-exec` dependency. The endpoint never accepts
 arbitrary installer URLs or unverified script inputs.
 
-There are still explicit handoffs: boot the live ISO with VNC disabled, pair a
-key-only guest SSH identity and independently confirm its host-key fingerprint
-from the native console, then shut down and boot the installed disk without the
-ISO after the base stage. Preserve that host key across the handoff. The base
-stage requires an Apple-virtualized Archboot live root and an empty `/dev/vda`;
-it refuses partitions, existing filesystem signatures or a mounted `/mnt`.
-A verified checkpoint resumes without reinstalling. A running, failed or changed
-checkpoint requires inspection; never delete it just to force a retry.
+After initial operator trust/key/firewall preparation, use the installed Hermes
+command for each stage, with `--apply` for mutations:
 
-The live Archboot SSH service may use a different port. Explicit bootstrap must
-stop that listener and use a reviewed key-only configuration; do not expose a
-password-based live console. Native modifier injection remains unreliable in
-this experimental viewer, so inspect entered commands before execution. This
-handoff is not yet a certified unattended installation.
+```text
+preflight → build → firewall → fresh preflight → provision
+→ linux-boot-installer → linux-base → linux-boot-system → linux-desktop
+→ relay → keys → harden → linux-start-desktop → driver → permissions
+→ viewer-check → verify
+```
+
+The three boot stages use the configured VM/storage and preserve the pinned guest
+host identity across live-to-disk boot. Installer and base boots have VNC disabled;
+the hardened graphical boot uses the protected relay. The base stage requires an
+Apple-virtualized Archboot live root and an empty `/dev/vda`; it refuses partitions,
+filesystem signatures or a mounted `/mnt`. Completed checkpoints re-observe without
+reinstalling. Failed, running or changed checkpoints require inspection.
+
+For a disconnected client, reconnect and import `setup --run progress`. An already
+authorized stage may still be running on the Mac; losing SSH is not cancellation.
+Do not delete checkpoints or replay an uncertain operation. Once the remote stage
+has completed, authenticated progress lets Hermes continue with the next stage.
+
+Manual native-console boot remains an operator alternative. If using it instead
+of the private seeded image, independently confirm the live SSH host key and stop
+stock password listeners. Do not expose a password-based installer console or
+rely on native-viewer modifier injection. The guided path still requires operator
+trust preparation and administrator firewall approval; it does not grant those
+permissions silently from chat.
 
 ### Private installer bootstrap
 
@@ -87,8 +102,9 @@ root/password SSH and unrestricted setup sudo. This guest identity is separate
 from the temporary Mac setup-endpoint key retired by final setup acceptance.
 
 The bootstrap utility does not itself create a VM, install the desktop or mark
-authenticated onboarding complete. Full guided handoff acceptance remains tracked
-in the plan; do not count a successful image build as an installation pass.
+authenticated onboarding complete. The subsequent [Hermes-driven installation
+acceptance](omarchy-guided-acceptance.md) tests those stages separately; do not
+count an image build alone as an installation pass.
 
 After the installed desktop boots, the shared setup-service stages route
 hardening, driver and readiness checks to Linux implementations. Guest scripts
@@ -173,7 +189,8 @@ Changed upstream files stop the patch for review.
 
 Set `guest_bootstrap_ssh_alias` to the pinned live root alias and
 `guest_ssh_alias` to the installed desktop-user alias in the same operator service
-configuration. Only the base stage uses the bootstrap alias. Both aliases must
+configuration. Installer boot, base installation and the live shutdown use the
+bootstrap alias; installed-system stages use the desktop alias. Both aliases must
 pin the generated host identity; neither uses trust-on-first-use. Complete
 hardening before the first graphical restart, then run the driver stage.
 
@@ -191,7 +208,8 @@ rebuild or hot-replace native code. The opt-in is omitted/disabled by default.
 `linux-input-module.py build|enable --enable-experimental-input --apply` is the
 underlying guest-only helper. Preview without `--apply` is read-only. A partial
 build or conflicting configuration stops for inspection. Capture readiness and
-foreground-input readiness remain separate; module support is foreground-only.
+foreground-input readiness remain separate. The default remains foreground;
+the separately opted-in background keyboard experiment is described below.
 
 ### Viewer on a separate Docker host
 
@@ -232,3 +250,26 @@ may select 16–2000 GiB, matching the provisioner. The tested clean guest used 
 every ten seconds. Allow extra room for the original/private ISO, Lume build,
 package cache and later applications. This is not a certified 16 GiB minimum.
 macOS resource defaults and minimums are unchanged.
+
+
+## Optional background keyboard experiment
+
+Foreground remains the default. After the explicit native-module installation,
+a dedicated Hermes profile may opt into per-target background admission:
+
+```sh
+hermes --profile ownmachine config set plugins.entries.ownmachine.settings.experimental_linux_background_input true
+```
+
+Start a new Hermes session after changing this setting. Request `delivery_mode:
+background` explicitly and leave `bring_to_front` false; omitted modes remain
+foreground. The provider never changes a rejected background request into
+foreground input. Disable the option with the same command ending in `false`.
+
+Mousepad native Wayland typing and Ctrl+S passed a bounded real-model test with a
+separate foreground terminal and sampled cursor/focus observation. Human
+reservation still blocks agent writes, including background writes. This option
+does not enable simultaneous human/agent ownership. Chromium/Electron do not bind
+the module's agent seats; Qt keyboard and XWayland routes are not qualified.
+Do not treat module readiness as universal background support. Read the
+[full evidence and limitations](omarchy-guided-acceptance.md).
