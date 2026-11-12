@@ -2,8 +2,10 @@
 
 Verified November 12, 2026, on a newly prepared Apple M3 Ultra Mac Studio
 (96 GiB RAM, macOS 26.6.2). This closes the live macOS normal-start coverage gap
-for the common VNC credential-export removal patch. It does not certify completed
-onboarding, CuaDriver consent, a model task or physical-host reboot on this new host.
+for the common VNC credential-export removal patch. A subsequent run completed
+guest onboarding and CuaDriver consent, then verified a real Hermes Safari task
+with one operator-reviewed recovery (details below). No physical-host reboot was
+performed on this new host.
 
 ## Build and preparation
 
@@ -79,10 +81,75 @@ identity, preserving other entries. Subsequent authentication with each retired
 key was rejected; the restricted runtime agent key still returned running-VM
 status. The viewer remains authenticated and the workspace paused.
 
-The guest still needs its remaining first-run choices and CuaDriver installation/
-permissions before normal Hermes desktop automation. Runtime status therefore
-must not be represented as a ready computer_use provider. No new real-model macOS
-task or full onboarding acceptance is claimed by this narrowly scoped test.
+## Follow-up: guest onboarding and Docker-to-Studio Hermes task
+
+The same fresh guest reached Finder after the owner completed its remaining
+first-run choices. The normal setup-services driver stage installed the signed,
+pinned **macOS CuaDriver 0.44.0** and the normal permission guide; no TCC database
+edits or permission bypasses were used. With explicit owner approval, the operator
+enabled Accessibility, added CuaDriver to Screen Recording, selected Quit & Reopen,
+and approved the guide's final screen-capture prompt. The guest's existing password
+worked through the noVNC viewer. The permissions stage then returned `checks_passed`;
+runtime status independently reported all three consent flags and `driver_ready`
+true. The host desktop received no permissions.
+
+### Installed plugin and control boundary
+
+A fresh Hermes Docker profile installed `plugin/` through Hermes's supported Git
+URL installation route at immutable commit
+`0cc76c45d544347727b5e378fab64dfba04f129f`. The host runtime source remained
+`142888a` (the intervening commits only changed documentation). The harness used
+Hermes checkout `b5f15a6` and the configured local model
+`qwen3.8-flash-next-iq2_xs`; no provider credential was copied. Terminal, file and
+code-execution toolsets were disabled, and the task used `computer_use` only.
+
+Separate agent/viewer OS users and containers owned separate restricted SSH keys.
+Both used the same shared control directory; actual-user SQLite transaction and
+session-lock checks passed. The viewer token stayed in its private viewer-owned
+directory. The earlier local viewer was stopped before the model run so it could
+not operate through a different control database. The profile's noninteractive
+action approvals were enabled only for this authorized test, then restored to deny.
+
+### Real task, retained failure, and recovery
+
+The requested task was to **open Safari and navigate to https://www.google.com/**.
+Safari was initially not running. The first model run made 19 computer_use calls:
+it captured the desktop, launched Safari in the background, handled its welcome
+card and focused its address field. Raw background typing was refused by the
+upstream driver with `minimized_or_hidden_window`. OwnMachine latched the uncertain
+operation, and the model stopped rather than retrying writes. The operator
+independently inspected the empty URL field and acknowledged the pending operation.
+
+The same Hermes session resumed with explicit guidance to use Accessibility field
+controls. In eight further computer_use calls, the model set the smart-search
+field's AXValue to the URL. An attempted AXPress on a field without that action was
+refused without dispatching input. The model then used the normal approved
+**foreground Return** path and captured the resulting Google page.
+
+Independent verification in the authenticated browser viewer showed Safari's
+`google.com` address and the rendered Google homepage. The operator did not open
+Safari, type its URL, press Return or otherwise perform the task for the model.
+Both model transcripts are retained privately; the public screenshot contains
+only this fresh test desktop. The workspace was left paused with Safari on Google.
+
+![Independently observed Hermes result: Google in Safari](media/macos/hermes-google.png)
+
+This is a **real model task completed after operator-reviewed recovery**, not an
+uninterrupted autonomous or background-only acceptance pass. Two additional limits
+were observed: bundle-ID capture did not resolve window records lacking bundle IDs
+(the model recovered using display name or explicit PID/window ID), and the viewer
+occasionally retained a stale frame during consent transitions (reloading refreshed
+it). These are retained findings, not evidence that every GUI path is reliable.
+
+### Temporary access cleanup
+
+Only the dedicated-account setup key was temporarily restored for this follow-up;
+the administrator setup key stayed retired. Cleanup found two identical restored
+entries, removed both by exact public-key identity while preserving all other
+keys, and verified that authentication with that key was rejected. The restricted
+runtime key still reported the guest and driver ready afterward. Credentials,
+private addresses, operator account names and machine-specific paths are not part
+of the repository or public evidence.
 
 The mandatory rebuild, graceful shutdown, no-saved-state and relay cold-start
 instructions remain in the [release candidate notes](release-0.8.0.md). This test
