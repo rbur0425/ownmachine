@@ -22,7 +22,7 @@ STEPS = ('preflight', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissi
 MUTATIONS = {'relay', 'keys', 'harden', 'driver', 'viewer'}
 FIELDS = {'vm_name', 'storage_dir', 'lume_app', 'vnc_port', 'guest_ssh_alias', 'python',
           'agent_public_key', 'viewer_public_key', 'agent_host_alias', 'viewer_host_alias',
-          'control_dir', 'access_dir', 'viewer_port', 'viewer_python', 'guest_user', 'guest_profile', 'relay_config', 'display_scale', 'desktop_theme'}
+          'control_dir', 'access_dir', 'viewer_port', 'viewer_python', 'guest_user', 'guest_profile', 'relay_config', 'display_scale', 'desktop_theme', 'enable_experimental_input', 'guest_bootstrap_ssh_alias', 'viewer_probe_ssh_alias'}
 
 
 def linux_service():
@@ -40,6 +40,9 @@ def config(path):
                 viewer_python=sys.executable, guest_user='omarchy' if profile=='omarchy' else 'lume'), **data}
     for name, value in data.items():
         if name=='guest_profile':continue
+        if name=='enable_experimental_input':
+            if type(value) is not bool or profile!='omarchy':raise ValueError('linux_input_opt_in_required')
+            continue
         if name=='display_scale':
             if type(value) is not int or value not in (1,2):raise ValueError('invalid_display_scale')
             continue
@@ -277,6 +280,16 @@ def viewer_files(c):
 
 
 def viewer_check(c, probe=False):
+    if c.get('viewer_probe_ssh_alias'):
+        operation='probe' if probe else 'status'
+        argv=['ssh','-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',
+              '-o','IdentitiesOnly=yes','-o','ForwardAgent=no','-o','ClearAllForwardings=yes',
+              '-o','ConnectTimeout=10',c['viewer_probe_ssh_alias'],
+              'ownmachine-viewer-check',operation,'--vm',c['vm_name']]
+        result=json.loads(call(argv,timeout=110).stdout)
+        if result!={'ok':True,'vm_name':c['vm_name'],'guest_profile':c.get('guest_profile','macos'),'scope':'viewer_readiness_only'}:
+            raise ValueError('remote_viewer_not_ready')
+        return
     argv = [c['viewer_python'], str(ROOT/'scripts/ownmachine-viewer-doctor.py'),
             '--host-alias', c['viewer_host_alias'], '--vm-name', c['vm_name'],'--guest-profile',c.get('guest_profile','macos'),
             '--control-dir', c['control_dir'], '--access-dir', c['access_dir'], '--json']
@@ -309,6 +322,9 @@ def verify(step, c):
     elif step == 'firewall':
         firewall(c)
     elif step == 'viewer':
+        if c.get('viewer_probe_ssh_alias'):
+            viewer_check(c)
+            return
         path, expected = viewer_files(c)
         if private_read(path) != expected: raise ValueError('viewer_service_differs')
         viewer_check(c)
@@ -332,6 +348,8 @@ def verify(step, c):
 
 
 def preflight_mutation(step, c):
+    if step=='viewer' and c.get('viewer_probe_ssh_alias'):
+        raise ValueError('install_remote_viewer_under_its_owner_then_check')
     # Missing prerequisites are safe to fix and retry: no running checkpoint yet.
     if step == 'harden':
         hardening_prerequisites(c)
@@ -396,6 +414,9 @@ def execute(args):
                     cpu_count=os.cpu_count() or 0,
                     memory_gib=int(call(['/usr/sbin/sysctl', '-n', 'hw.memsize']).stdout.strip())//1024**3,
                     scope='Actual host observation; guest, ports and runtime identities still need checks.')
+    if step=='viewer' and c.get('viewer_probe_ssh_alias') and not args.apply:
+        verify(step,c)
+        return dict(ok=True,step=step,stage='checks_passed',scope='Remote viewer readiness; service installation remains with its owner.')
     if not args.apply and step in MUTATIONS:
         return dict(ok=True, step=step, stage='planned', next='Review configuration, then explicitly apply on the correct account.')
     if step not in MUTATIONS:

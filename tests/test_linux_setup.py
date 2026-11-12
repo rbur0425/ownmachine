@@ -17,6 +17,39 @@ services=installer.services
 endpoint=module('tested_linux_endpoint','scripts/setup-endpoint.py')
 
 class LinuxSetupTests(unittest.TestCase):
+    def test_first_run_units_install_with_arm_command_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'source';source.mkdir();target=root/'units';commands=root/'bin';commands.mkdir()
+            names=['bt-agent','omarchy-recover-internal-monitor','omarchy-sleep-lock',
+                   'omarchy-migrate-notify','omarchy-fcitx5','omarchy-crash-watch']
+            for name in names:
+                executable='fcitx5' if name=='omarchy-fcitx5' else name
+                (source/(name+'.service')).write_text('[Service]\nExecStart=/usr/bin/'+executable+'\n')
+                if executable.startswith('omarchy-'):(commands/executable).touch()
+            code=installer.user_units_script().split("<<'OWNMACHINE_UNITS'\n",1)[1].split('\nOWNMACHINE_UNITS',1)[0]
+            code=code.replace('/usr/share/omarchy/default/systemd/user',str(source)).replace('/usr/lib/systemd/user',str(target)).replace('/usr/local/bin',str(commands))
+            subprocess.run([sys.executable,'-c',code],check=True)
+            self.assertIn('ExecStart='+str(commands/'omarchy-crash-watch'),(target/'omarchy-crash-watch.service').read_text())
+            self.assertIn('ExecStart=/usr/bin/fcitx5',(target/'omarchy-fcitx5.service').read_text())
+            self.assertEqual((target/'omarchy-crash-watch.service').stat().st_mode & 0o777,0o644)
+            (source/'omarchy-sleep-lock.service').unlink()
+            result=subprocess.run([sys.executable,'-c',code],capture_output=True)
+            self.assertNotEqual(result.returncode,0)
+            self.assertIn(b'pinned_user_units_missing',result.stderr)
+
+    def test_hardening_verification_accepts_openssh_setting_case(self):
+        import setup_linux
+        from types import SimpleNamespace
+        for policy in ('PasswordAuthentication no\nPermitRootLogin no', 'passwordauthentication no\npermitrootlogin no'):
+            def root_check(service, config, script):
+                for line in script.decode().splitlines():
+                    if 'sshd -T' in line:
+                        command=line.split('|',1)[1]
+                        subprocess.run(command,shell=True,input=policy.encode(),check=True)
+            service=SimpleNamespace(hardening_state=lambda c:Path('/unused'),guest_argv=lambda c:['ssh'],call=lambda argv:None)
+            with patch.object(setup_linux,'private_read',return_value=b'{"schema_version":1,"hardened":true}'),patch.object(setup_linux,'root_call',side_effect=root_check):
+                setup_linux.verify_hardening(service,{})
+
     def test_macos_plan_cannot_select_linux_mutation(self):
         with self.assertRaisesRegex(ValueError,'requires_omarchy'):
             endpoint.command({}, {'guest_profile':'macos'}, 'linux-base', True)
@@ -34,6 +67,18 @@ class LinuxSetupTests(unittest.TestCase):
                 _,data=services.viewer_files(c)
             argv=plistlib.loads(data)['ProgramArguments']
             self.assertEqual(argv[argv.index('--guest-profile')+1],'omarchy')
+
+    def test_keyring_failure_precedes_disk_stage_and_uses_bootstrap_alias(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();state=root/'state';state.mkdir(mode=0o700)
+            c=dict(vm_name='fixture',guest_profile='omarchy',guest_user='desktop',guest_ssh_alias='desktop-key',guest_bootstrap_ssh_alias='live-key',storage_dir=str(root/'vms'),lume_app=str(root/'Lume.app'))
+            receipt=state/'provision.json';receipt.write_text(json.dumps(dict(phase='created',guest_os='linux',vm_name='fixture',storage_dir=c['storage_dir'])));receipt.chmod(0o600)
+            with patch.object(services,'config',return_value=c),patch.object(services,'hardening_state',return_value=state),patch.object(installer.mac,'verify_build'),patch.object(installer.os,'geteuid',return_value=501),patch.object(services,'guest_argv',side_effect=lambda cfg:['ssh',cfg['guest_ssh_alias']]),patch.object(installer,'download',return_value='exit 99'),patch.object(services,'call',side_effect=[None,subprocess.CalledProcessError(1,[])]) as call:
+                with self.assertRaises(subprocess.CalledProcessError):installer.execute(root/'config','base',True)
+            self.assertEqual(call.call_args_list[1].args[0][1],'live-key')
+            self.assertIn('pacman-init.service',call.call_args_list[1].args[0][-1])
+            self.assertIn('test "$state" = exited',call.call_args_list[1].args[0][-1])
+            self.assertFalse((state/'setup/linux-base.json').exists())
 
     def test_install_guard_failure_never_records_mutation(self):
         with tempfile.TemporaryDirectory() as directory:

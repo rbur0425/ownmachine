@@ -60,6 +60,36 @@ password-based live console. Native modifier injection remains unreliable in
 this experimental viewer, so inspect entered commands before execution. This
 handoff is not yet a certified unattended installation.
 
+### Private installer bootstrap
+
+To avoid typing a key into the native console, the Mac operator can prepare a
+private image with `scripts/prepare-linux-bootstrap.py`. Install `xorriso`,
+`mtools` and `zstd` first (for example, `brew install xorriso mtools zstd`). Supply
+the original ISO path, its independently verified signed-manifest SHA-256 with
+`--iso-sha256`, and a new absolute `--state-dir`. Existing output directories are
+refused, including interrupted builds; preserve them for inspection.
+
+The script verifies the source hash before creating files, generates separate
+guest-client and guest-host Ed25519 identities, and writes a private derived ISO
+plus `bootstrap.json`. Use the derived image/hash for VM creation. The receipt
+provides the identity file, known-hosts file and host-key alias for a pinned SSH
+alias; use `IdentitiesOnly yes` and `StrictHostKeyChecking yes`. The live user is
+`root`; after base installation, use the configured non-root desktop user with
+the same pinned host identity. Resolve the current address from Lume each time.
+
+The seed enables key-only SSH and DHCP, masks Archboot's stock SSH and web-terminal
+services, and needs no host directory share or VNC listener. Base installation
+preserves its host identity. The derived ISO contains a **private host key**:
+keep it in its 0700 directory, never publish it, and remove it after the installed
+disk has booted successfully and the installer is detached. Keep the client key
+private for the configured guest SSH connection. Hardening subsequently removes
+root/password SSH and unrestricted setup sudo. This guest identity is separate
+from the temporary Mac setup-endpoint key retired by final setup acceptance.
+
+The bootstrap utility does not itself create a VM, install the desktop or mark
+authenticated onboarding complete. Full guided handoff acceptance remains tracked
+in the plan; do not count a successful image build as an installation pass.
+
 After the installed desktop boots, the shared setup-service stages route
 hardening, driver and readiness checks to Linux implementations. Guest scripts
 must never be run directly on the Mac host. A Linux readiness result means a
@@ -129,5 +159,61 @@ support. Foreground input requires the explicit production Hyprland input module
 an exact compiled/runtime ABI match, enabled protocol-3 transport, and private
 same-user sockets. Missing or unsafe transport reports false; the probe never
 loads a module or changes compositor configuration. Recheck after every desktop
-restart or compositor update. Module installation remains an experimental manual
-step, not a completed guided-onboarding feature.
+restart or compositor update. The explicit experimental module installation path is described below; it is not enabled by a status probe.
+
+### First-login compatibility and explicit input installation
+
+The desktop stage installs the pinned user services and their `fcitx5`/`bluez-tools`
+dependencies before first login, adapting only Omarchy command paths to the ARM
+installer's `/usr/local/bin`. It also validates all affected QML files against a
+pinned hash manifest before qualifying the palette namespace. This fixes the
+[Qt 6.12 Color collision](https://github.com/omacom/omarchy/issues/15069) without
+hiding notifications, downgrading Qt, or marking setup steps complete artificially.
+Changed upstream files stop the patch for review.
+
+Set `guest_bootstrap_ssh_alias` to the pinned live root alias and
+`guest_ssh_alias` to the installed desktop-user alias in the same operator service
+configuration. Only the base stage uses the bootstrap alias. Both aliases must
+pin the generated host identity; neither uses trust-on-first-use. Complete
+hardening before the first graphical restart, then run the driver stage.
+
+For experimental exact-window Chromium input, explicitly set
+`"enable_experimental_input": true` **before** desktop installation. The desktop
+stage installs build prerequisites; the driver stage fetches the pinned Cua
+module source, builds with production input enabled and test-input/trace disabled,
+and requires all 21 module tests to pass. It verifies compositor/header/compiler
+compatibility, enables the module through a real configuration reload, and installs
+a graphical-session user unit. Every subsequent login rechecks the compositor
+binary, compiler, module hash and pinned revision before loading. An update that
+changes this identity requires a reviewed rebuild; the helper does not silently
+rebuild or hot-replace native code. The opt-in is omitted/disabled by default.
+
+`linux-input-module.py build|enable --enable-experimental-input --apply` is the
+underlying guest-only helper. Preview without `--apply` is read-only. A partial
+build or conflicting configuration stops for inspection. Capture readiness and
+foreground-input readiness remain separate; module support is foreground-only.
+
+### Viewer on a separate Docker host
+
+When the viewer lives on another machine/account, set `viewer_probe_ssh_alias` in
+the Mac's operator service configuration. Install `viewer-check-endpoint.py`
+under the viewer owner and pin it as a forced command for a dedicated check-only
+SSH key, with `restrict` and independently verified host keys. Its private JSON
+configuration contains exactly `host_alias`, `vm_name`, `guest_profile`,
+`control_dir`, and `access_dir`, all for that viewer. The command accepts only
+`ownmachine-viewer-check status|probe --vm <configured-name>` and returns bounded
+readiness metadata. It cannot start/stop a VM, inject input or return a token.
+The setup account needs the check key, not the viewer's private runtime key or
+access file. Keep the check key separate from agent, viewer and temporary setup
+keys. Do not give a general remote shell to the setup endpoint.
+
+Install the remote viewer under its actual owner first. `setup --run viewer`
+checks it; `--apply` is refused for this remote path. Final verification probes its
+protected VNC connection through the same fixed endpoint. The subsequent native
+computer-use screenshot and setup-key retirement remain separate acceptance steps.
+
+Archboot's `pacman-init.service` is `Type=simple`: SSH availability does not imply
+its package-signing keyring is ready. The base stage waits for successful `exited`
+state before package installation or recording a disk mutation. Failure refuses
+provisioning; it never relaxes package-signature verification. Installer failures
+retain mode-0600 output under the operator's VM setup directory for inspection.

@@ -29,8 +29,9 @@ def next_step(ctx,plan):
             'viewer':'Start the viewer under its separate owner with private access storage. Verify its connection and human/agent handoff before final verification.',
             'verify':'Pause agent control in the viewer, then run setup --run verify. Use --apply to repeat checks and retire setup access.'}
         if plan.get('guest_profile')=='omarchy':
-            handoffs['linux-base']='Boot the verified installer with VNC disabled, confirm its SSH host key in the native console, and pair the temporary guest setup key. Then run setup --run linux-base --apply; it refuses a nonempty disk.'
-            handoffs['linux-desktop']='Boot the installed disk without the ISO using the same confirmed host key and desktop-user SSH alias. Then run setup --run linux-desktop --apply and restart the guest.'
+            handoffs['linux-base']='Boot the verified installer with VNC disabled. Use the private bootstrap image and pinned guest_bootstrap_ssh_alias from docs/linux-development.md, or independently confirm and pair the live SSH key in the native console. Then run setup --run linux-base --apply; it refuses a nonempty disk.'
+            handoffs['linux-desktop']='Boot the installed disk without the ISO using the same confirmed host key and desktop-user SSH alias. Then run setup --run linux-desktop --apply. Run hardening before the first graphical restart; the driver stage needs that graphical session.'
+            handoffs['driver']='After hardening, restart into the Linux graphical session and run setup --run driver --apply. Targeted Chromium input needs explicit enable_experimental_input in the operator service configuration; capture readiness alone does not prove input works.'
             handoffs['permissions']='Log into the Linux graphical session, then run setup --run permissions. This checks the standard-mode driver and accessibility bus; no macOS TCC prompts apply.'
         if step in handoffs:return dict(stage='await_'+step,next=handoffs[step])
         suffix=' --apply' if step in ('build','provision','relay','keys','harden','driver') else ''

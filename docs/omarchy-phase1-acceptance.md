@@ -305,3 +305,46 @@ The follow-up guest status probe distinguishes `foreground_input_ready` from
 `driver_ready`; the new probe passed against the running module-enabled guest.
 The full no-workaround provisioning repeat, headless bootstrap, optional module
 installation and first-login polish remain open.
+
+## Clean provisioning and first-login polish follow-up
+
+The private bootstrap utility was exercised against the previously verified
+Archboot source hash. It generated a private derived ISO and pinned host/client
+keys, booted with VNC disabled, and reached key-only SSH without console repair.
+The default live SSH and anonymous web terminal were masked. Base and desktop
+installation completed on an empty disk; preserved machine identity and DHCP
+configuration kept the authenticated installed guest reachable.
+
+The first clean guest needed **no directory ownership repair**. All first-login
+steps completed, including the six user services missing from the ARM installer.
+Hardening applied successfully; its initial verifier falsely rejected the mixed
+case emitted by current `sshd -T`. A case-insensitive verifier passed without
+changing the guest's security policy. The failed checkpoint was retained.
+
+Explicit experimental-input installation built the pinned Cua module, passed all
+21 tests, and enabled production protocol-3 same-user input. After a protected
+relay restart, its graphical-session unit exited successfully and input readiness
+returned. Guest memory reported 897 MiB used of 7,921 MiB, with no swap. Ten-second
+host samples reached 9.48 GiB allocated for the 64 GiB sparse disk; this is a
+sampled maximum, not an exact installation peak or total host storage requirement.
+It excludes ISO/build inputs and the Mac-side application build.
+
+Qt 6.12's `Color` singleton collided with Omarchy's palette, leaving notifications
+blank. A 54-file, hash-checked namespace qualification restored readable colors;
+this was visually verified in Lume and survived guest restart. The fix is now
+part of desktop provisioning. Pending upstream migrations remain visible; they
+were not marked complete or silently run against the pinned installation.
+
+A subsequent empty-disk run exposed a timing issue: SSH became ready before
+Archboot's `Type=simple` signing-key initialization finished. Concurrent package
+work failed with unknown-trust errors before disk partitioning. Failed checkpoints
+were preserved. The base stage now waits for successful keyring completion before
+any package/disk mutation, retaining signature enforcement. A new empty-disk run
+with that guard passed base installation; full desktop/hardening/driver and Docker
+acceptance are still in progress. Do not count the repaired palette run as the
+complete no-workaround pass.
+
+Local strict coverage: **377 tests passed, zero skips** with Hermes available.
+Hermes package validation also passed before the final operator-only additions.
+Remote viewer readiness now has a separate check-only forced-command endpoint;
+its live cross-host acceptance is pending.

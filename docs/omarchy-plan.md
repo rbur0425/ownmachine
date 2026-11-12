@@ -106,9 +106,27 @@ setup remains open because hardening required recovery.
 - [x] Complete the module-enabled real Hermes Chromium-to-Google task and
   independently verify the live title and history URL.
 - [x] Retest GTK create/save after correcting Linux launch identity and text activation; independently verify exact saved bytes and live editor title.
-- [ ] Integrate an explicit optional-module installation/readiness path; do not
+- [x] Integrate an explicit optional-module installation/readiness path; do not
   advertise module-free targeted Chromium input or silently broaden its target.
 
 Foreground input readiness is now reported separately from driver/capture readiness.
 The live module-enabled probe passes; absent, mismatched, test-only or non-private
-transports report false. Automatic module installation remains unchecked.
+transports report false. The explicitly opted-in installer built the module, passed all 21 tests, enabled protocol-3 private input, and restored readiness after a guest restart. This is foreground-only evidence.
+
+
+### Clean-repeat progress and newly found compatibility issues
+
+- [x] Private seeded installer boots with pinned key-only SSH and no native-console
+  key entry. Stock SSH and the anonymous web terminal are masked.
+- [x] Fresh base/desktop installation completes without directory ownership repairs.
+- [x] First-login user-service setup completes after including missing units and
+  ARM command paths; no failed user units were observed.
+- [x] Hardening enforces key-only/non-root SSH, guest firewall and exact shutdown
+  sudo. Its read-only verifier now accepts OpenSSH's mixed-case setting output.
+- [x] Explicit optional input installation and guest-restart persistence pass.
+- [x] Diagnose and visually verify the Qt 6.12 palette collision fix; integrate it
+  into provisioning with a pinned input-hash manifest.
+- [ ] Repeat from an empty disk with the palette fix and verifier correction
+  already included (second clean run in progress; no repaired-run claim).
+- [ ] Complete authenticated guided setup/import/retirement against that guest,
+  then repeat browser/editor/model acceptance and resource measurements.

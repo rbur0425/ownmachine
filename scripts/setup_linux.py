@@ -48,8 +48,8 @@ def verify_hardening(service,c):
     if report!={'schema_version':1,'hardened':True}:raise ValueError('linux_hardening_incomplete')
     script=b'''set -eu
 /usr/bin/sshd -t
-/usr/bin/sshd -T | grep -q '^passwordauthentication no$'
-/usr/bin/sshd -T | grep -q '^permitrootlogin no$'
+/usr/bin/sshd -T | grep -qi '^passwordauthentication no$'
+/usr/bin/sshd -T | grep -qi '^permitrootlogin no$'
 /usr/bin/systemctl is-active --quiet ownmachine-firewall.service
 /usr/bin/nft list table inet ownmachine >/dev/null
 '''
@@ -61,8 +61,15 @@ def driver(service,c):
     command=('set -eu; umask 077; dir=$(mktemp -d); trap \'rm -rf "$dir"\' EXIT; '
              'cat > "$dir/linux-guest.py"; /usr/bin/python3 "$dir/linux-guest.py" install')
     service.call(service.guest_argv(c)+[command],data=(ROOT/'scripts/linux-guest.py').read_bytes(),timeout=900)
+    if c.get('enable_experimental_input'):
+        command=('set -eu; umask 077; set -C; cat > "$HOME/.local/lib/ownmachine/linux-input-module.py"; '
+                 '/usr/bin/python3 "$HOME/.local/lib/ownmachine/linux-input-module.py" build --enable-experimental-input --apply; '
+                 '/usr/bin/python3 "$HOME/.local/lib/ownmachine/linux-input-module.py" enable --enable-experimental-input --apply')
+        service.call(service.guest_argv(c)+[command],data=(ROOT/'scripts/linux-input-module.py').read_bytes(),timeout=5400)
 
 
 def ready(service,c):
     result=service.relay.guest_status(c['guest_ssh_alias'],service.guest_address(c),'linux')
     if not result['driver_ready']:raise ValueError('linux_graphical_session_or_driver_required')
+    if c.get('enable_experimental_input') and not result.get('foreground_input_ready'):
+        raise ValueError('linux_foreground_input_not_ready')
