@@ -23,12 +23,20 @@ class ViewerCheckTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'unsupported_operation'):endpoint.execute(config,command)
                 self.assertEqual(call.call_count,1)
 
+    def test_viewer_check_is_read_only_and_uses_the_existing_probe(self):
+        from ownmachine.setup_transport import READ_ONLY,STEPS
+        self.assertIn('viewer-check',STEPS);self.assertIn('viewer-check',READ_ONLY)
+        with patch.object(services,'viewer_check') as check:
+            services.verify('viewer-check',{'viewer_probe_ssh_alias':'check'})
+            check.assert_called_once()
+
     def test_remote_probe_requires_exact_profile_vm_and_success(self):
-        config=dict(vm_name='guest',guest_profile='omarchy',viewer_probe_ssh_alias='viewer-check')
+        config=dict(vm_name='guest',guest_profile='omarchy',viewer_probe_ssh_alias='viewer-check',viewer_probe_ssh_config='/private/check-ssh')
         good=dict(ok=True,vm_name='guest',guest_profile='omarchy',scope='viewer_readiness_only')
         with patch.object(services,'call',return_value=SimpleNamespace(stdout=json.dumps(good).encode())) as call:
             services.viewer_check(config,True)
             self.assertIn('StrictHostKeyChecking=yes',call.call_args.args[0])
+            self.assertEqual(call.call_args.args[0][1:3],['-F','/private/check-ssh'])
             self.assertEqual(call.call_args.args[0][-4:],['ownmachine-viewer-check','probe','--vm','guest'])
         for changed in ({'vm_name':'other'},{'guest_profile':'macos'},{'ok':False},{'extra':True}):
             with patch.object(services,'call',return_value=SimpleNamespace(stdout=json.dumps(dict(good,**changed)).encode())):

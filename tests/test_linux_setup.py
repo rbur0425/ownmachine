@@ -50,6 +50,12 @@ class LinuxSetupTests(unittest.TestCase):
             with patch.object(setup_linux,'private_read',return_value=b'{"schema_version":1,"hardened":true}'),patch.object(setup_linux,'root_call',side_effect=root_check):
                 setup_linux.verify_hardening(service,{})
 
+    def test_linux_resource_limits_do_not_lower_macos_limits(self):
+        from ownmachine.onboarding import DEFAULTS,validate_plan,InputError
+        plan=dict(DEFAULTS,target='remote',guest_profile='omarchy',min_free_gb=24,disk_gb=32)
+        validate_plan(plan)
+        with self.assertRaises(InputError):validate_plan(dict(plan,guest_profile='macos'))
+
     def test_macos_plan_cannot_select_linux_mutation(self):
         with self.assertRaisesRegex(ValueError,'requires_omarchy'):
             endpoint.command({}, {'guest_profile':'macos'}, 'linux-base', True)
@@ -79,6 +85,12 @@ class LinuxSetupTests(unittest.TestCase):
             self.assertIn('pacman-init.service',call.call_args_list[1].args[0][-1])
             self.assertIn('test "$state" = exited',call.call_args_list[1].args[0][-1])
             self.assertFalse((state/'setup/linux-base.json').exists())
+
+    def test_relay_install_path_is_operator_configurable(self):
+        c=dict(vm_name='fixture',guest_profile='omarchy',guest_ssh_alias='guest',storage_dir='/private/guest-vms',lume_app='/private/Lume.app',vnc_port=5555,relay_path='/private/isolated/relay.py',relay_config='/private/isolated/host.json')
+        files=services.desired_relay(c)
+        self.assertEqual(files[0][0],Path(c['relay_path']))
+        self.assertEqual(files[1][0],Path(c['relay_config']))
 
     def test_install_guard_failure_never_records_mutation(self):
         with tempfile.TemporaryDirectory() as directory:

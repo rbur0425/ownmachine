@@ -19,7 +19,7 @@ All Omarchy implementation and acceptance work stays in PR #15 until reviewed. T
 - [x] Resolve native window discovery and targeted GTK accessibility (0.47.19, without plugin).
 - [x] Build/test the optional Hyprland plugin against the exact compositor ABI; record limitations (21 tests per build; bounded foreground smoke and disabled-transport refusal).
 - [ ] Measure installation peak and idle resources.
-- [ ] Implement shared Linux provisioning, hardening, graphical-session driver and lifecycle. Creation/resume and pinned base/desktop orchestration now run on a fresh guest; live hardening exposed mode/parent-ownership bugs that are fixed in code but still require a clean repeat.
+- [x] Implement shared Linux provisioning, hardening, graphical-session driver and lifecycle. A fresh empty-disk repeat passed without guest repairs; see the acceptance record.
 - [x] Verify private viewer, SSH roles and human/agent handoff for Linux. Separate-account Docker streaming, role refusals, reservation refusal and browser pause/resume passed.
 - [ ] Add configurable experimental Omarchy onboarding, resume and doctor checks. Profile routing, Linux stages, no-destructive-replay checks and viewer/doctor flags are implemented; complete authenticated Docker acceptance remains open.
 - [ ] Complete fresh Docker-to-Mac and real Hermes model acceptance.
@@ -82,9 +82,8 @@ Implementation commands and safety boundaries: [Linux development guide](linux-d
 - [x] Reach the graphical desktop and verify CuaDriver's standard-mode readiness.
 - [x] Add regression checks for sudo rule modes under umask 077 and ownership of
   every newly created desktop support parent.
-- [ ] Repeat complete provisioning with both hardening fixes included. This run
-  required inspected recovery; do not count it as the no-workaround acceptance.
-- [ ] Verify default scale 1 across first-login dialogs, browser and editor.
+- [x] Repeat complete provisioning with both hardening fixes included. The later keyring-guarded clean run passed without guest repairs; earlier recovery evidence is retained.
+- [x] Verify default scale 1 across first-login dialogs, browser and editor. Chromium consent and GTK save dialogs were fully visible.
 - [x] Finish the separate-account browser handoff and real Docker/Hermes browser/document tasks.
 
 See the appended fresh-install evidence in the acceptance record. Original failed
@@ -126,7 +125,6 @@ transports report false. The explicitly opted-in installer built the module, pas
 - [x] Explicit optional input installation and guest-restart persistence pass.
 - [x] Diagnose and visually verify the Qt 6.12 palette collision fix; integrate it
   into provisioning with a pinned input-hash manifest.
-- [ ] Repeat from an empty disk with the palette fix and verifier correction
-  already included (second clean run in progress; no repaired-run claim).
+- [x] Repeat from an empty disk with palette, verifier and package-keyring fixes included. Base/desktop/hardening/driver readiness all passed without guest repairs.
 - [ ] Complete authenticated guided setup/import/retirement against that guest,
   then repeat browser/editor/model acceptance and resource measurements.

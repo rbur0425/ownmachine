@@ -348,3 +348,50 @@ Local strict coverage: **377 tests passed, zero skips** with Hermes available.
 Hermes package validation also passed before the final operator-only additions.
 Remote viewer readiness now has a separate check-only forced-command endpoint;
 its live cross-host acceptance is pending.
+
+### Successful no-repair run and new Docker installation
+
+A new empty-disk guest completed base installation, desktop installation,
+hardening, first graphical boot, explicit production input-module build/load,
+and permission/readiness checks without manual guest repairs. The installer
+included keyring waiting, user-unit dependencies, scale 1 and the palette patch
+from the start. All 21 module tests passed. Ten-second samples recorded a maximum
+9.55 GiB allocated disk (64 GiB sparse capacity). This is sampled disk allocation,
+not an exact peak or a total Mac storage minimum.
+
+A fresh Docker agent installed `plugin/` from GitHub at immutable commit
+`9db05e514ea7de7d9e40cd137815b724231a8209` through `hermes plugins install`, with
+explicit dependency consent and enablement. A distinct viewer UID/private home
+and runtime key were used. The initial Docker harness omitted the documented
+0660 database initialization; the first model run refused before any app action.
+Both runtimes were stopped, that documented step was completed, and the lock plus
+SQLite transaction probe passed as both users without truncating state. This was
+a harness omission, not an undocumented guest repair. The isolated test profile
+also explicitly enabled single-query approvals for the authorized desktop tasks.
+
+Real Hermes then launched Chromium and stopped at its first-run terms prompt.
+After the user approved those terms, the operator accepted them through the
+protected viewer and canceled optional keyring creation without setting an empty
+password. Hermes subsequently navigated to Google using foreground input. An
+independent guest probe confirmed native Wayland Chromium, live title
+`Google - Chromium`, and the persisted `https://www.google.com/` history row titled
+`Google`. The live history database used an exclusive lock, so verification read
+an in-memory copy and required SQLite integrity checking before querying.
+
+Authenticated Hermes setup calls passed remote preflight, firewall and Linux
+permission checks. A separate check-only viewer SSH key passed remote VNC probing
+and rejected an arbitrary shell command. The first preflight correctly refused
+insufficient free space; removal of stopped disposable test VMs restored headroom
+and the same read-only check passed. No failed checkpoint was erased to retry a
+destructive stage. Final authenticated screenshot/retirement and editor acceptance
+are still being completed.
+
+The fresh Docker model's GTK task also passed. It launched Mousepad, used targeted
+accessibility text, opened Save As, and used a fresh foreground pixel capture when
+the Save button lacked an AXPress action. Independent guest checks found exactly
+59 bytes (`OwnMachine clean acceptance: Hermes controls this desktop.` plus one
+newline), SHA-256 `2e2dbc196577ae2349ba26fc6ccce40e838ad44d93e763567dc787561357a12b`,
+and a native Wayland Mousepad title naming the saved file without an asterisk.
+No operator wrote the document. Scale-1 first-run/browser/editor dialogs were
+fully visible. The model runs used only desktop tooling, with terminal/file/code
+execution toolsets disabled in the isolated test profile.

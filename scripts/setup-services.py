@@ -18,11 +18,11 @@ from setup_support import ROOT, mac, module, private_read, install_exact, events
 
 relay = module('setup_host_relay', 'host/ownmachine_host.py')
 keys = module('setup_host_keys', 'scripts/render-host-keys.py')
-STEPS = ('preflight', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'verify')
+STEPS = ('preflight', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'viewer-check', 'verify')
 MUTATIONS = {'relay', 'keys', 'harden', 'driver', 'viewer'}
 FIELDS = {'vm_name', 'storage_dir', 'lume_app', 'vnc_port', 'guest_ssh_alias', 'python',
           'agent_public_key', 'viewer_public_key', 'agent_host_alias', 'viewer_host_alias',
-          'control_dir', 'access_dir', 'viewer_port', 'viewer_python', 'guest_user', 'guest_profile', 'relay_config', 'display_scale', 'desktop_theme', 'enable_experimental_input', 'guest_bootstrap_ssh_alias', 'viewer_probe_ssh_alias'}
+          'control_dir', 'access_dir', 'viewer_port', 'viewer_python', 'guest_user', 'guest_profile', 'relay_config', 'display_scale', 'desktop_theme', 'enable_experimental_input', 'guest_bootstrap_ssh_alias', 'viewer_probe_ssh_alias', 'relay_path', 'viewer_probe_ssh_config', 'runtime_ssh_config'}
 
 
 def linux_service():
@@ -106,12 +106,12 @@ def guest_argv(c):
 
 
 def desired_relay(c):
-    return ((Path.home()/'.local/lib/ownmachine/ownmachine_host.py', (ROOT/'host/ownmachine_host.py').read_bytes()),
+    return ((Path(c.get('relay_path',str(Path.home()/'.local/lib/ownmachine/ownmachine_host.py'))), (ROOT/'host/ownmachine_host.py').read_bytes()),
             (Path(c.get('relay_config',str(Path.home()/'.config/ownmachine/host.json'))), json.dumps(host_settings(c), sort_keys=True).encode()))
 
 
 def key_lines(c):
-    return keys.render(c['python'], Path.home()/'.local/lib/ownmachine/ownmachine_host.py',
+    return keys.render(c['python'], Path(c.get('relay_path',str(Path.home()/'.local/lib/ownmachine/ownmachine_host.py'))),
                        Path(c['agent_public_key']).read_text(), Path(c['viewer_public_key']).read_text(),config=c.get('relay_config')).splitlines()
 
 
@@ -286,6 +286,7 @@ def viewer_check(c, probe=False):
               '-o','IdentitiesOnly=yes','-o','ForwardAgent=no','-o','ClearAllForwardings=yes',
               '-o','ConnectTimeout=10',c['viewer_probe_ssh_alias'],
               'ownmachine-viewer-check',operation,'--vm',c['vm_name']]
+        if c.get('viewer_probe_ssh_config'):argv[1:1]=['-F',c['viewer_probe_ssh_config']]
         result=json.loads(call(argv,timeout=110).stdout)
         if result!={'ok':True,'vm_name':c['vm_name'],'guest_profile':c.get('guest_profile','macos'),'scope':'viewer_readiness_only'}:
             raise ValueError('remote_viewer_not_ready')
@@ -321,7 +322,7 @@ def verify(step, c):
         if not result['driver_ready']: raise ValueError('guest_permission_or_capture_consent_required')
     elif step == 'firewall':
         firewall(c)
-    elif step == 'viewer':
+    elif step in ('viewer','viewer-check'):
         if c.get('viewer_probe_ssh_alias'):
             viewer_check(c)
             return
@@ -332,16 +333,20 @@ def verify(step, c):
         from ownmachine.config import Config
         for alias, role in ((c['agent_host_alias'], 'agent'), (c['viewer_host_alias'], 'viewer')):
             cfg = Config(alias, c['control_dir'], c['vm_name'],guest_profile=c.get('guest_profile','macos'))
-            result = json.loads(call(cfg.ssh_argv('status')).stdout)
+            def runtime_argv(operation):
+                argv=cfg.ssh_argv(operation)
+                if c.get('runtime_ssh_config'):argv[1:1]=['-F',c['runtime_ssh_config']]
+                return argv
+            result = json.loads(call(runtime_argv('status')).stdout)
             if result.get('vm_state') != 'running' or result.get('driver_ready') is not True:
                 raise ValueError('runtime_not_ready')
             # Exercise rejection without invoking a permitted operation or mutation.
-            argv = cfg.ssh_argv('status')[:-4] + ['ownmachine-denied-operation']
+            argv = runtime_argv('status')[:-4] + ['ownmachine-denied-operation']
             denied = subprocess.run(argv, capture_output=True, timeout=30)
             if denied.returncode != 2 or json.loads(denied.stdout).get('code') != 'unsupported_operation':
                 raise ValueError('runtime_key_not_restricted')
             forbidden = 'vnc' if role == 'agent' else 'mcp'
-            denied = subprocess.run(cfg.ssh_argv(forbidden), stdin=subprocess.DEVNULL, capture_output=True, timeout=15)
+            denied = subprocess.run(runtime_argv(forbidden), stdin=subprocess.DEVNULL, capture_output=True, timeout=15)
             if denied.returncode != 2 or json.loads(denied.stdout).get('code') != 'unsupported_operation':
                 raise ValueError('runtime_roles_not_separated')
         viewer_check(c, probe=True)
@@ -402,7 +407,7 @@ def execute(args):
     c = config(args.config)
     step = args.step
     if os.geteuid() == 0: raise ValueError('run_as_dedicated_non_root_account')
-    if step not in ('viewer', 'verify') and (platform.system() != 'Darwin' or platform.machine() != 'arm64'):
+    if step not in ('viewer', 'viewer-check', 'verify') and (platform.system() != 'Darwin' or platform.machine() != 'arm64'):
         raise ValueError('run_on_apple_silicon_mac')
     if step == 'preflight':
         import shutil

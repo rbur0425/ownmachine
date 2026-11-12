@@ -20,13 +20,14 @@ def next_step(ctx,plan):
     if plan['target']=='existing':stages=['permissions','viewer','verify']
     for step in stages:
         row=outcomes.get(step,{})
+        if step=='viewer' and outcomes.get('viewer-check',{}).get('stage')=='checks_passed':continue
         if row.get('stage') in ('verified','checks_passed','observed'):continue
         if row.get('stage') in ('running','needs_inspection'):
             return dict(stage='needs_inspection',next='Inspect the private '+step+' checkpoint; do not replay an uncertain mutation.')
         handoffs={
             'firewall':'The Mac administrator must install the reviewed firewall service. Then run setup --run firewall.',
             'permissions':'Open the guest permission guide with setup --run permissions --apply; approve the guest grants, then repeat the permission check.',
-            'viewer':'Start the viewer under its separate owner with private access storage. Verify its connection and human/agent handoff before final verification.',
+            'viewer':'Start the viewer under its separate owner with private access storage. Run setup --run viewer-check to verify its connection, then check human/agent handoff before final verification.',
             'verify':'Pause agent control in the viewer, then run setup --run verify. Use --apply to repeat checks and retire setup access.'}
         if plan.get('guest_profile')=='omarchy':
             handoffs['linux-base']='Boot the verified installer with VNC disabled. Use the private bootstrap image and pinned guest_bootstrap_ssh_alias from docs/linux-development.md, or independently confirm and pair the live SSH key in the native console. Then run setup --run linux-base --apply; it refuses a nonempty disk.'

@@ -85,7 +85,8 @@ def validate_plan(plan):
            control_dir=plan['control_dir']).validate()
     if plan['storage_dir'] and not Path(plan['storage_dir']).is_absolute():
         raise InputError('Storage directory must be an absolute path on the Mac host.')
-    for key, low, high in (('cpu', 2, 32), ('memory_gb', 8, 128), ('disk_gb', 50, 1000), ('min_free_gb', 32, 2000)):
+    linux=plan.get('guest_profile')=='omarchy'
+    for key, low, high in (('cpu', 2, 32), ('memory_gb', 8, 128), ('disk_gb', 32 if linux else 50, 1000), ('min_free_gb', 16 if linux else 32, 2000)):
         if type(plan[key]) is not int or not low <= plan[key] <= high:
             raise InputError(f'{key} must be an integer between {low} and {high}.')
     import re
@@ -160,6 +161,8 @@ def setup(ctx, args):
         value = getattr(args, key, None)
         if value is not None:
             plan[key] = value
+    if plan.get('guest_profile')=='omarchy' and 'min_free_gb' not in saved and getattr(args,'min_free_gb',None) is None:
+        plan['min_free_gb']=32
     if not plan['target']:
         return {'ok': False, 'stage': 'needs_input', 'questions': [
             'Where should the desktop run: local, remote, or existing?',

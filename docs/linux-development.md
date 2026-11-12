@@ -207,7 +207,7 @@ The setup account needs the check key, not the viewer's private runtime key or
 access file. Keep the check key separate from agent, viewer and temporary setup
 keys. Do not give a general remote shell to the setup endpoint.
 
-Install the remote viewer under its actual owner first. `setup --run viewer`
+Install the remote viewer under its actual owner first. `setup --run viewer-check`
 checks it; `--apply` is refused for this remote path. Final verification probes its
 protected VNC connection through the same fixed endpoint. The subsequent native
 computer-use screenshot and setup-key retirement remain separate acceptance steps.
@@ -217,3 +217,18 @@ its package-signing keyring is ready. The base stage waits for successful `exite
 state before package installation or recording a disk mutation. Failure refuses
 provisioning; it never relaxes package-signature verification. Installer failures
 retain mode-0600 output under the operator's VM setup directory for inspection.
+
+For isolated side-by-side installations, `relay_path` and `relay_config` select
+private operator-owned installation files. The default paths remain unchanged.
+Use `runtime_ssh_config` for the setup verifier's two runtime-role aliases and
+`viewer_probe_ssh_config` for its remote check-only alias when the operator's
+normal SSH configuration offers other identities. These explicit `-F` files must
+pin the intended identity/host key and disable agent forwarding; a successful
+connection through a different unrestricted key does not prove role separation.
+
+New Omarchy plans default to a 32 GiB free-space floor; an explicit expert override
+may select 16–2000 GiB, matching the provisioner. The tested clean guest used a
+24 GiB floor, a 64 GiB sparse disk and about 9.55 GiB peak allocated disk sampled
+every ten seconds. Allow extra room for the original/private ISO, Lume build,
+package cache and later applications. This is not a certified 16 GiB minimum.
+macOS resource defaults and minimums are unchanged.
