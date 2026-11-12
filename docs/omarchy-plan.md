@@ -24,7 +24,7 @@ All Omarchy implementation and acceptance work stays in PR #15 until reviewed. T
 - [x] Add configurable experimental Omarchy onboarding, resume and doctor checks. Creation resume and changed-configuration refusal passed; authenticated remote checks, progress import and retirement passed.
 - [x] Complete fresh Docker-to-Mac and real Hermes model acceptance, with documented operator installer/boot handoffs; not a fully unattended Hermes-created guest.
 - [x] Finish resource guidance, future catalog disclosures and evaluator docs.
-- [ ] Validate final committed distribution bundles and CI before review; release/tag/catalog updates require a separate approved release.
+- [x] Build and verify committed source/plugin bundles and validate the extracted plugin. Final CI status is recorded on PR #15; release/tag/catalog updates require a separate approved release.
 
 ## Phases
 

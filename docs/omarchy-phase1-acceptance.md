@@ -1,6 +1,6 @@
 # Omarchy Phase 1 acceptance
 
-Date: 2026-11-12. Status: Phase 1 compatibility spike in progress; installed ARM64 desktop, native Wayland capture and foreground GTK file creation verified. The initial findings below are followed by the successful 0.47.19 discovery/accessibility retest. Chromium foreground navigation and typing pass. Not a Linux support claim.
+Date: 2026-11-12. Status: experimental foreground-only acceptance passed. The final clean-run section records no-repair provisioning, real Hermes browser/editor/reopen tasks, authenticated screenshot and setup-key retirement. Earlier sections preserve failures and interim findings; they are not the current completion status. This is not broad Linux or background-control certification.
 
 ## Environment and scope
 
@@ -447,3 +447,5 @@ remain requirements, not hidden automation. Earlier failures above are retained
 as historical evidence and are superseded only by the specific successful repeat.
 
 Final local strict suite: **381 passed, zero skips** with Hermes available.
+
+Distribution validation at `0e97e15f0b30cff258bbde62a585300ee6e76637` passed: clean-commit source/plugin bundles, SHA-256 inventories, plugin-only package boundaries and Hermes validation of the extracted plugin. Source validation passed too. Hermes reports the documented in-process-only requirement for callback/CLI integration; it is not suppressed. Bundles remain local and unpublished. Subsequent evidence-only commits are checked again by CI.
