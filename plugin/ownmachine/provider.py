@@ -91,6 +91,7 @@ class OwnMachineBackend(ComputerUseBackend):
         self.generation = None
         self.tokens = {}
         self.element_actions = {}
+        self.element_roles = {}
         self.target = None
         self.has_pixels = False
         self.capture_id = None
@@ -223,11 +224,14 @@ class OwnMachineBackend(ComputerUseBackend):
         self.target = target or {'scope':'desktop'}
         self.tokens = {e.index:e.element_token for e in elements}
         self.element_actions = {e.index:e.attributes['actions'] for e in elements if isinstance(e.attributes.get('actions'),list)}
+        self.element_roles = {e.index:e.role for e in elements}
         self._last_target = target
         self._last_app = app or data.get('app_name')
         output_mode = mode
         note = 'Pixel coordinates are local to this exact screenshot. Take a fresh capture after every pixel click; its capture binding is single-use. Element clicks invoke AXPress, not mouse focus. For a field without AXPress, use set_value or a fresh screenshot-grounded pixel click. Popup set_value selects only an existing menu option: inspect the open menu first, never guess a destination. File-location popups can list ancestors rather than destinations; use the dialog navigation controls or keyboard shortcuts for other folders. Any operator_review_required result overrides generic retry advice; stop until the operator inspects and acknowledges it. Each new capture replaces earlier tokens.\n'
         note += '\n'.join(f'#{e.index} actions: '+', '.join(str(a) for a in e.attributes['actions']) for e in elements if 'actions' in e.attributes)
+        if self.config.guest_profile == 'omarchy':
+            note += '\nLinux text/entry elements: use set_value to edit their contents; do not use element click to focus them. Foreground compositor input requires the explicitly enabled ABI-matched Hyprland module.\n'
         if mode == 'som' and raw:
             try:
                 from PIL import Image, ImageDraw
@@ -329,6 +333,9 @@ class OwnMachineBackend(ComputerUseBackend):
         name = 'right_click' if button=='right' else 'double_click' if click_count==2 else 'click'
         try:
             args = self._element(element) if element is not None else {'x':x,'y':y}
+            if (element is not None and self.config.guest_profile == 'omarchy'
+                    and self.element_roles.get(element) in {'text','entry','password text'}):
+                return ActionResult(False,name,code='element_press_unsupported',message='Linux text elements are not activation targets. No input was dispatched. Use set_value for text or a fresh screenshot-grounded foreground pixel click to focus.',meta={'dispatched':False})
             if element is not None and name == 'click' and 'AXPress' not in self.element_actions.get(element, ['AXPress']):
                 return ActionResult(False, name, code='element_press_unsupported', message='This element does not advertise AXPress. No input was dispatched. Use an appropriate value action or a fresh screenshot-grounded pixel click.', meta={'dispatched':False})
             if element is None and (x is None or y is None): raise ValueError('coordinates_required')

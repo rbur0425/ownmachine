@@ -271,3 +271,13 @@ the provider sent the macOS `bundle_id` argument instead of Linux's discovered
 file. Linux launch now uses that discovered identity, rejects a missing identity
 before dispatch, and has regression coverage. The corrected model save task still
 requires a live retest.
+
+
+The corrected cold launch succeeded through Hermes and was independently observed
+by its fresh window list/capture. The model then chose element activation on the
+GTK text area, producing an unknown AT-SPI activation result; the review gate
+correctly stopped it. The provider now refuses Linux text/entry activation before
+dispatch and explains `set_value` or an explicitly grounded foreground pixel click.
+A regression test verifies this refusal leaves the gate usable for a value edit.
+The strict local suite passes 364 tests with zero skips; a completed save remains
+pending at this checkpoint.

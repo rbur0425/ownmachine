@@ -196,6 +196,22 @@ class NativeProviderTests(unittest.TestCase):
   self.assertNotIn('launch_app',[n for n,a in self.fake.calls])
   self.assertFalse(self.b.lease.status()['pending'])
 
+ def test_linux_text_activation_refuses_without_poisoning_gate(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='omarchy')
+  original=self.fake.call
+  def call(name,args):
+   reply=original(name,args)
+   if name=='get_window_state':reply['structuredContent']['elements'][0]['role']='text'
+   return reply
+  self.fake.call=call
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  count=len(self.fake.calls)
+  self.assertEqual(self.b.click(element=1).code,'element_press_unsupported')
+  self.assertEqual(len(self.fake.calls),count)
+  self.assertFalse(self.b.lease.status()['pending'])
+  self.assertTrue(self.b.set_value('Edited',element=1).ok)
+
  def test_failed_cold_launch_never_raises_and_keeps_review_gate(self):
   self.cold_launch_fixture(fail_launch=True)
   self.assertEqual(self.b.focus_app('Browser',raise_window=True).code,'driver_action_failed_review_required')

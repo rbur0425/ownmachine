@@ -30,7 +30,8 @@
     "test_native_provider.NativeProviderTests.test_takeover_between_launch_and_raise_prevents_second_write",
     "test_native_provider.NativeProviderTests.test_omarchy_defaults_foreground_and_refuses_background",
     "test_native_provider.NativeProviderTests.test_linux_launch_uses_discovered_path",
-    "test_native_provider.NativeProviderTests.test_linux_missing_launch_path_refuses_before_dispatch"
+    "test_native_provider.NativeProviderTests.test_linux_missing_launch_path_refuses_before_dispatch",
+    "test_native_provider.NativeProviderTests.test_linux_text_activation_refuses_without_poisoning_gate"
   ],
   "macos": [
     "test_permission_guide.PermissionGuideTests.test_already_granted_does_not_prompt",
