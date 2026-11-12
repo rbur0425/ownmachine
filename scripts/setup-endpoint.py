@@ -56,11 +56,18 @@ def configuration(path):
 
 
 def command(c,plan,step,apply):
-    if step in {'linux-base','linux-desktop'}:
+    if step in {'linux-boot-installer','linux-boot-system','linux-start-desktop','linux-base','linux-desktop'}:
         if plan.get('guest_profile')!='omarchy':raise ValueError('linux_stage_requires_omarchy')
         from setup_support import module
         service=module('linux_endpoint_services','scripts/setup-services.py').config(Path(c['services_file']))
         if service['vm_name']!=plan['vm_name'] or service.get('storage_dir')!=plan['storage_dir'] or service.get('guest_profile')!='omarchy':raise ValueError('service_plan_mismatch')
+        if step.startswith('linux-boot-') or step=='linux-start-desktop':
+            argv=[sys.executable,str(ROOT/'scripts/setup-linux-boot.py'),'--config',c['services_file'],'--step',step,'--apply']
+            if step=='linux-boot-installer':
+                for key in ('iso','iso_sha256'):
+                    if key not in c: raise ValueError('verified_iso_required')
+                    argv+=['--'+key.replace('_','-'),str(c[key])]
+            return argv
         return [sys.executable,str(ROOT/'scripts/install-linux-desktop.py'),'--config',c['services_file'],'--step',step.removeprefix('linux-'),'--apply']
     if step in {'build','provision'} and plan.get('guest_profile')=='omarchy':
         argv=[sys.executable,str(ROOT/'scripts/setup-linux.py'),'--plan-file',c['plan_file'],'--step',step,'--apply']
@@ -193,6 +200,10 @@ def main():
     parser.add_argument('--fingerprint',action='store_true')
     parser.add_argument('--render-key',type=Path,help='Render a forced-command entry for a dedicated setup public key; never install it')
     args=parser.parse_args()
+    # A dropped setup client must not terminate a disk mutation. The endpoint
+    # retains its lock and records completion; reconnect imports progress.
+    import signal
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
     os.umask(0o077)
     if args.fingerprint:
         print(fingerprint());return 0

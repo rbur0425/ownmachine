@@ -10,7 +10,7 @@ import subprocess
 import time
 from .onboarding_state import digest
 
-STEPS = ('preflight', 'build', 'provision', 'linux-base', 'linux-desktop', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'viewer-check', 'verify', 'retire')
+STEPS = ('preflight', 'build', 'provision', 'linux-boot-installer', 'linux-base', 'linux-boot-system', 'linux-desktop', 'linux-start-desktop', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'viewer-check', 'verify', 'retire')
 READ_ONLY = {'preflight', 'firewall', 'permissions', 'viewer-check', 'verify', 'progress'}
 KEY = 'setup_execution'
 EVENT = contextvars.ContextVar('ownmachine_setup_event', default=None)

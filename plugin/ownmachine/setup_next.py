@@ -16,7 +16,7 @@ def next_step(ctx,plan):
     outcomes=progress.get('outcomes',{})
     stages=['preflight','build','provision','firewall','relay','keys','harden','driver','permissions','viewer','verify']
     if plan.get('guest_profile')=='omarchy':
-        stages[3:3]=['linux-base','linux-desktop']
+        stages=['preflight','build','firewall','provision','linux-boot-installer','linux-base','linux-boot-system','linux-desktop','relay','keys','harden','linux-start-desktop','driver','permissions','viewer','verify']
     if plan['target']=='existing':stages=['permissions','viewer','verify']
     for step in stages:
         row=outcomes.get(step,{})
@@ -30,9 +30,12 @@ def next_step(ctx,plan):
             'viewer':'Start the viewer under its separate owner with private access storage. Run setup --run viewer-check to verify its connection, then check human/agent handoff before final verification.',
             'verify':'Pause agent control in the viewer, then run setup --run verify. Use --apply to repeat checks and retire setup access.'}
         if plan.get('guest_profile')=='omarchy':
-            handoffs['linux-base']='Boot the verified installer with VNC disabled. Use the private bootstrap image and pinned guest_bootstrap_ssh_alias from docs/linux-development.md, or independently confirm and pair the live SSH key in the native console. Then run setup --run linux-base --apply; it refuses a nonempty disk.'
-            handoffs['linux-desktop']='Boot the installed disk without the ISO using the same confirmed host key and desktop-user SSH alias. Then run setup --run linux-desktop --apply. Run hardening before the first graphical restart; the driver stage needs that graphical session.'
-            handoffs['driver']='After hardening, restart into the Linux graphical session and run setup --run driver --apply. Targeted Chromium input needs explicit enable_experimental_input in the operator service configuration; capture readiness alone does not prove input works.'
+            handoffs['linux-boot-installer']='Run setup --run linux-boot-installer --apply to boot the configured private installer with VNC disabled and verify pinned SSH. Pair the bootstrap identity before setup; never send keys in chat.'
+            handoffs['linux-base']='Run setup --run linux-base --apply. This requires the fresh guest receipt and refuses a nonempty disk.'
+            handoffs['linux-boot-system']='Run setup --run linux-boot-system --apply to shut down the verified installer and boot the installed disk without the ISO.'
+            handoffs['linux-desktop']='Run setup --run linux-desktop --apply, then relay, keys and hardening before the first graphical restart.'
+            handoffs['linux-start-desktop']='Run setup --run linux-start-desktop --apply. This verifies hardening and the host firewall before restarting into the protected desktop.'
+            handoffs['driver']='Run setup --run driver --apply. Targeted Chromium input requires explicit enable_experimental_input in the operator configuration; capture readiness alone does not prove input works.'
             handoffs['permissions']='Log into the Linux graphical session, then run setup --run permissions. This checks the standard-mode driver and accessibility bus; no macOS TCC prompts apply.'
         if step in handoffs:return dict(stage='await_'+step,next=handoffs[step])
         suffix=' --apply' if step in ('build','provision','relay','keys','harden','driver') else ''
