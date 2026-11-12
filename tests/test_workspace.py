@@ -10,6 +10,18 @@ from ownmachine.workspace import status
 
 
 class WorkspaceTests(unittest.TestCase):
+    @patch('ownmachine.workspace.subprocess.run')
+    def test_linux_reports_linux_gates_and_rejects_profile_mismatch(self, run):
+        data=dict(guest_os='linux',guest_profile='omarchy',vm_state='running',
+                  driver_ready=True,driver_state='ready',guest_reachable=True,
+                  graphical_session=True,accessibility_bus=True,driver_running=True,standard_mode=True)
+        run.return_value=subprocess.CompletedProcess([],0,json.dumps(data),'')
+        result=status(Config(host_alias='example-mac',guest_profile='omarchy'))
+        self.assertTrue(result['driver_ready'])
+        for name in ('accessibility','screen_recording','capture_consent_verified'):
+            self.assertNotIn(name,result)
+        self.assertEqual(status(Config(host_alias='example-mac'))['code'],'guest_profile_mismatch')
+
     def setUp(self):
         self.config = Config(host_alias='ownmachine-studio')
 

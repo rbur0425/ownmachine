@@ -39,7 +39,10 @@ The authenticated setup endpoint routes `build` and `provision` through
 `scripts/install-linux-desktop.py`. Supply the verified ISO and SHA-256 in the
 operator-owned endpoint configuration. The service configuration must match the
 plan's profile, VM and storage directory. It also supplies `guest_ssh_alias` and
-`guest_user`; `display_scale` accepts 1 (default) or 2. The endpoint never accepts
+`guest_user`; `display_scale` accepts 1 (default) or 2. `desktop_theme` selects
+a bundled pinned theme (default `catppuccin`). Fresh setup generates that theme
+before login, disables animations and binds the terminal shortcut to installed
+`foot`, avoiding the unavailable ARM64 `xdg-terminal-exec` dependency. The endpoint never accepts
 arbitrary installer URLs or unverified script inputs.
 
 There are still explicit handoffs: boot the live ISO with VNC disabled, pair a
@@ -103,3 +106,18 @@ Keep the optional module disabled unless explicitly testing it. Build only
 against matching Hyprland headers/compiler ABI, record its source revision and
 ABI string, and repeat acceptance after compositor upgrades. Do not hot-replace a
 loaded module. See the evidence record for exact tested revisions and limits.
+
+
+### Targeted input acceptance requirement
+
+The fresh Docker/Hermes run verified native Chromium discovery and capture, then
+refused its first foreground action because the Hyprland input module was absent.
+The refusal correctly left a durable review gate and no URL was typed. Therefore
+`driver_ready` is capture/session readiness, not proof of targeted browser input.
+Targeted compositor input requires the explicitly enabled, ABI-matched optional
+module. GTK semantic accessibility is a separate path. Never silently downgrade
+an exact-window action to untargeted desktop input to avoid this refusal.
+
+First-run Chromium terms remain an explicit user decision. A new-keyring prompt
+may be canceled for a test that stores no logins; setup does not create an empty
+keyring or disable credential protection to suppress that dialog.

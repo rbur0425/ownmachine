@@ -89,3 +89,21 @@ Implementation commands and safety boundaries: [Linux development guide](linux-d
 
 See the appended fresh-install evidence in the acceptance record. Original failed
 checkpoints remain preserved locally; corrected code does not rewrite that history.
+
+
+Docker/browser acceptance found that exact-window foreground input requires the
+opt-in Hyprland module. Keep that requirement visible in onboarding and doctor
+output; do not equate driver capture readiness with input support. The first real
+model run reached Chromium discovery/capture and safely stopped on this refusal.
+Private streaming, role checks and a human-reservation input refusal now have
+cross-account Docker evidence; complete browser handoff and model success remain
+unticked until the module-enabled run and independent verification finish.
+
+
+- [x] Rebuild the optional input module in the fresh guest, pass 21 tests and
+  verify exact ABI plus explicitly enabled transport.
+- [x] Complete the module-enabled real Hermes Chromium-to-Google task and
+  independently verify the live title and history URL.
+- [ ] Retest the GTK create/save task after correcting Linux cold-launch identity.
+- [ ] Integrate an explicit optional-module installation/readiness path; do not
+  advertise module-free targeted Chromium input or silently broaden its target.

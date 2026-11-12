@@ -22,7 +22,7 @@ STEPS = ('preflight', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissi
 MUTATIONS = {'relay', 'keys', 'harden', 'driver', 'viewer'}
 FIELDS = {'vm_name', 'storage_dir', 'lume_app', 'vnc_port', 'guest_ssh_alias', 'python',
           'agent_public_key', 'viewer_public_key', 'agent_host_alias', 'viewer_host_alias',
-          'control_dir', 'access_dir', 'viewer_port', 'viewer_python', 'guest_user', 'guest_profile', 'relay_config', 'display_scale'}
+          'control_dir', 'access_dir', 'viewer_port', 'viewer_python', 'guest_user', 'guest_profile', 'relay_config', 'display_scale', 'desktop_theme'}
 
 
 def linux_service():
@@ -42,6 +42,9 @@ def config(path):
         if name=='guest_profile':continue
         if name=='display_scale':
             if type(value) is not int or value not in (1,2):raise ValueError('invalid_display_scale')
+            continue
+        if name=='desktop_theme':
+            if not isinstance(value,str) or not re.fullmatch('[a-z][a-z0-9-]{0,63}',value):raise ValueError('invalid_desktop_theme')
             continue
         if name.endswith('port'):
             if type(value) is not int or not 0 <= value <= 65535:

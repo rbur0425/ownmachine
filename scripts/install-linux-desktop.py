@@ -88,8 +88,13 @@ for old,new in [('local omarchy_gdk_scale = 2','local omarchy_gdk_scale = '+str(
     if text.count(old)!=1:raise ValueError('unexpected_pinned_monitor_configuration')
     text=text.replace(old,new)
 path.write_text(text)
+path=home/'.config/hypr/looknfeel.lua'
+with path.open('a') as stream:stream.write('\\nhl.config({ animations = { enabled = false } })\\n')
+path=home/'.config/hypr/bindings.lua'
+with path.open('a') as stream:stream.write('\\nhl.unbind("SUPER + RETURN")\\no.bind("SUPER + RETURN", "Terminal", "foot")\\n')
 OWNMACHINE_DISPLAY
 '''
+            script+='\nrunuser -u '+shlex.quote(c['guest_user'])+' -- env OMARCHY_PATH=/usr/share/omarchy OMARCHY_THEME_HEADLESS=1 /usr/share/omarchy/bin/omarchy-theme-set '+shlex.quote(c.get('desktop_theme','catppuccin'))+'\n'
             command='sudo -n /bin/bash -s'
         record=dict(schema_version=1,identity=identity,stage='running')
         mac.write_state(checkpoint,record)

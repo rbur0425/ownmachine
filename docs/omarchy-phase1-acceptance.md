@@ -202,3 +202,72 @@ Chromium 156.0.8078.79-1 and at-spi2-core 2.62.1-1. A post-boot sample reported
 8.9 GiB used inside the guest filesystem and 1,129 MiB used RAM. These are single
 samples, not measured installation peaks or minimum host-space requirements.
 No Docker-driven model or browser-handoff success is claimed for this run yet.
+
+
+## Docker/browser follow-up (2026-11-12)
+
+Two new isolated Docker containers use distinct agent/viewer UIDs and keys,
+exclusive home mounts and a shared control volume. Confirmed Mac host keys were
+paired with the public pairing script. Both restricted keys read status; agent
+VNC and viewer MCP requests return `unsupported_operation`. The viewer key
+restarted the guest through the protected relay, and Linux driver readiness
+returned. A direct VNC connection from the Docker host was blocked, while the
+SSH-relayed shared VNC authentication handshake passed.
+
+The browser displayed the live desktop. Human reservation and pause/return
+buttons updated control and focused the selected button. A terminal shortcut and
+text reached the guest; CUA's automated mixed-case typing lost capitalization,
+so this is not case-sensitive keyboard certification. While human control was
+reserved, a provider keyboard attempt returned `human_takeover` without dispatch.
+The test harness initially omitted the documented shared-volume ACL/database
+initialization. Applying those evaluator-guide steps made both runtime accounts'
+lock/transaction probes pass; private viewer access state was not mounted in the
+agent container. This was a harness omission, not an undocumented product repair.
+
+First-login inspection found missing generated theme data and an unavailable
+`xdg-terminal-exec` shortcut. Fresh setup now generates a configurable bundled
+theme headlessly, disables animations and uses installed `foot` for the terminal
+shortcut. Live foot launch passed; the launcher/notification polish still needs
+verification. Chromium's first-run terms were accepted with explicit user approval,
+and its optional new-keyring dialog was canceled without creating credentials.
+
+The installed candidate passed Hermes validation in the Docker profile. A real
+model run first stopped at Hermes's one-shot approval gate. After authorizing the
+requested desktop-only actions in that isolated profile, a second session found
+the previous session's exclusive backend lock; restarting only the test container
+released it. The subsequent real model run discovered and captured Chromium's
+exact native window, then its first Ctrl+L foreground action was refused with
+`foreground_unavailable`: the optional Hyprland input module was not installed.
+The durable control gate stopped further writes, and the model honestly reported
+that Google had not loaded. **This is a model-driven refusal pass, not desktop-task
+acceptance.** The ABI-matched module test and successful browser/document tasks
+remain open. No credential-store reads, production runtime changes or host reboot
+were involved.
+
+Local validation after the status/provisioning follow-ups: 361 tests passed, zero
+skips, strict Hermes coverage gate passed. The earlier commit `36659d1` also passed
+both Linux and macOS CI. Later commits require their own CI result.
+
+
+### Module-enabled model navigation
+
+The optional input module was rebuilt inside the fresh guest from Cua source
+`ef1e84d6c880ab8aee7587c3d0057a288e764b69`, with expected Hyprland 0.57.2 and
+matching GCC 16.1.1. All 21 CTest cases passed. Live status confirmed an exact
+compiled/runtime ABI match; after explicit opt-in, protocol-3 transport was ready
+with same-UID 0600 sockets. No automatic loading or background-control claim is made.
+
+After visually inspecting the refused action and acknowledging it through the
+viewer, a fresh real Hermes run used the installed OwnMachine provider to capture
+Chromium, send foreground Ctrl+L, type `https://www.google.com`, press Return and
+verify fresh page state. Independent SSH read-only checks confirmed the live
+Hyprland window title `Google - Chromium` and Chromium history URL
+`https://www.google.com/`, title `Google`. **The module-enabled model browser task
+passed.** This does not erase the earlier refusal or certify module-free input.
+
+The subsequent GTK task discovered Mousepad but its cold launch failed because
+the provider sent the macOS `bundle_id` argument instead of Linux's discovered
+`launch_path`. The model stopped on the durable review gate without creating a
+file. Linux launch now uses that discovered identity, rejects a missing identity
+before dispatch, and has regression coverage. The corrected model save task still
+requires a live retest.

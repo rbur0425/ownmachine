@@ -146,14 +146,14 @@ class NativeProviderTests(unittest.TestCase):
   self.assertEqual(result.code,'capture_required')
   self.assertFalse(self.b.lease.status()['pending'])
 
- def cold_launch_fixture(self, *, fail_launch=False, windows=True):
+ def cold_launch_fixture(self, *, fail_launch=False, windows=True, launch_path=None):
   original=self.fake.call
   launched=False
   def call(name,args):
    nonlocal launched
    if name=='list_apps':
     self.fake.calls.append((name,args))
-    return {'structuredContent':{'apps':[{'name':'Browser','pid':77 if launched else 0,'bundle_id':'example.browser'}]}}
+    return {'structuredContent':{'apps':[{'name':'Browser','pid':77 if launched else 0,'bundle_id':'example.browser','launch_path':launch_path}]}}
    if name=='launch_app':
     self.fake.calls.append((name,args));launched=True
     return {'structuredContent':{'ok':not fail_launch,'message':'Launched in background'}}
@@ -178,6 +178,23 @@ class NativeProviderTests(unittest.TestCase):
   self.assertTrue(self.b.focus_app('Browser').ok)
   self.assertNotIn('bring_to_front',[n for n,a in self.fake.calls])
   self.assertIsNone(self.b.target)
+
+ def test_linux_launch_uses_discovered_path(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='omarchy')
+  self.cold_launch_fixture(launch_path='mousepad')
+  self.assertTrue(self.b.focus_app('Browser',raise_window=True).ok)
+  launched=[a for n,a in self.fake.calls if n=='launch_app']
+  self.assertEqual(launched[0]['launch_path'],'mousepad')
+  self.assertNotIn('bundle_id',launched[0])
+
+ def test_linux_missing_launch_path_refuses_before_dispatch(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='omarchy')
+  self.cold_launch_fixture()
+  self.assertEqual(self.b.focus_app('Browser').code,'linux_launch_identity_missing')
+  self.assertNotIn('launch_app',[n for n,a in self.fake.calls])
+  self.assertFalse(self.b.lease.status()['pending'])
 
  def test_failed_cold_launch_never_raises_and_keeps_review_gate(self):
   self.cold_launch_fixture(fail_launch=True)

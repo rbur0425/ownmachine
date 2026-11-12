@@ -370,7 +370,15 @@ class OwnMachineBackend(ComputerUseBackend):
             pid = matches[0].get('pid')
             if not pid:
                 bundle_id = matches[0].get('bundle_id')
-                result = self._write('launch_app', {'bundle_id':bundle_id})
+                launch = {'bundle_id':bundle_id}
+                if self.config.guest_profile == 'omarchy':
+                    # Linux desktop discovery provides a launch_path; the
+                    # macOS bundle_id argument alone cannot launch Linux apps.
+                    path = matches[0].get('launch_path')
+                    if not isinstance(path,str) or not path or any(ord(c)<32 for c in path):
+                        return ActionResult(False,'focus_app',code='linux_launch_identity_missing')
+                    launch = {'launch_path':path}
+                result = self._write('launch_app', launch)
                 if not result.ok or not raise_window: return result
                 # Launch is background-only. Honor an explicitly requested raise,
                 # resolving the new process/window rather than reusing the capture's
