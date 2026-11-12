@@ -1,6 +1,6 @@
 # Omarchy guest plan
 
-Status: experimental; Phase 1 started 2026-11-12. ARM64 boot, native Wayland foreground control, Chromium and guest reboot smoke checks pass; native window discovery and GTK accessibility now pass with the Linux-only driver 0.47.19 pin. No Linux profile is offered by the released installer. See [Phase 1 evidence](omarchy-phase1-acceptance.md).
+Status: experimental foreground-only go, verified 2026-11-12. Clean provisioning, Docker/Hermes browser/editor tasks, authenticated final screenshot, setup-key retirement and guest-restart persistence pass. The released macOS baseline is unchanged; this work is awaiting PR review and release. See [acceptance evidence](omarchy-phase1-acceptance.md).
 
 ## Scope and decisions
 
@@ -18,12 +18,13 @@ All Omarchy implementation and acceptance work stays in PR #15 until reviewed. T
 - [x] Verify native Wayland foreground capture, editor save, Chromium and guest reboot.
 - [x] Resolve native window discovery and targeted GTK accessibility (0.47.19, without plugin).
 - [x] Build/test the optional Hyprland plugin against the exact compositor ABI; record limitations (21 tests per build; bounded foreground smoke and disabled-transport refusal).
-- [ ] Measure installation peak and idle resources.
+- [x] Measure sampled installation disk maximum and idle resources; exact transient peak is not certified.
 - [x] Implement shared Linux provisioning, hardening, graphical-session driver and lifecycle. A fresh empty-disk repeat passed without guest repairs; see the acceptance record.
 - [x] Verify private viewer, SSH roles and human/agent handoff for Linux. Separate-account Docker streaming, role refusals, reservation refusal and browser pause/resume passed.
-- [ ] Add configurable experimental Omarchy onboarding, resume and doctor checks. Profile routing, Linux stages, no-destructive-replay checks and viewer/doctor flags are implemented; complete authenticated Docker acceptance remains open.
-- [ ] Complete fresh Docker-to-Mac and real Hermes model acceptance.
-- [ ] Finish resource guidance, catalog disclosures, evaluator docs and release validation.
+- [x] Add configurable experimental Omarchy onboarding, resume and doctor checks. Creation resume and changed-configuration refusal passed; authenticated remote checks, progress import and retirement passed.
+- [x] Complete fresh Docker-to-Mac and real Hermes model acceptance, with documented operator installer/boot handoffs; not a fully unattended Hermes-created guest.
+- [x] Finish resource guidance, future catalog disclosures and evaluator docs.
+- [ ] Validate final committed distribution bundles and CI before review; release/tag/catalog updates require a separate approved release.
 
 ## Phases
 
@@ -96,8 +97,7 @@ output; do not equate driver capture readiness with input support. The first rea
 model run reached Chromium discovery/capture and safely stopped on this refusal.
 Private streaming, role checks and a human-reservation input refusal now have
 cross-account Docker evidence. Module-enabled browser and document tasks now
-pass through real Hermes, with independent guest checks. Complete fresh guided
-setup remains open because hardening required recovery.
+pass through real Hermes, with independent guest checks. The subsequent clean run below passed without that recovery; its operator boot handoffs remain explicit.
 
 
 - [x] Rebuild the optional input module in the fresh guest, pass 21 tests and
@@ -126,5 +126,18 @@ transports report false. The explicitly opted-in installer built the module, pas
 - [x] Diagnose and visually verify the Qt 6.12 palette collision fix; integrate it
   into provisioning with a pinned input-hash manifest.
 - [x] Repeat from an empty disk with palette, verifier and package-keyring fixes included. Base/desktop/hardening/driver readiness all passed without guest repairs.
-- [ ] Complete authenticated guided setup/import/retirement against that guest,
-  then repeat browser/editor/model acceptance and resource measurements.
+- [x] Complete authenticated guided checks/import/screenshot/retirement against that guest, then browser/editor/model acceptance and resource measurements.
+
+## Final acceptance scope
+
+The clean run used operator scripts for bootstrap ISO preparation, base/desktop
+provisioning and boot handoffs. The freshly installed Hermes plugin then invoked
+authenticated preflight, firewall, permissions, viewer-check, final screenshot
+verification and setup-key retirement. This is not evidence that Hermes invoked
+every destructive installation stage end to end. Those operator handoffs are
+part of the experimental quickstart.
+
+Foreground-only experimental release preparation is a **go** for the measured
+configuration. Background seats, broad app compatibility, rolling package updates,
+cloud hosts and a new Linux-profile physical-host reboot test are not certified.
+The existing macOS host-reboot evidence does not become a Linux acceptance claim.

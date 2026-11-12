@@ -285,6 +285,10 @@ def interactive(ctx, args):
     def ask(label, default=''):
         value = input(f'{label}' + (f' [{default}]' if default else '') + ': ').strip()
         return value or default
+    if args.guest_profile is None:
+        args.guest_profile=ask('Guest image: macos / omarchy (experimental)',saved.get('guest_profile',ctx.get_config('guest_profile','macos')))
+    if args.guest_profile=='omarchy':
+        print('Experimental ARM64 Omarchy: Apple Silicon host; foreground control; exact-window browser input requires explicit native-module opt-in.')
     args.target = ask('Where will the desktop run? local / remote / existing', saved.get('target', 'local'))
     args.host_alias = ask('Verified SSH alias (leave blank until configured)', saved.get('host_alias', ctx.get_config('host_alias', '')))
     args.control_dir = ask('Absolute shared control directory', saved.get('control_dir', ctx.get_config('control_dir', '')))

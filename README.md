@@ -153,7 +153,7 @@ See [persistent installation and startup](docs/permanent-installation.md),
 
 ## Roadmap
 
-1. Implement an Omarchy image ([experimental plan](docs/omarchy-plan.md)).
+1. Graduate the experimental ARM64 Omarchy image after broader compatibility testing ([plan and evidence](docs/omarchy-plan.md)).
 2. Implement an Ubuntu image.
 3. Implement a Windows VM.
 4. Test various cloud providers and record tutorials and setup guides for each.

@@ -395,3 +395,55 @@ and a native Wayland Mousepad title naming the saved file without an asterisk.
 No operator wrote the document. Scale-1 first-run/browser/editor dialogs were
 fully visible. The model runs used only desktop tooling, with terminal/file/code
 execution toolsets disabled in the isolated test profile.
+
+## Final clean-run verification
+
+The installed Docker plugin was upgraded through Hermes to
+`0a4c2f9c240fb21064d9b266cefc13b63015adc6`. Authenticated setup completed
+preflight, firewall, permissions, read-only viewer-check, progress import and final
+verification. Final verification captured a 1456x922 PNG through computer_use;
+SHA-256 `512d4577439b10851420a3686a092561147cdbc243dd0920c3faf10b147e66db`.
+Automatic retirement removed the actual temporary setup authorization, confirmed
+that key was rejected and reverified runtime access. Reminder cleanup was not
+pending. Private desktop captures and runtime credentials are not repository artifacts.
+
+Browser Restart VM reconnected successfully and retained paused control. After
+additional resolution/restart measurements, Hermes reopened the saved document
+through Mousepad's UI without editing it. Independent SSH inspection confirmed
+the native Wayland title, 59 bytes and the same SHA-256 recorded above. The VM
+was returned to its configurable 1900x1200 default (Hyprland reports 1896x1200),
+agent control was paused and the isolated model-test approval override was reset
+to deny. This tests guest restart, not a new physical-host reboot.
+
+| Final clean guest measurement | Result |
+|---|---|
+| Sampled installation disk maximum, 41 ten-second samples | 9.55 GiB allocated; 64 GiB sparse capacity |
+| Post-test quiescent desktop with saved editor open | 1,100 MiB used / 7,921 MiB; no swap |
+| Five-second guest CPU busy sample | 0.90% |
+| 1920x1200 capture, five Docker→SSH→MCP calls | 109, 95, 105, 94, 99 ms; median 99 ms |
+| 1456x920 capture, five calls | 71, 68, 64, 63, 60 ms; median 64 ms |
+
+These are small observational samples, not an exact transient peak, model latency
+or streaming FPS benchmark. Total host space includes installer/build inputs and
+headroom beyond the guest disk. Experimental onboarding defaults to a 32 GiB
+free-space floor; explicit lower overrides do not certify a 16 GiB installation.
+Four vCPUs and 8 GiB guest RAM were used. Resolved rolling packages were Hyprland
+0.57.2-1, Chromium 156.0.8078.79-1, Mousepad 0.7.0-1, Qt 6.12.0-4 and Quickshell
+0.3.2-1. Future repository updates can change these independently of pinned source.
+
+Reissuing the original creation parameters returned the verified checkpoint without
+recreating the disk; a changed CPU request refused with
+`configuration_changed_inspect_checkpoint`. The terminal wizard now explicitly
+offers macOS and experimental Omarchy and explains the foreground input opt-in.
+The evaluator quickstart documents boot, keys, firewall, viewer-owner and shared
+control-directory setup in order. Future catalog disclosures are prepared separately
+without altering the already released catalog pin.
+
+**Scope:** provisioning itself ran through operator scripts; the new Docker Hermes
+installation drove the authenticated final setup stages and three real-model tasks.
+No manual guest repair was required in this final run. Operator ISO/boot handoffs,
+Chromium consent, the exact-ABI module and documented shared-file permissions
+remain requirements, not hidden automation. Earlier failures above are retained
+as historical evidence and are superseded only by the specific successful repeat.
+
+Final local strict suite: **381 passed, zero skips** with Hermes available.

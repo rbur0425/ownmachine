@@ -211,3 +211,49 @@ changed plan/source or uncertain mutation stops for inspection; do not delete
 checkpoints or rerun a destructive stage blindly. Reminders are opt-in via preview
 and confirmation; scheduled delivery needs a matching running Hermes gateway.
 The [reminder guide](onboarding-reminders.md) explains limits and opt-out.
+
+## Experimental Omarchy evaluation (PR #15)
+
+Use the [Linux operator guide](linux-development.md) and [checked acceptance
+plan](omarchy-plan.md) for the development-only ARM64 path. Keep the released
+macOS setup as the default. Choose `--guest-profile omarchy` explicitly when
+saving the Hermes setup plan; all VM names, storage, resources and aliases are
+operator configuration. The new-plan free-space floor is 32 GiB, independently
+configurable; it is not a promise that every install fits that amount.
+
+The ordered handoffs are:
+
+1. Verify the Linux Lume build and original signed Archboot ISO. The Mac
+   administrator registers that exact app with the required firewall before VNC
+   can be enabled. Native-console or private bootstrap installation uses VNC off.
+2. Prepare a private seeded installer if avoiding console key entry. Pin both SSH
+   aliases from its receipt: live root via `guest_bootstrap_ssh_alias`, installed
+   desktop user via `guest_ssh_alias`. Never publish the seeded ISO or paste keys
+   into Hermes chat. The live web terminal and stock SSH listener stay disabled.
+3. Create the empty VM, boot the installer, run `linux-base`, shut down, and boot
+   the installed disk without the ISO. Run `linux-desktop`, then `harden` before
+   the first graphical restart. The keyring wait, directory modes, user services,
+   scale and palette fixes are installer work, not evaluator repair commands.
+4. Restart into the graphical session and run `driver`. For exact-window Chromium
+   input, set `enable_experimental_input: true` in operator configuration before
+   desktop installation; otherwise leave the native module off. Run `permissions`
+   to check Linux session/AT-SPI readiness; no macOS TCC grants are requested.
+5. Prepare shared control as described above **before starting either runtime**.
+   Start the viewer under its separate owner. If it is remote, install the
+   check-only endpoint and configure the Mac's `viewer_probe_ssh_alias` and pinned
+   `viewer_probe_ssh_config`. Run `setup --run viewer-check`; this is distinct from
+   mutating viewer installation.
+6. Test human reservation and return, pause the agent, then run
+   `setup --run verify --apply`. This validates runtime roles and viewer access,
+   captures the guest, retires temporary setup access, and proves the setup key
+   is rejected while the runtime connection remains available.
+7. Return control and run a small browser/editor task through Hermes. Chromium may
+   show first-run terms and a keyring dialog: review terms yourself; create a
+   protected keyring if you need it, or cancel for a test storing no credentials.
+   Do not hide these decisions by weakening protection. Independently verify the
+   visible result and saved file before marking acceptance complete.
+
+A package update can invalidate the experimental input module. Doctor's capture
+readiness is separate from `foreground_input_ready`; recheck after updates and
+login. See [catalog disclosures](catalog/omarchy-preview.md) before promoting a
+release or changing the public catalog pin.
