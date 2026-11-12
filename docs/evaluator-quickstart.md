@@ -24,7 +24,8 @@ The agent and viewer share **one underlying control directory**, not their homes
 Use persistent mounts and stable paths; a path inside a container may differ from
 its host path. On the Mac, use the same canonical VM storage path in the plan and
 relay configuration. `local` means the machine running Hermes, not your browser.
-Only macOS guests are supported. Defaults are 4 CPUs, 8 GiB RAM, 64 GiB sparse disk,
+The v0.7.0 release supports macOS; this unreleased tree also supports the tested
+Omarchy foreground configuration described below. Defaults are 4 CPUs, 8 GiB RAM, 64 GiB sparse disk,
 1900×1200 display and a configurable 60 GiB provisioning free-space budget.
 
 ## Install the reviewed release
@@ -212,10 +213,10 @@ checkpoints or rerun a destructive stage blindly. Reminders are opt-in via previ
 and confirmation; scheduled delivery needs a matching running Hermes gateway.
 The [reminder guide](onboarding-reminders.md) explains limits and opt-out.
 
-## Experimental Omarchy evaluation (PR #15)
+## Omarchy foreground evaluation (unreleased PR #15)
 
 Use the [Linux operator guide](linux-development.md) and [checked acceptance
-plan](omarchy-plan.md) for the development-only ARM64 path. Keep the released
+plan](omarchy-plan.md) for the tested ARM64 foreground path. Keep the released
 macOS setup as the default. Choose `--guest-profile omarchy` explicitly when
 saving the Hermes setup plan; all VM names, storage, resources and aliases are
 operator configuration. The new-plan free-space floor is 32 GiB, independently
@@ -255,7 +256,15 @@ The ordered handoffs are:
    Do not hide these decisions by weakening protection. Independently verify the
    visible result and saved file before marking acceptance complete.
 
-A package update can invalidate the experimental input module. Doctor's capture
+Continue follow-up desktop tasks in the same Hermes conversation. The provider
+holds an exclusive workspace session; a second conversation may be refused while
+the first still owns it. For CLI follow-ups use Hermes `--resume SESSION_ID`, or
+end the owning session through Hermes before starting another. After a VM restart,
+the first capture can report `transport_outcome_unknown` for the closed stream.
+Inspect the VM, then explicitly request a new read-only capture to reconnect;
+never replay an uncertain input. Control remains paused until you return it.
+
+A package update can invalidate the native input module. Doctor's capture
 readiness is separate from `foreground_input_ready`; recheck after updates and
 login. See [catalog disclosures](catalog/omarchy-preview.md) before promoting a
 release or changing the public catalog pin.

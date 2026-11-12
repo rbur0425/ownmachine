@@ -42,7 +42,7 @@ class Parser(argparse.ArgumentParser):
 def add_arguments(parser):
     subs = parser.add_subparsers(dest='ownmachine_command')
     setup = subs.add_parser('setup', help='Plan or resume setup; explicitly save non-secret settings')
-    setup.add_argument('--guest-profile', choices=['macos','omarchy'], help='macos (default) or experimental Omarchy on Apple Silicon')
+    setup.add_argument('--guest-profile', choices=['macos','omarchy'], help='macos (default) or Omarchy foreground desktop on Apple Silicon')
     setup.add_argument('--target', choices=['local', 'remote', 'existing'])
     for name in ('host-alias', 'vm-name', 'control-dir', 'storage-dir', 'display'):
         setup.add_argument('--' + name)
@@ -212,7 +212,7 @@ def render_setup(report):
     for question in report.get('questions', []):
         lines.append(question)
     if 'guest_os' in report:
-        lines.append('Guest image: Omarchy ARM64 (experimental)' if report['guest_os']=='linux' else 'Guest image: macOS (default; Omarchy ARM64 is experimental)')
+        lines.append('Guest image: Omarchy ARM64 (foreground; background experimental)' if report['guest_os']=='linux' else 'Guest image: macOS (default; Omarchy ARM64 also available)')
     if 'plan' in report:
         lines.extend(f'{key}: {value or "not selected"}' for key, value in report['plan'].items())
     lines.extend(f'[{c["status"].upper()}] {c["check"]}: {c["detail"]}' for c in report.get('checks', []))

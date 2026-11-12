@@ -1,5 +1,10 @@
 # PR 15 security follow-up acceptance
 
+**Follow-up completed:** the final patched app was subsequently deployed and a
+separate fresh guest passed the complete install, security gates, real-model tasks
+and restart checks. See [final fresh-install report](omarchy-final-acceptance.md).
+The upgrade/build-only evidence below is retained as the earlier test record.
+
 Tested on Apple Silicon macOS and the existing disposable Omarchy guest on
 2026-11-12. This supplements, rather than repeats, the earlier fresh guided
 installation and real-model acceptance in [the guided report](omarchy-guided-acceptance.md).

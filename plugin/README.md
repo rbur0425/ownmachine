@@ -4,7 +4,7 @@ Start with the [evaluator quickstart](../docs/evaluator-quickstart.md) for the c
 
 **Give your AI agent its own desktop.**
 
-OwnMachine connects Hermes to a persistent, separate macOS or experimental ARM64 Omarchy VM through restricted
+OwnMachine connects Hermes to a persistent, separate macOS or ARM64 Omarchy VM through restricted
 SSH and MCP. The agent works in its own guest desktop; a separately installed
 private browser viewer lets you watch, pause it, reserve the workspace for human
 mouse/keyboard input, and return control. Your personal host desktop is not the
@@ -56,9 +56,9 @@ isolation/toolsets: follow the dedicated-profile setup below and start a new
 session after configuration changes. `hermes ownmachine doctor --json` and
 `/ownmachine doctor` report bounded read-only readiness.
 
-**macOS is the production guest image; Omarchy is experimental.** The terminal
+**macOS remains the default; this unreleased tree also supports Omarchy foreground desktop control on Apple Silicon.** See the [final acceptance and scope](../docs/omarchy-final-acceptance.md). Background input remains experimental. The terminal
 wizard offers those two profiles. Use `--guest-profile omarchy` for an explicit
-noninteractive choice. Read the [experimental evaluator steps](../docs/evaluator-quickstart.md)
+noninteractive choice. Read the [Omarchy evaluator steps](../docs/evaluator-quickstart.md)
 before provisioning: operator trust/bootstrap and firewall approval remain, while
 Hermes drives installation and boot transitions. Targeted foreground input
 requires explicit opt-in to the exact-ABI Hyprland module. Linux guest control

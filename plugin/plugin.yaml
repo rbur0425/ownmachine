@@ -26,7 +26,7 @@ config_schema:
   host_alias: {type: str, default: "", description: "Owner-configured SSH alias for the VM host"}
   vm_name: {type: str, default: "ownmachine"}
   experimental_linux_background_input: {type: bool, default: false, description: "Experimental Omarchy separate-seat input for qualifying native Wayland targets; Chromium/Electron and unsupported targets refuse, without foreground fallback"}
-  guest_profile: {type: str, default: "macos", description: "macos or experimental omarchy; Omarchy defaults to foreground input; background requires separate experimental opt-in"}
+  guest_profile: {type: str, default: "macos", description: "macos or omarchy on Apple Silicon; Omarchy defaults to foreground input; background requires separate experimental opt-in"}
   connect_timeout_seconds: {type: int, default: 15}
   action_timeout_seconds: {type: int, default: 30}
 provides_hooks:

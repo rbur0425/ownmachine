@@ -1,8 +1,8 @@
 # Experimental Linux development
 
-Omarchy is an experimental ARM64 guest on an Apple Silicon Mac. macOS remains
+This unreleased tree supports the tested ARM64 Omarchy foreground desktop on an Apple Silicon Mac. See [final acceptance and boundaries](omarchy-final-acceptance.md). Background control remains experimental. macOS remains
 the released installation path. All Linux work is tracked in PR #15 and the
-[Omarchy plan](omarchy-plan.md); the experimental setup planner accepts `--guest-profile omarchy`; macOS is the default.
+[Omarchy plan](omarchy-plan.md); the setup planner accepts `--guest-profile omarchy`; macOS is the default.
 
 ## Isolated host build
 
@@ -142,7 +142,8 @@ VNC passwords, logs and lifecycle locks. Do not point two independently controll
 relays at the same VM. Agent and viewer keys remain separate roles.
 
 Set the Hermes plugin's `guest_profile` to `omarchy` for foreground-default input.
-Background input is refused in this experimental profile. The human-control
+Background input is refused by default; the separately opted-in bounded GTK
+keyboard experiment is described below. The human-control
 lease still gates all writes. Targeted GTK accessibility works without the
 optional Hyprland plugin; compositor-mediated targeted pointer input may require
 that plugin and must report refusal when unavailable. The plugin's 21 unit tests

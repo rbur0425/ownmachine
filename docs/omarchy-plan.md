@@ -1,6 +1,6 @@
 # Omarchy guest plan
 
-Status: experimental Omarchy acceptance passed, verified 2026-11-12. Foreground is the default; an optional bounded GTK background keyboard experiment also passed. Clean provisioning, Docker/Hermes browser/editor tasks, authenticated final screenshot, setup-key retirement and guest-restart persistence pass. The released macOS baseline is unchanged; this work is awaiting PR review and release. See [acceptance evidence](omarchy-phase1-acceptance.md).
+Status: Omarchy foreground support acceptance passed on the final security build, verified 2026-11-12; unreleased PR #15. See [final fresh-install evidence](omarchy-final-acceptance.md). Foreground is the default; an optional bounded GTK background keyboard experiment also passed. Clean provisioning, Docker/Hermes browser/editor tasks, authenticated final screenshot, setup-key retirement and guest-restart persistence pass. The released macOS baseline is unchanged; this work is awaiting PR review and release. See [acceptance evidence](omarchy-phase1-acceptance.md).
 
 ## Scope and decisions
 
@@ -63,7 +63,7 @@ Publish measured resource requirements, supported applications and verified limi
 
 ## Configuration and support policy
 
-CPU, RAM, disk location/capacity, display dimensions, VM name, versions, ports and SSH identities remain operator-configurable. Measure physical storage use before declaring a minimum. Do not freeze package updates silently: record update policy and retest any optional plugin against its exact compositor ABI. Omarchy remains experimental; Ubuntu/Xorg may become the first fully supported Linux profile if Omarchy only passes foreground tests.
+CPU, RAM, disk location/capacity, display dimensions, VM name, versions, ports and SSH identities remain operator-configurable. Measure physical storage use before declaring a minimum. Do not freeze package updates silently: record update policy and retest any optional plugin against its exact compositor ABI. Support covers the tested foreground ARM64 configuration on Apple Silicon. Background input remains experimental; foreground acceptance does not establish universal app, background-seat or cloud support.
 
 ## References
 
@@ -193,5 +193,24 @@ Certificate identity:
 Cosign verified the downloaded archive and its bundle again during this review.
 The upstream release explains that its GitHub “Pre-release” flag prevents
 monorepo Latest-tag collisions; plain SemVer driver versions are stable releases.
-This does not graduate OwnMachine's Linux integration or certify all applications.
+The final fresh-install acceptance below establishes the bounded foreground support claim; the driver version alone does not certify applications.
 See [security regression evidence](omarchy-security-acceptance.md).
+
+## Final security-build acceptance and support decision
+
+- [x] Deploy and verify the final Lume patch at the configured app path.
+- [x] Repeat the complete Hermes-driven fresh installation with the hardening gates, without manual guest repairs.
+- [x] Repeat client interruption, Docker restart, authenticated progress import and safe resume.
+- [x] Prove missing hardening blocks graphical startup and driver installation before sealing.
+- [x] Rerun real-model foreground Chromium → Google and Mousepad save; independently verify results.
+- [x] Verify human reservation refuses model input with no dispatch.
+- [x] Restart the guest; verify saved data, VNC rotation/isolation and explicit read-only capture recovery.
+- [x] Finalize the foreground support claim and retain experimental background boundaries.
+- [ ] Merge/release through Gitflow only after separate authorization.
+
+**Decision:** ready for review as Omarchy foreground desktop support on Apple
+Silicon for the tested pinned configuration. Do not market this as universal or
+full background control. First-run terms/keyring decisions remain operator
+handoffs. See [final report](omarchy-final-acceptance.md) for versions, failures,
+recoveries and independent checks. This supersedes earlier experimental-only
+release decisions above; their evidence remains historical.

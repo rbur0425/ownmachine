@@ -5,14 +5,14 @@ v0.7.0 catalog entry. After Gitflow release validation, update the entry's versi
 immutable commit and screenshots together. Do not point the existing released pin
 at development-only documentation or imply maintainer approval.
 
-Suggested description once the experimental path is released:
+Suggested description once the reviewed foreground path is released:
 
-> A persistent private desktop for Hermes: macOS or experimental ARM64 Omarchy on
+> A persistent private desktop for Hermes: macOS or ARM64 Omarchy on
 > an Apple Silicon Mac, with restricted SSH/MCP and human-controlled browser access.
 
 Include these known-issue disclosures alongside existing dependency/license notes:
 
-- Omarchy is experimental and defaults to foreground input. A separately enabled
+- Omarchy support covers the tested foreground configuration on Apple Silicon. A separately enabled
   background keyboard experiment has bounded native Wayland Mousepad evidence;
   Chromium/Electron background input is not supported. Chromium exact-window input requires
   explicitly opting into a native Hyprland module built for the installed compositor
@@ -34,5 +34,5 @@ Include these known-issue disclosures alongside existing dependency/license note
   either runtime starts.
 
 The clean guest and two real model tasks are recorded in
-[acceptance evidence](../omarchy-phase1-acceptance.md). These results supplement,
+[final security-build acceptance](../omarchy-final-acceptance.md). These results supplement,
 rather than replace, the released macOS evidence and remaining platform limits.
