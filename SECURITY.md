@@ -58,7 +58,7 @@ After upgrading an older Lume build, save guest work, shut down normally, then
 cold-start through the relay to rotate credentials. **Never resume an old saved
 state** with the former credential-sharing configuration. Old copies are not
 erased automatically; do not share host credential directories with the guest.
-Follow the [candidate upgrade requirements](docs/release-0.8.0.md).
+Follow the [candidate upgrade requirements](docs/omarchy-release-candidate.md).
 
 VM disks and backups can contain logins and documents. Keep credentials, viewer
 links, runtime configuration, private installer images, raw logs and private

@@ -46,7 +46,8 @@ def summary(ctx, plan):
 def exchange(argv, request, timeout):
     cancel = CANCEL.get()
     if cancel is not None and cancel.is_set(): raise ValueError('setup_cancelled')
-    process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                               env={k: os.environ[k] for k in ('PATH', 'HOME', 'SSH_AUTH_SOCK', 'LANG') if k in os.environ})
     output = bytearray()
     total = sequence = 0
     try:
@@ -158,6 +159,7 @@ def prove_retired(ctx, plan):
             '-o', 'ConnectTimeout=10', alias, 'ownmachine-setup-v1']
     if ctx.get_config('setup_ssh_config', ''): argv[1:1] = ['-F',ctx.get_config('setup_ssh_config','')]
     result = subprocess.run(argv, input=b'{}', capture_output=True, timeout=20,
-                            env=dict(os.environ, LC_ALL='C', LANG='C'))
+                            env={**{k: os.environ[k] for k in ('PATH', 'HOME', 'SSH_AUTH_SOCK', 'LANG') if k in os.environ},
+                                 'LC_ALL': 'C', 'LANG': 'C'})
     if result.returncode != 255 or b'Permission denied (publickey' not in result.stderr:
         raise ValueError('setup_key_revocation_not_proven')

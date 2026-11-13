@@ -30,7 +30,7 @@ needed a different target or viewer reload.
 Temporary setup access was retired and rejection verified; runtime access remained.
 The later output-redaction patch was not redeployed on this host; its macOS build
 and printer tests are distinct from this live cold-start evidence. Follow the
-[mandatory upgrade instructions](release-0.8.0.md).
+[mandatory upgrade instructions](omarchy-release-candidate.md).
 
 This is a scoped historical result, not certification of every later commit.
 See the [acceptance overview](acceptance.md) for current evidence and limits.

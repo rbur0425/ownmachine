@@ -2,7 +2,7 @@ name: ownmachine
 # Load operator commands before a computer-use provider is selected.
 # The native provider remains available through Hermes category discovery.
 kind: standalone
-version: 0.7.0
+version: 0.8.0
 manifest_version: 2
 api_version: 1
 description: Native Hermes computer use for a persistent private macOS VM
@@ -10,6 +10,7 @@ license: PolyForm-Noncommercial-1.0.0
 requires_hermes: ">=0.23.1"
 python_dependencies:
   - "websockets==15.0.1"
+  - "Pillow>=11.0.0,<14"
 config_schema:
   setup_reminder_destination: {type: dict, default: {}, description: "Explicit scheduled reminder destination: platform, user_id, chat_id and optional thread_id"}
   setup_reminder_timezone: {type: str, default: "UTC", description: "IANA time zone for reminder previews; timestamps remain UTC"}

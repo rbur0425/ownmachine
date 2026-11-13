@@ -19,7 +19,8 @@ def cli(ctx, *args):
                'import sys; from hermes_cli.main import main; sys.argv=["hermes",*sys.argv[1:]]; raise SystemExit(main())', *args]
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=40,
-                                env=dict(os.environ, HERMES_HOME=str(home(ctx))))
+                                env={**{k: os.environ[k] for k in ('PATH', 'HOME', 'LANG') if k in os.environ},
+                                     'HERMES_HOME': str(home(ctx))})
         if result.returncode or len(result.stdout) > 1024*1024:
             raise ValueError('hermes_command_unavailable')
         return result.stdout

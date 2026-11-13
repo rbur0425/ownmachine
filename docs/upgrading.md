@@ -87,7 +87,7 @@ publisher, nor protection against another process running as the same account.
 
 The next release also requires a host Lume rebuild and a true guest cold start;
 this plugin-only command cannot perform that security upgrade. Follow the
-[release candidate's mandatory upgrade sequence and Linux driver-pin policy](release-0.8.0.md).
+[release candidate's mandatory upgrade sequence and Linux driver-pin policy](omarchy-release-candidate.md).
 Never resume an old saved machine state: it can retain the former credential-share
 device configuration. Preserve the disk, shut down normally, verify no saved state,
 deploy the reviewed build and cold-start through the viewer-role relay to rotate

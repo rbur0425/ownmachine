@@ -143,7 +143,7 @@ The updated source requires [separate agent/viewer identities and firewall
 verification](../docs/security-isolation.md).
 Hardened VNC requires the pinned local Lume build with protected-file password
 input (Xcode/Swift required); the upstream binary exposes argv passwords to other
-local accounts. No forked binary is bundled. The v0.7.0 preview includes
+local accounts. No forked binary is bundled. The v0.8.0 preview includes
 this hardening. Fresh dedicated Hermes profiles
 disable terminal, file and code-execution toolsets.
 
@@ -158,8 +158,13 @@ confirmed that this design and the PolyForm license are acceptable for submissio
 That confirmation and the passing scanner are not catalog admission.
 No secret is declared in `requires_env` or `config_schema`; if future functionality
 needs one, it must use the applicable Hermes secret-scope or credentialed-request
-API, not direct environment or credential-file reads. The subprocess receives only PATH, HOME, SSH_AUTH_SOCK and LANG from its
-environment.
+API, not direct environment or credential-file reads. Runtime and setup SSH children inherit only PATH, HOME, SSH_AUTH_SOCK and LANG.
+The setup-key retirement check additionally fixes LANG and LC_ALL to C. Reminder
+scheduling CLI children inherit only PATH, HOME and LANG, plus the active profile's HERMES_HOME;
+provider keys and Python injection variables are not forwarded. Hermes must be
+installed in the running Python environment, not supplied only through PYTHONPATH.
+Screenshot verification declares Pillow>=11.0.0,<14 and reports a setup error if that
+dependency is missing; it cannot accept setup or retire the key without verification.
 
 **State and access outside this package:** the plugin reads/writes its configured
 shared-control database and reads the viewer heartbeat there. Captures and app text
@@ -184,14 +189,14 @@ requires human reservation for input. SSH carries the VNC traffic; the configure
 host firewall must block direct network access to Lume's VNC port. The viewer
 stores its bearer access link and control state outside this package. Do not expose
 the viewer or VNC directly to the internet. Its dependencies and notices are in
-[viewer provenance](https://github.com/rbur0425/ownmachine/blob/v0.7.0/viewer/VENDOR.md).
+[viewer provenance](https://github.com/rbur0425/ownmachine/blob/v0.8.0/viewer/VENDOR.md).
 
 **Updates:** no self-updater is registered or run by this package. Catalog installs
 must follow reviewed catalog SHA updates through Hermes. Standalone installation
 and offline upgrade scripts belong to the full-source operator workflow, not the
 catalog-installed subdirectory.
 
-Read the [security model](https://github.com/rbur0425/ownmachine/blob/v0.7.0/SECURITY.md)
+Read the [security model](https://github.com/rbur0425/ownmachine/blob/v0.8.0/SECURITY.md)
 and [recovery guide](../docs/recovery.md).
 
 ## Password-manager policy
