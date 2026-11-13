@@ -405,6 +405,13 @@ def main(role='agent'):
     os.umask(0o077)
     try:
         if role not in {'agent','viewer'}:raise ValueError('invalid_role')
+        settings = read_settings()
+        if settings.get('backend') == 'kvm':
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('ownmachine_kvm', Path(__file__).with_name('kvm_backend.py'))
+            adapter = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(adapter)
+            return adapter.main(role, CONFIG_PATH or Path.home()/'.config/ownmachine/host.json')
         name, binary, guest = configuration()
         allowed = {'status','mcp'} if role == 'agent' else {'status','vnc','start','stop','restart'}
         if os.environ.get('SSH_ORIGINAL_COMMAND') not in {f'ownmachine-host {op} --vm {name}' for op in allowed}:
