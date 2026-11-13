@@ -13,11 +13,11 @@ and working environment. You decide what goes into that workspace. Watch it in
 your browser, pause the agent, take over with your mouse and keyboard, then hand
 control back when you're ready.
 
-[![OwnMachine 15-second animated teaser](docs/media/ownmachine-teaser.gif)](https://raw.githubusercontent.com/rbur0425/ownmachine/v0.7.0/docs/media/ownmachine-teaser.mp4)
+[![OwnMachine 15-second animated teaser](docs/media/ownmachine-teaser.gif)](https://raw.githubusercontent.com/rbur0425/ownmachine/v0.8.0/docs/media/ownmachine-teaser.mp4)
 
-**[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v0.7.0/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
+**[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v0.8.0/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
 
-> **v0.7.0 preview — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
+> **v0.8.0 preview — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
 > official Nous Research product. Setup includes administrator firewall installation
 > and manual macOS permission grants. It is not yet listed in the Hermes catalog.
 
@@ -99,7 +99,7 @@ handoffs, separate runtime identities, shared-control permissions and a verified
 Safari-to-Google task. The detailed guides below remain available for each stage.
 
 Download the checksummed full-source bundle from the
-[v0.7.0 release](https://github.com/rbur0425/ownmachine/releases/tag/v0.7.0)
+[v0.8.0 release](https://github.com/rbur0425/ownmachine/releases/tag/v0.8.0)
 and [verify it before extraction](docs/distribution.md). It includes the setup
 scripts and browser viewer; the plugin-only bundle does not.
 
@@ -112,7 +112,7 @@ images, caches and guest growth need headroom. See [storage and VM setup](docs/v
 ```sh
 git clone https://github.com/rbur0425/ownmachine.git
 cd ownmachine
-git checkout v0.7.0
+git checkout v0.8.0
 ```
 
 Follow the setup in order. Installing the Hermes package alone does not create
