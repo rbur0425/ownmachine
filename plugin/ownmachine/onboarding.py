@@ -23,9 +23,9 @@ def guide(ctx):
         raise ValueError('guide_requires_version_or_commit')
     return 'https://github.com/rbur0425/ownmachine/blob/' + ref + '/docs/community-setup.md'
 
-FIELDS = ('target', 'host_alias', 'vm_name', 'control_dir', 'storage_dir',
+FIELDS = ('guest_profile', 'target', 'host_alias', 'vm_name', 'control_dir', 'storage_dir',
           'cpu', 'memory_gb', 'disk_gb', 'min_free_gb', 'display')
-DEFAULTS = dict(target='', host_alias='', vm_name='ownmachine', control_dir='',
+DEFAULTS = dict(guest_profile='macos', target='', host_alias='', vm_name='ownmachine', control_dir='',
                 storage_dir='', cpu=4, memory_gb=8, disk_gb=64,
                 min_free_gb=60, display='1900x1200')
 
@@ -42,6 +42,7 @@ class Parser(argparse.ArgumentParser):
 def add_arguments(parser):
     subs = parser.add_subparsers(dest='ownmachine_command')
     setup = subs.add_parser('setup', help='Plan or resume setup; explicitly save non-secret settings')
+    setup.add_argument('--guest-profile', choices=['macos','omarchy'], help='macos (default) or Omarchy foreground desktop on Apple Silicon')
     setup.add_argument('--target', choices=['local', 'remote', 'existing'])
     for name in ('host-alias', 'vm-name', 'control-dir', 'storage-dir', 'display'):
         setup.add_argument('--' + name)
@@ -73,6 +74,8 @@ def configuration(ctx):
 
 
 def validate_plan(plan):
+    if plan.get('guest_profile','macos') not in {'macos','omarchy'}:
+        raise InputError('Choose macos or experimental omarchy.')
     if plan['target'] not in ('local', 'remote', 'existing'):
         raise InputError('Choose a target: local (Hermes runs on this Mac), remote, or existing.')
     for key in ('host_alias', 'vm_name', 'control_dir', 'storage_dir', 'display'):
@@ -82,7 +85,8 @@ def validate_plan(plan):
            control_dir=plan['control_dir']).validate()
     if plan['storage_dir'] and not Path(plan['storage_dir']).is_absolute():
         raise InputError('Storage directory must be an absolute path on the Mac host.')
-    for key, low, high in (('cpu', 2, 32), ('memory_gb', 8, 128), ('disk_gb', 50, 1000), ('min_free_gb', 32, 2000)):
+    linux=plan.get('guest_profile')=='omarchy'
+    for key, low, high in (('cpu', 2, 32), ('memory_gb', 8, 128), ('disk_gb', 32 if linux else 50, 1000), ('min_free_gb', 16 if linux else 32, 2000)):
         if type(plan[key]) is not int or not low <= plan[key] <= high:
             raise InputError(f'{key} must be an integer between {low} and {high}.')
     import re
@@ -150,13 +154,15 @@ def setup(ctx, args):
         raise InputError('Saved setup plan is invalid or from a newer version; review it in plugin settings.')
     plan = {**DEFAULTS, **{k: saved[k] for k in FIELDS if k in saved}}
     current = configuration(ctx)
-    for key in ('host_alias', 'vm_name', 'control_dir'):
+    for key in ('host_alias', 'vm_name', 'control_dir', 'guest_profile'):
         if key not in saved:
             plan[key] = getattr(current, key)
     for key in FIELDS:
         value = getattr(args, key, None)
         if value is not None:
             plan[key] = value
+    if plan.get('guest_profile')=='omarchy' and 'min_free_gb' not in saved and getattr(args,'min_free_gb',None) is None:
+        plan['min_free_gb']=32
     if not plan['target']:
         return {'ok': False, 'stage': 'needs_input', 'questions': [
             'Where should the desktop run: local, remote, or existing?',
@@ -169,7 +175,7 @@ def setup(ctx, args):
     if args.connect:
         if plan['target'] != 'existing' or not plan['host_alias'] or not plan['control_dir']:
             raise InputError('--connect requires target existing, a verified SSH alias and an absolute shared control directory.')
-        desired = {k: plan[k] for k in ('host_alias', 'vm_name', 'control_dir')}
+        desired = {k: plan[k] for k in ('host_alias', 'vm_name', 'control_dir', 'guest_profile')}
         old = {k: getattr(current, k) for k in desired}
         if (current.host_alias or current.control_dir) and desired != old and not args.replace:
             raise InputError('Existing connection differs. Review it before explicitly using --replace.')
@@ -188,12 +194,12 @@ def setup(ctx, args):
         onboarding_state.checkpoint(ctx, plan, checks, connected=args.connect, previous=previous)
     return {'ok': not any(c['status'] == 'fail' for c in checks), 'stage': 'planned',
             'saved': bool(args.save or args.connect), 'connection_saved': bool(args.connect),
-            'guest_os': 'macos',
+            'guest_os': 'linux' if plan['guest_profile']=='omarchy' else 'macos',
             'plan': plan, 'checks': checks,
             'progress': onboarding_state.summary(ctx, {k: ctx.get_config('setup_plan', {}).get(k, DEFAULTS[k]) for k in FIELDS}) if ctx.get_config('setup_plan', {}) else {'stage': 'not_started'},
             'steps': ['Check Mac capacity and build tools', 'Prepare dedicated account and restricted SSH keys',
-                      'Install and verify firewall', 'Provision guest without Apple sign-in',
-                      'Approve guest Accessibility, Screen Recording and capture consent',
+                      'Install and verify firewall', 'Provision Arch base and Omarchy desktop through pinned SSH stages' if plan['guest_profile']=='omarchy' else 'Provision guest without Apple sign-in',
+                      'Verify graphical-session driver and AT-SPI accessibility' if plan['guest_profile']=='omarchy' else 'Approve guest Accessibility, Screen Recording and capture consent',
                       'Start private viewer and verify human/agent handoff'],
             'next': ('Run hermes ownmachine doctor. Select the ownmachine native provider and in-process plugin loading in a dedicated profile using the guide; open a new session afterward.' if args.connect else
                      'Plan saved; resume with the same setup command.' if args.save else 'Review this plan, then add --save to keep it.'),
@@ -206,7 +212,7 @@ def render_setup(report):
     for question in report.get('questions', []):
         lines.append(question)
     if 'guest_os' in report:
-        lines.append('Guest image: macOS (the only supported image; no OS selection required)')
+        lines.append('Guest image: Omarchy ARM64 (foreground; background experimental)' if report['guest_os']=='linux' else 'Guest image: macOS (default; Omarchy ARM64 also available)')
     if 'plan' in report:
         lines.extend(f'{key}: {value or "not selected"}' for key, value in report['plan'].items())
     lines.extend(f'[{c["status"].upper()}] {c["check"]}: {c["detail"]}' for c in report.get('checks', []))
@@ -279,6 +285,10 @@ def interactive(ctx, args):
     def ask(label, default=''):
         value = input(f'{label}' + (f' [{default}]' if default else '') + ': ').strip()
         return value or default
+    if args.guest_profile is None:
+        args.guest_profile=ask('Guest image: macos / omarchy (experimental)',saved.get('guest_profile',ctx.get_config('guest_profile','macos')))
+    if args.guest_profile=='omarchy':
+        print('Experimental ARM64 Omarchy: Apple Silicon host; foreground control; exact-window browser input requires explicit native-module opt-in.')
     args.target = ask('Where will the desktop run? local / remote / existing', saved.get('target', 'local'))
     args.host_alias = ask('Verified SSH alias (leave blank until configured)', saved.get('host_alias', ctx.get_config('host_alias', '')))
     args.control_dir = ask('Absolute shared control directory', saved.get('control_dir', ctx.get_config('control_dir', '')))

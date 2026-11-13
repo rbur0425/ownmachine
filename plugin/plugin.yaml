@@ -2,7 +2,7 @@ name: ownmachine
 # Load operator commands before a computer-use provider is selected.
 # The native provider remains available through Hermes category discovery.
 kind: standalone
-version: 0.8.0
+version: 1.0.0
 manifest_version: 2
 api_version: 1
 description: Native Hermes computer use for a persistent private macOS VM
@@ -26,6 +26,8 @@ config_schema:
   control_dir: {type: str, default: "", description: "Absolute operator-owned control directory shared by every profile targeting this VM"}
   host_alias: {type: str, default: "", description: "Owner-configured SSH alias for the VM host"}
   vm_name: {type: str, default: "ownmachine"}
+  experimental_linux_background_input: {type: bool, default: false, description: "Experimental Omarchy separate-seat input for qualifying native Wayland targets; Chromium/Electron and unsupported targets refuse, without foreground fallback"}
+  guest_profile: {type: str, default: "macos", description: "macos or omarchy on Apple Silicon; Omarchy defaults to foreground input; background requires separate experimental opt-in"}
   connect_timeout_seconds: {type: int, default: 15}
   action_timeout_seconds: {type: int, default: 30}
 provides_hooks:

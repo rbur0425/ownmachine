@@ -63,14 +63,10 @@ ports as well; PF independently restricts the configured port to loopback.
 `No ALTQ support in kernel` / `ALTQ related functions disabled` do not indicate
 failure for this rule. Require a successful exit and the final success message.
 
-The root LaunchDaemon rechecks every 15 seconds. Only after verifying active PF,
-the expected loaded rule and application firewall blocking does it publish
-`/private/var/run/ownmachine/firewall-status.json`. The relay rejects missing,
-non-root-owned, writable, malformed, wrong-port or older-than-45-second evidence.
-VNC starts and connections fail closed; open streams recheck at least every five
-seconds. A status file is bounded-age evidence, not an atomic guarantee against a
-root user changing firewall policy between checks. No unprivileged config path
-can override the evidence location.
+The root service publishes readiness only after checking PF and application
+firewall blocking. The relay refuses missing, stale or unsafe evidence. This is
+periodic evidence, not an atomic guarantee against privileged policy changes.
+Do not override a failed readiness check.
 
 Verify from a second machine that the configured VNC listener is unreachable,
 while the local SSH relay works. To establish all-port coverage independently
@@ -82,36 +78,18 @@ A copied/different Lume executable may require another application rule.
 
 ## VNC password and private host files
 
-On each relay-managed start, eight independent characters are drawn from the 66
-URL-safe characters `A–Z a–z 0–9 - . _ ~` (about 48.4 bits). VNC's legacy authentication uses
-only eight bytes; making this string longer would not strengthen that protocol.
-The relay stores it in `~/.local/state/ownmachine/vnc-password` with mode 0600,
-passes only its path via the patched Lume's `--vnc-password-file`, and sends detached logs to the private
-`lume-detached.log` in that 0700 directory. The VNC URL must match the configured
-port and this managed password; manually launched/unmanaged listeners are
-refused. Credentials never go to the model or browser JavaScript.
+Build the pinned patched Lume with `scripts/build-native-lume.sh`, configure its
+executable path, and register that exact app with the firewall. The build is
+locally ad-hoc signed; Xcode/Swift and build space are required. Stock Lume is not
+a compatible fallback. Review the complete patch inventory before deployment.
 
-Upstream Lume 0.7.0 exposes `--vnc-password` in its process arguments, including
-its persistent detached child. **Other ordinary local accounts on macOS can read
-those arguments**; this is not limited to privileged users. Loopback is allowed
-by the firewalls, so that exposure defeats the password boundary. OwnMachine no
-longer passes a password in argv or the environment and never falls back to that
-upstream flag.
-
-Build the pinned local Lume with `scripts/build-native-lume.sh` before enabling
-browser VNC, set `lume_path` to that app's `Contents/MacOS/lume`, and install the
-firewall rule for that app. The build includes both reviewed patches and uses
-bundle ID `org.ownmachine.lume`, distinct from the vendor app. It is locally
-ad-hoc signed, not vendor-notarized; Xcode/Swift and build space are required.
-The file option rejects symlinks, non-regular files, other owners, permissions
-other than 0600, hard links, wrong length and non-URL-safe characters. Detached
-children receive the path and re-read/validate the protected file. A stock Lume
-without that option fails to launch; there is no insecure compatibility fallback.
-
-The literal URL-safe alphabet also avoids upstream Lume's unescaped URL/password
-parsing bug. Python round-trip tests cover every character, and the patch includes
-Swift URLComponents and detached-argument tests. Root and code running as the
-Mac VM account remain trusted and can read its files or process memory.
+Relay-managed starts rotate a private VNC password, pass only its protected-file
+path and retain logs in private host state (directory 0700; password and log files
+0600). Never put passwords in process
+arguments or log explicit credential-bearing output. Managed URLs must match the
+configured port and password. Same-account code and root remain trusted. The
+common patch also removes automatic credential exports to the guest; follow the
+[cold-start upgrade requirements](../SECURITY.md#upgrades-and-sensitive-data).
 
 Run `chmod 700 "$HOME/.lume"` as the dedicated account; the relay also enforces
 this before lifecycle/VNC access. Review macOS ACLs (`ls -lde "$HOME/.lume"`) and

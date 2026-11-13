@@ -1,0 +1,38 @@
+# Omarchy disclosure for the next catalog revision
+
+This is preparation for a future release, not a change to the currently pinned
+v0.7.0 catalog entry. After Gitflow release validation, update the entry's version,
+immutable commit and screenshots together. Do not point the existing released pin
+at development-only documentation or imply maintainer approval.
+
+Suggested description once the reviewed foreground path is released:
+
+> A persistent private desktop for Hermes: macOS or ARM64 Omarchy on
+> an Apple Silicon Mac, with restricted SSH/MCP and human-controlled browser access.
+
+Include these known-issue disclosures alongside existing dependency/license notes:
+
+- Omarchy support covers the tested foreground configuration on Apple Silicon. A separately enabled
+  background keyboard experiment has bounded native Wayland Mousepad evidence;
+  Chromium/Electron background input is not supported. Chromium exact-window input requires
+  explicitly opting into a native Hyprland module built for the installed compositor
+  and compiler. Updates can require a reviewed rebuild; mismatches refuse loading.
+- The host still requires Apple Silicon macOS, a reviewed Linux-capable Lume build,
+  administrator firewall setup and pinned SSH identities. This does not add native
+  Linux/Windows VM hosting or certify cloud Mac providers.
+- Linux does not use macOS Accessibility/Screen Recording consent. Chromium first-run
+  terms remain a user decision; a keyring is not weakened or created with an empty
+  password to suppress prompts.
+- Pinned installer/source hashes do not freeze Arch's rolling package repositories.
+  Upstream migrations/updates remain operator decisions. Software graphics and
+  application/package gaps can affect performance; no broad background-seat or
+  every-application reliability claim is made.
+- Trust/bootstrap preparation and separate viewer-owner setup have documented
+  operator handoffs. The paired Hermes endpoint drives creation, installation
+  and guarded boot transitions. Private bootstrap images contain a generated SSH host key and
+  must not be redistributed. Shared-control permissions must be initialized before
+  either runtime starts.
+
+The clean guest and two real model tasks are recorded in
+[final security-build acceptance](../omarchy-final-acceptance.md). These results supplement,
+rather than replace, the released macOS evidence and remaining platform limits.
