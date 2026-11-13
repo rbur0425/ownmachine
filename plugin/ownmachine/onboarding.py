@@ -173,8 +173,8 @@ def setup(ctx, args):
     checks = preflight(plan)
     previous = onboarding_state.load(ctx) if args.save or args.connect else None
     if args.connect:
-        if plan['target'] != 'existing' or not plan['host_alias'] or not plan['control_dir']:
-            raise InputError('--connect requires target existing, a verified SSH alias and an absolute shared control directory.')
+        if not plan['host_alias'] or not plan['control_dir']:
+            raise InputError('--connect requires a verified runtime agent SSH alias and an absolute shared control directory; local targets also use restricted SSH.')
         desired = {k: plan[k] for k in ('host_alias', 'vm_name', 'control_dir', 'guest_profile')}
         old = {k: getattr(current, k) for k in desired}
         if (current.host_alias or current.control_dir) and desired != old and not args.replace:
@@ -201,7 +201,7 @@ def setup(ctx, args):
                       'Install and verify firewall', 'Provision Arch base and Omarchy desktop through pinned SSH stages' if plan['guest_profile']=='omarchy' else 'Provision guest without Apple sign-in',
                       'Verify graphical-session driver and AT-SPI accessibility' if plan['guest_profile']=='omarchy' else 'Approve guest Accessibility, Screen Recording and capture consent',
                       'Start private viewer and verify human/agent handoff'],
-            'next': ('Run hermes ownmachine doctor. Select the ownmachine native provider and in-process plugin loading in a dedicated profile using the guide; open a new session afterward.' if args.connect else
+            'next': ('Runtime connection saved. In this same Hermes profile explicitly set computer_use.backend ownmachine, computer_use.permission_mode standard and plugins.isolation in_process; review experimental_linux_background_input (default false). Restart existing sessions/gateway, then run ownmachine doctor. See docs/wizard-quickstart.md#configure-the-runtime-before-final-verification.' if args.connect else
                      'Plan saved; resume with the same setup command.' if args.save else 'Review this plan, then add --save to keep it.'),
             'guide': guide(ctx), 'prerequisite': PREREQUISITE,
             'scope': 'Planning/configuration only. No VM, account, firewall, key, service or permission was created or changed. Use --run with the approved setup endpoint for explicit remote execution.'}
@@ -342,8 +342,12 @@ def register_commands(ctx):
         except InputError as error:
             print('OwnMachine: ' + str(error), file=sys.stderr)
             return 2
-        except (ValueError, TypeError, OSError, RuntimeError, EOFError):
-            if getattr(args, 'run', None):
+        except (ValueError, TypeError, OSError, RuntimeError, EOFError) as error:
+            from .setup_acceptance import failure_guidance
+            guidance = failure_guidance(ctx, args, error)
+            if guidance:
+                print('OwnMachine: ' + guidance, file=sys.stderr)
+            elif getattr(args, 'run', None):
                 print('OwnMachine: remote success was not confirmed. Check the setup alias, source pin and stage allowlist; use setup --run progress before retrying. Do not replay an uncertain mutation.', file=sys.stderr)
             else:
                 print('OwnMachine: setup could not complete. Check non-secret settings, saved state and directory permissions; existing state is preserved and no provisioning was performed.', file=sys.stderr)

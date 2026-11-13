@@ -170,13 +170,44 @@ already be available. No root/system-wide service is installed. The source and
 Python paths must remain available after logout/reboot. Use the existing
 [private access helper](viewer-access.md) locally to retrieve the browser link.
 
+## Configure the runtime before final verification
+
+Run these commands in the **same Hermes profile that will run the agent**, on
+its runtime machine. Setup SSH and runtime SSH are separate connections. Even a
+`local` target needs a verified restricted **agent** SSH alias (which may point
+to the same Mac); never substitute the setup or viewer alias.
+
+```sh
+hermes --profile ownmachine config set plugins.entries.ownmachine.settings.host_alias example-agent-mac
+hermes --profile ownmachine config set plugins.entries.ownmachine.settings.vm_name ownmachine
+hermes --profile ownmachine config set plugins.entries.ownmachine.settings.control_dir /absolute/shared/control
+hermes --profile ownmachine config set plugins.entries.ownmachine.settings.guest_profile macos
+hermes --profile ownmachine config set plugins.entries.ownmachine.settings.experimental_linux_background_input false
+hermes --profile ownmachine config set computer_use.backend ownmachine
+hermes --profile ownmachine config set computer_use.permission_mode standard
+hermes --profile ownmachine config set plugins.isolation in_process
+```
+
+Use your saved plan's VM name, control directory and guest profile (`omarchy` for
+Omarchy). Keep background input `false` unless you explicitly opt into its tested
+experimental scope and prerequisites. The control directory must be the same
+underlying directory shared with the viewer. These settings do not provision a VM.
+**Without `computer_use.backend: ownmachine`, Hermes may select its host-desktop
+provider. Do not run a desktop task until this setting is explicit.** Restart the
+matching profile's existing Hermes sessions/gateway after changing configuration.
+
+For a newly paired plan with an explicit agent alias, `setup --connect` can save
+its runtime connection for local, remote or existing targets. Do not change an
+in-progress plan's target to `existing`: that changes its digest and checkpoints.
+For an older local plan with an empty alias, configure the runtime settings above
+without editing the plan; verification accepts that explicit alias and binds it
+into the client acceptance receipt. Nonempty plan aliases must still match.
+
 From an operator verification environment with both restricted aliases and access
 to the viewer's private directory (never the Hermes agent container):
 
 ```sh
 python3 scripts/setup-services.py --config verification-services.json --step verify --events
-hermes --profile ownmachine ownmachine setup --target existing --host-alias example-agent-mac \
-  --control-dir /absolute/shared/control --connect
 hermes --profile ownmachine ownmachine doctor
 ```
 
@@ -234,3 +265,21 @@ A completed receipt is historical acceptance, not continuous monitoring. Use
 Mac's private setup-endpoint retirement receipt and exact authorized key entry;
 do not blindly re-authorize a key or replay setup. Remaining runtime identities
 and unrelated authorized keys must be preserved.
+
+
+### Client verification and busy sessions
+
+A Mac-side `verify: checks_passed` receipt is not completed onboarding. The client
+must capture the guest and, with `verify --apply`, retire and prove rejection of
+the temporary setup key. If capture fails, the CLI reports that distinction;
+`ownmachine status --json` retains `screenshot_required`. Correct runtime settings,
+check permissions/control status and repeat verification. Do not remove unrelated
+keys or treat the remote receipt as proof of retirement.
+
+OwnMachine serializes active desktop operations, not idle cached backends. A busy
+operation refuses concurrent access; inspect it and retry a read after it finishes.
+Another backend's operation invalidates earlier capture tokens, so recapture before
+input. Human reservation and uncertain-write restrictions remain in force. When
+upgrading from a version holding a lifetime session lock, stop/restart that old
+profile gateway normally after saving work. Do not delete `session.lock` or kill an
+unrelated process: removing the inode could allow simultaneous controllers.

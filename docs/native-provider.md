@@ -59,7 +59,9 @@ computer_use:
 All profiles and processes targeting this VM **must share the same control_dir**.
 The directory is outside source and holds only the control database/session lock.
 There is no default that silently isolates different profiles' control gates.
-One native backend session holds the exclusive session lock until it closes.
+Each active backend operation holds the exclusive session lock only for that call.
+Idle cached backends do not retain it. A different backend operation invalidates
+earlier captures; recapture before input. Human/uncertain-write gates still apply.
 SSH identities remain in operator configuration; the plugin does not read key files.
 
 Run `hermes computer-use doctor` in that profile. It now reports individual readiness checks and recovery advice, including
@@ -108,7 +110,7 @@ also a trusted operator surface; browser input also requires the human lease on 
 - MCP frames, I/O time and discovery pagination are bounded. No CLI fallback or
   automatic write retry exists. A later explicit read may reconnect, but cannot
   clear a pending failed-write marker. Unknown/failed writes require operator review.
-- Closing the backend closes SSH/MCP and releases the local session lock; it does
+- Closing the backend closes SSH/MCP; operation locks are already released between calls. It does
   not stop the VM or the signed desktop daemon. See [viewer/lifecycle setup](viewer-lifecycle.md) for the optional driver login
   launcher, lifecycle controls, interactive browser desktop and control transfers.
 
@@ -130,7 +132,7 @@ read reconnect, and paused/human/stale-generation refusal checks. The driver
 reported click/scroll delivery as unverifiable; these are not claims of a semantic
 scroll effect on a short document. Fake-peer tests cover EOF, timeout, oversized
 frames, mismatched IDs, and absence of replay. Contract tests run against the
-installed Hermes ABC and cover tokens, verdicts, exclusive session ownership,
+installed Hermes ABC and cover tokens, verdicts, exclusive active-operation ownership,
 failed-write markers and disarmed targets. Captures and deployment identities
 are stored outside the repository.
 
