@@ -50,7 +50,7 @@ The agent and viewer share **one underlying control directory**, not their homes
 Use persistent mounts and stable paths; a path inside a container may differ from
 its host path. On the Mac, use the same canonical VM storage path in the plan and
 relay configuration. `local` means the machine running Hermes, not your browser.
-OwnMachine v1.0.0 supports macOS and the tested
+OwnMachine v1.0.1 supports macOS and the tested
 Omarchy foreground configuration described below. Defaults are 4 CPUs, 8 GiB RAM, 64 GiB sparse disk,
 1900×1200 display and a configurable 60 GiB provisioning free-space budget.
 
@@ -59,7 +59,7 @@ in the same agent profile; setup transport settings alone are insufficient.
 
 ## Install the reviewed release
 
-Check out the v1.0.0 source tag using the README instructions. If using a
+Check out the v1.0.1 source tag using the README instructions. If using a
 separately distributed full-source bundle, [verify before extraction](distribution.md). Keep the full source at a permanent
 operator-owned location: the viewer service references it. The plugin-only package
 contains no privileged installers. For a Git checkout, select the release tag.
@@ -77,8 +77,8 @@ hermes --profile ownmachine setup
 ```
 
 Replace `RELEASE_COMMIT` with the full 40-character commit from the release, not a
-branch name. Resolve it from the v1.0.0 source checkout with
-`git rev-parse v1.0.0^{commit}` and use the same revision for plugin and full source.
+branch name. Resolve it from the v1.0.1 source checkout with
+`git rev-parse v1.0.1^{commit}` and use the same revision for plugin and full source.
 Do not use v0.8.0 bundles for Omarchy.
 The last command configures your model through Hermes. Never copy
 another profile's credential files. Verify that no extra tools/MCP servers restore
