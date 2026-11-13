@@ -128,3 +128,27 @@ was refused. No VM was provisioned or changed by this test. The exact temporary
 key was removed afterward while preserving unrelated authorizations, and a new
 SSH attempt with it was rejected. This test cleanup was manual, not evidence that
 the unfinished automatic retirement flow has passed.
+
+### Fresh provisioning implementation checkpoint
+
+PR #28 adds artifact preparation, a separate administrator registration handoff,
+fixed guest bootstrap/hardening operations, a private viewer service, final
+console/screenshot verification, and guest-then-host setup-key retirement. These
+are implementation changes, **not yet clean-guest acceptance results**.
+
+At checkpoint `4713252`, a separate Hermes profile installed the exact development
+commit using the public plugin installer with explicit dependency consent.
+Installed-plugin validation passed, with the expected in-process hooks and local
+CLI registration notices. Hermes saved a non-default Windows plan, ran real SSH
+preflight against its separate restricted setup endpoint, imported progress on a
+later command, and advanced to the build handoff. No new VM was created by these
+checks. Existing Windows guests were preserved.
+
+The complete local suite passed **456 tests**, including refusal of MCP before
+hardening. The revised hardening/retirement PowerShell script also passed the
+native Windows parser without executing its mutations. Ubuntu and macOS CI
+passed on implementation checkpoint `4713252`. The clean media build is waiting for an administrator
+to grant the non-admin setup account read access to the existing verified ISO,
+which is QEMU-owned. No installation, automatic retirement or fresh model-task
+success is claimed at this checkpoint. The container also reports its preexisting
+pnpm artifact warning; plugin installation and validation nevertheless passed.

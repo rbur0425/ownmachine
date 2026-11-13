@@ -29,6 +29,14 @@ Administrator changes remain trusted; this is not isolation from root.
 
 ## Hermes-driven setup
 
+Fresh provisioning and automatic retirement now have an implementation in PR #28.
+The live clean-install checklist below remains unticked until exercised. The
+installed-Hermes preflight checkpoint and pending media access are recorded in the
+[acceptance report](windows-kvm-acceptance.md#fresh-provisioning-implementation-checkpoint).
+Follow the [fresh-install guide](windows-onboarding.md#fresh-install-implementation-under-test)
+for the administrator and runtime-key handoffs.
+
+
 - [x] Add the Windows choice and Linux host preflight to the saved plan and wizard.
 - [x] Exercise plan save/resume guidance in installed Hermes.
 - [x] Exercise authenticated Windows remote preflight/progress, replay refusal and test-key revocation.

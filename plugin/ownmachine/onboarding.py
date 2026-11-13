@@ -119,10 +119,10 @@ def preflight(plan):
             except OSError:
                 checks.append({'check': 'storage', 'status': 'fail', 'detail': 'Cannot inspect selected storage location.'})
         else:
-            checks.append({'check': 'storage', 'status': 'pending', 'detail': 'Select an absolute storage directory on the Mac.'})
+            checks.append({'check': 'storage', 'status': 'pending', 'detail': 'Select an absolute storage directory on the VM host.'})
     else:
-        checks.append({'check': 'mac_host', 'status': 'pending',
-                       'detail': 'Remote hardware/storage are not inferred from this Hermes machine; verify on the Mac.'})
+        checks.append({'check': 'linux_host' if plan.get('guest_profile')=='windows' else 'mac_host', 'status': 'pending',
+                       'detail': 'Remote hardware/storage are not inferred from this Hermes machine; run the host preflight.'})
     return checks
 
 

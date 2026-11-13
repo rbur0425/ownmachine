@@ -19,10 +19,13 @@ if ($operation -eq 'ownmachine-guest harden') {
     Unregister-ScheduledTask -TaskName ($cfg.task_prefix+'Bootstrap') -Confirm:$false -ErrorAction SilentlyContinue
     $pending = Join-Path $root 'bootstrap'
     if (Test-Path $pending) { Remove-Item $pending -Recurse -Force }
-    foreach ($path in @('Panther\unattend.xml','Panther\Unattend\unattend.xml','System32\Sysprep\unattend.xml')) {
+    $answers = @('Panther\unattend.xml','Panther\Unattend\unattend.xml','System32\Sysprep\unattend.xml')
+    foreach ($path in $answers) {
         Remove-Item (Join-Path $env:WINDIR $path) -Force -ErrorAction SilentlyContinue
     }
-    if ((Get-ItemProperty $winlogon).AutoAdminLogon -ne '0' -or (Test-Path $pending)) { throw 'hardening_failed' }
+    $login = Get-ItemProperty $winlogon
+    if ($login.AutoAdminLogon -ne '0' -or $login.PSObject.Properties['DefaultPassword'] -or $login.PSObject.Properties['AutoLogonCount'] -or (Test-Path $pending)) { throw 'hardening_failed' }
+    foreach ($path in $answers) { if (Test-Path (Join-Path $env:WINDIR $path)) { throw 'answer_file_cleanup_failed' } }
     $task = Get-ScheduledTask -TaskName ($cfg.task_prefix+'Driver')
     if ($task.Principal.RunLevel -ne 'Limited' -or $task.Principal.LogonType -ne 'Interactive') { throw 'unsafe_driver_task' }
     if (-not (Confirm-SecureBootUEFI) -or -not (Get-Tpm).TpmReady) { throw 'guest_platform_not_ready' }
