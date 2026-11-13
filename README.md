@@ -97,6 +97,11 @@ Apple Silicon Mac needed for the macOS guest.
 
 ## Get started
 
+> **Before setup:** plugin installation starts planning, not VM provisioning. Review the
+> [manual prerequisites and who performs each step](docs/evaluator-quickstart.md#manual-prerequisites-before-hermes-can-provision).
+> Hermes runs setup stages after trusted access is configured; administrator actions
+> and guest consent remain explicit handoffs.
+
 **Start with the [evaluator quickstart](docs/evaluator-quickstart.md).** It covers administrator
 handoffs, separate runtime identities, shared-control permissions and a verified
 Safari-to-Google task. The detailed guides below remain available for each stage.
@@ -156,10 +161,11 @@ See [persistent installation and startup](docs/permanent-installation.md),
 
 ## Roadmap
 
-1. Broaden ARM64 Omarchy application compatibility beyond the tested foreground configuration ([plan and evidence](docs/omarchy-plan.md)).
+1. ~~Implement an Omarchy image.~~ Completed for the tested ARM64 foreground configuration in the **unreleased v1.0.0 candidate** ([scope and evidence](docs/omarchy-final-acceptance.md)).
 2. Implement an Ubuntu image.
 3. Implement a Windows VM.
 4. Test various cloud providers and record tutorials and setup guides for each.
+5. Broaden Omarchy application compatibility; background control remains experimental.
 
 ## Contributing
 

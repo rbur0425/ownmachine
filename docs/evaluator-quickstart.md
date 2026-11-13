@@ -5,6 +5,32 @@ human/agent handoff. This guide is the entry point for evaluating the released
 plugin. Installing the plugin does **not** silently create accounts, authorize
 SSH keys, install a firewall or grant macOS permissions.
 
+## Manual prerequisites before Hermes can provision
+
+**You can start in Hermes by installing the plugin and saving a wizard plan. That
+alone does not grant setup access or create a VM.** Before `setup --run preflight`
+can reach the Mac, the operator must complete the trust/bootstrap items below.
+Keep the chosen profile, VM name, storage and source pin consistent throughout.
+
+| When / where | Human responsibility | Instructions |
+| --- | --- | --- |
+| Before remote execution — Mac host | Provide an Apple Silicon Mac, a dedicated non-admin VM account, its first graphical login, and administrator help for Remote Login. Keep FileVault enabled. | [Machines and identities](#choose-the-machines-and-identities) |
+| Before remote execution — setup operator and Mac | Review matching full source, prepare/transfer the saved plan and service configuration, independently verify the Mac host key, and install the restricted temporary setup endpoint/key. Pair separate agent and viewer keys; keep private keys out of chat. | [Bootstrap trust](setup-transport.md#bootstrap-trust-once), [service configuration](wizard-quickstart.md#configure-the-service-stages) |
+| Before either runtime starts — runtime host/containers | Create separate agent/viewer users and private homes, persistent storage and one shared control directory. Verify permissions as both actual users, including SQLite/lock files. Install the viewer's own dependencies and service under its owner. | [Shared control](#prepare-shared-control-before-starting-either-runtime), [viewer setup](wizard-quickstart.md#start-the-viewer-and-check-readiness) |
+| After building Lume, before VNC — Mac administrator | Run the firewall installer for the exact app path and fixed port; require its success and the firewall stage check. A successful plugin install does not authorize sudo. | [Administrator handoff](#execute-setup-and-complete-the-administrator-handoff) |
+| During first boot — guest desktop | Complete first-run choices. For macOS, approve Accessibility, Screen Recording and final capture consent in the guest. For Omarchy, review browser terms/keyring prompts yourself; no macOS permission grants apply. | [macOS permissions](#approve-guest-permissions-and-open-the-viewer), [Omarchy handoffs](#omarchy-foreground-evaluation-unreleased-pr-15) |
+
+For Omarchy, verified image/private-bootstrap preparation is also required before
+provisioning; follow the [Linux bootstrap instructions](linux-development.md#private-installer-bootstrap).
+Chromium foreground input needs explicit native-module opt-in before desktop setup.
+Do not follow the macOS provisioning sequence for an Omarchy plan.
+
+**After bootstrap, Hermes can run the approved stages over SSH and import saved
+progress.** It cannot supply administrator authentication, accept terms or approve
+guest permissions for you. Complete each handoff, then rerun the corresponding
+read-only check before continuing. [Pause and reminder instructions](#resume-without-guessing)
+are available whenever you need to return later; reminders are not automatic.
+
 ## Choose the machines and identities
 
 - **Mac host:** Apple Silicon macOS, a dedicated non-admin account for Lume, and
@@ -48,10 +74,20 @@ hermes --profile ownmachine setup
 ```
 
 Replace `RELEASE_COMMIT` with the full 40-character commit from the release, not a
-branch name. The last command configures your model through Hermes. Never copy
+branch name. For this unreleased v1.0.0 candidate, use the reviewed PR commit for
+both plugin and full source, and set `setup_guide_ref` to that same full commit;
+there is no v1.0.0 release tag yet. Do not use v0.8.0 bundles for Omarchy.
+The last command configures your model through Hermes. Never copy
 another profile's credential files. Verify that no extra tools/MCP servers restore
 host terminal/file access. `in_process` is explicit because the native provider
 and plugin terminal commands need this mode in the tested Hermes version.
+
+For an unreleased candidate only, bind documentation links to the same reviewed
+40-character source commit before starting the wizard:
+
+```sh
+hermes --profile ownmachine config set plugins.entries.ownmachine.settings.setup_guide_ref REVIEWED_COMMIT
+```
 
 Start the OwnMachine wizard with:
 
@@ -206,12 +242,47 @@ This verifies one keyboard/AX task, not every app or pixel-input workflow.
 
 ## Resume without guessing
 
-`ownmachine setup --next`, `--run progress`, `status` and `doctor` show the next
-handoff and observed state. Fix prerequisites and repeat read-only checks. A
-changed plan/source or uncertain mutation stops for inspection; do not delete
-checkpoints or rerun a destructive stage blindly. Reminders are opt-in via preview
-and confirmation; scheduled delivery needs a matching running Hermes gateway.
-The [reminder guide](onboarding-reminders.md) explains limits and opt-out.
+Run these in the **same configured operator profile** (replace `ownmachine` if
+using a different profile):
+
+```sh
+hermes --profile ownmachine ownmachine status
+hermes --profile ownmachine ownmachine setup --next
+hermes --profile ownmachine ownmachine doctor
+```
+
+Doctor checks runtime health; setup status/`--next` track the installation handoff.
+A runtime-not-ready result is expected before provisioning and permissions finish.
+Use the reported blocker to choose the relevant instructions below; this table is
+an operator guide, not a claim that every diagnostic automatically deep-links here.
+
+| Blocker / observed stage | Next action |
+| --- | --- |
+| No saved plan or incomplete configuration | [Run the wizard](wizard-quickstart.md#start-in-hermes); review and save the plan. |
+| SSH/setup endpoint unavailable or source/plan mismatch | [Verify bootstrap trust](setup-transport.md#bootstrap-trust-once) and [profile settings](setup-transport.md#configure-the-active-hermes-profile); do not bypass host-key or source checks. |
+| Firewall readiness missing or app/port mismatch | Ask the Mac administrator to complete the [firewall handoff](#execute-setup-and-complete-the-administrator-handoff), then rerun the firewall check. |
+| Lease/database access denied or viewer unavailable | Check [both-user control permissions](#prepare-shared-control-before-starting-either-runtime) and the [separate viewer service](wizard-quickstart.md#start-the-viewer-and-check-readiness). |
+| Guest driver, consent or capture not ready | Follow [macOS guest permissions](#approve-guest-permissions-and-open-the-viewer) or [Omarchy readiness](linux-development.md#runtime-and-control), then repeat the readiness check. |
+| Interrupted setup or uncertain outcome | Use [authenticated progress/resume](setup-transport.md#execute-and-resume); inspect before retrying. Never delete checkpoints or replay a destructive stage blindly. |
+| All runtime checks ready | Complete [screenshot verification and setup-key retirement](#verify-retire-setup-access-and-try-the-desktop-task), then independently verify a model task. |
+
+To pause after saving your plan, request an **opt-in reminder preview**:
+
+```sh
+hermes --profile ownmachine ownmachine remind later --mode next-visit
+# Review the preview, then use its actual token:
+hermes --profile ownmachine ownmachine remind later --mode next-visit --confirm PREVIEW_TOKEN
+hermes --profile ownmachine ownmachine remind status
+# Cancel when no longer wanted:
+hermes --profile ownmachine ownmachine remind off
+```
+
+`next-visit` does not promise a next-day message. For scheduled delivery, configure
+the intended destination and matching running Hermes gateway, then preview and
+confirm `--mode tomorrow` as described in the [reminder guide](onboarding-reminders.md).
+No reminder is scheduled merely by reading these commands or saving a plan.
+Chat setup/reminders also require an explicitly allowed sender. A reminder does
+not complete a manual step; recheck status and readiness when returning.
 
 ## Omarchy foreground evaluation (unreleased PR #15)
 
