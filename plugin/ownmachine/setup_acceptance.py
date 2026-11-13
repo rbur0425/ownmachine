@@ -9,7 +9,9 @@ KEY = 'setup_acceptance'
 
 
 def identity(ctx, plan):
+    from .onboarding import configuration
     return dict(format=1, plan_digest=digest(plan),
+                runtime_digest=digest(vars(configuration(ctx))),
                 source_sha256=ctx.get_config('setup_source_sha256', ''),
                 transport_digest=digest(dict(alias=ctx.get_config('setup_host_alias', ''),
                                              config=ctx.get_config('setup_ssh_config', ''))))
@@ -27,7 +29,12 @@ def capture(ctx, plan):
     except ImportError:
         raise ValueError('screenshot_verification_requires_pillow_install_declared_plugin_dependencies') from None
     config = configuration(ctx).validate()
-    if any(getattr(config, k) != plan[k] for k in ('host_alias', 'vm_name', 'control_dir', 'guest_profile')) or not config.control_dir:
+    fields = ('vm_name', 'control_dir', 'guest_profile')
+    # Local plans may predate SSH pairing. The explicit runtime agent alias is
+    # still required, and is bound into the acceptance receipt above.
+    if plan.get('target') != 'local' or plan.get('host_alias'):
+        fields += ('host_alias',)
+    if any(getattr(config, k) != plan[k] for k in fields) or not config.control_dir:
         raise ValueError('runtime_plan_mismatch')
     backend = OwnMachineBackend(config)
     try:
@@ -97,3 +104,17 @@ def finish(ctx, plan, apply=False):
         complete['reminder_cleanup_pending'] = True
     ctx.state.set(KEY, complete)
     return dict(ok=True, **complete, scope='Setup accepted; no desktop task, backup or reboot certification.')
+
+
+def failure_guidance(ctx, args, error):
+    if getattr(args, 'run', None) != 'verify':
+        return None
+    record = ctx.state.get(KEY, default={}) or {}
+    if record.get('stage') == 'screenshot_required':
+        return ('Host verification passed, but the client screenshot check failed. '
+                'Setup access has NOT been retired. Check the active profile runtime '
+                'host_alias, vm_name, control_dir and guest_profile, select '
+                'computer_use.backend=ownmachine, and inspect doctor/control status. '
+                'Then repeat setup --run verify; use --apply to retire the setup key. '
+                'See the wizard quickstart runtime configuration section.')
+    return None

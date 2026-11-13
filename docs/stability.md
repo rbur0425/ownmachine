@@ -15,8 +15,8 @@ python scripts/ownmachine-soak.py \
 
 With Docker, use the container paths and Hermes Python environment. The control
 database must already exist; the runner refuses to initialize missing state.
-It takes the normal exclusive native session lock, so run it while the agent is
-idle. The independent human browser viewer can remain connected and usable.
+Its reads take the normal exclusive per-operation lock and invalidate other
+backends' capture targets, so run it while the agent is idle. The independent human browser viewer can remain connected and usable.
 It neither reserves human control nor enables agent control. A change to the
 controller or generation stops the run without reverting the operator's choice.
 

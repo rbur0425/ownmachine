@@ -69,17 +69,30 @@ and viewer forced-command operation lists are unchanged. Root execution is refus
 Set these non-secret settings through Hermes's normal plugin configuration:
 
 ```yaml
+computer_use:
+  backend: ownmachine
+  permission_mode: standard
 plugins:
   isolation: in_process
   enabled: [ownmachine]
   entries:
     ownmachine:
       settings:
+        host_alias: example-agent-mac
+        vm_name: ownmachine
+        control_dir: /absolute/shared/control
+        guest_profile: macos # use omarchy for the Omarchy plan
+        experimental_linux_background_input: false
         setup_host_alias: example-setup-mac
         setup_source_sha256: REVIEWED_SOURCE_SHA256
         setup_timeout_seconds: 7500
         setup_ssh_config: /absolute/operator/ssh-config
 ```
+
+The runtime fields must match the saved plan; local targets also need a restricted
+agent SSH alias. Follow [runtime configuration](wizard-quickstart.md#configure-the-runtime-before-final-verification)
+before final verification or any desktop task. Setup configuration alone does not
+select the computer-use provider.
 
 `setup_ssh_config` is optional; an empty value uses normal OpenSSH configuration.
 The plugin passes it as `ssh -F`; it never reads SSH private keys itself. Use a

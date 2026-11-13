@@ -97,6 +97,17 @@ class OnboardingCommandsTests(unittest.TestCase):
         o.setup(ctx, args('setup', '--host-alias', 'different', '--connect', '--replace'))
         self.assertEqual(ctx.settings['host_alias'], 'different')
 
+    def test_provisioned_targets_can_explicitly_connect_without_changing_target(self):
+        for target in ('local','remote'):
+            ctx=Context()
+            with patch.object(o,'preflight',return_value=[]):
+                report=o.setup(ctx,args('setup','--target',target,'--host-alias','paired-agent',
+                    '--control-dir','/shared/control','--connect'))
+            self.assertTrue(report['connection_saved'])
+            self.assertEqual(ctx.settings['setup_plan']['target'],target)
+            self.assertEqual(ctx.settings['host_alias'],'paired-agent')
+            self.assertIn('computer_use.backend ownmachine',report['next'])
+
     def test_partial_connection_write_rolls_back(self):
         ctx = Context({'host_alias': 'old', 'vm_name': 'oldvm', 'control_dir': '/old'})
         write = ctx.set_config

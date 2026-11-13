@@ -13,11 +13,11 @@ and working environment. You decide what goes into that workspace. Watch it in
 your browser, pause the agent, take over with your mouse and keyboard, then hand
 control back when you're ready.
 
-[![OwnMachine 15-second animated teaser](docs/media/ownmachine-teaser.gif)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.0/docs/media/ownmachine-teaser.mp4)
+[![OwnMachine 15-second animated teaser](docs/media/ownmachine-teaser.gif)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.1/docs/media/ownmachine-teaser.mp4)
 
-**[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.0/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
+**[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.1/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
 
-> **v1.0.0 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
+> **v1.0.1 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
 > official Nous Research product. Setup includes administrator firewall installation
 > and manual macOS permission grants. It is not yet listed in the Hermes catalog.
 
@@ -106,7 +106,7 @@ Apple Silicon Mac needed for the macOS guest.
 handoffs, separate runtime identities, shared-control permissions and a verified
 Safari-to-Google task. The detailed guides below remain available for each stage.
 
-Use the [v1.0.0 source tag](https://github.com/rbur0425/ownmachine/tree/v1.0.0)
+Use the [v1.0.1 source tag](https://github.com/rbur0425/ownmachine/tree/v1.0.1)
 with the checkout commands below. The full source includes setup scripts and the
 browser viewer; the plugin-only package does not. See [distribution](docs/distribution.md)
 for building and verifying portable bundles from this checkout.
@@ -120,7 +120,7 @@ images, caches and guest growth need headroom. See [storage and VM setup](docs/v
 ```sh
 git clone https://github.com/rbur0425/ownmachine.git
 cd ownmachine
-git checkout v1.0.0
+git checkout v1.0.1
 ```
 
 Follow the setup in order. Installing the Hermes package alone does not create
@@ -161,7 +161,7 @@ See [persistent installation and startup](docs/permanent-installation.md),
 
 ## Roadmap
 
-1. ~~Implement an Omarchy image.~~ Completed for the tested ARM64 foreground configuration in the **v1.0.0** ([scope and evidence](docs/omarchy-final-acceptance.md)).
+1. ~~Implement an Omarchy image.~~ Completed for the tested ARM64 foreground configuration in the **v1.0.1** ([scope and evidence](docs/omarchy-final-acceptance.md)).
 2. Implement an Ubuntu image.
 3. Implement a Windows VM.
 4. Test various cloud providers and record tutorials and setup guides for each.
