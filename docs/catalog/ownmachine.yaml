@@ -20,7 +20,7 @@ screenshots:
   - https://raw.githubusercontent.com/rbur0425/ownmachine/0d410d32190ccf9b96428c482e3ccb5af8408e06/docs/media/catalog/agent-control.png
   - https://raw.githubusercontent.com/rbur0425/ownmachine/0d410d32190ccf9b96428c482e3ccb5af8408e06/docs/media/catalog/google-task.png
 known_issues:
-  - Declares websockets==15.0.1 for same-profile authenticated gateway scheduling; Hermes requests dependency consent during installation.
+  - Declares websockets==15.0.1 for gateway scheduling and Pillow>=11.0.0,<14 for screenshot verification; Hermes requests dependency consent during installation.
   - Manual Mac/guest setup, firewall installation and macOS permission grants are required.
   - Independent ALF-only random-port blocking and reboot persistence of the new security setup are unverified.
   - One initial guest boot hung; later restart checks passed.
