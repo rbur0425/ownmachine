@@ -177,6 +177,18 @@ class OwnMachineBackend(ComputerUseBackend):
             matches = [w for w in windows if (pid is None or w.get('pid')==pid)
                        and (window_id is None or w.get('window_id')==window_id)
                        and (not app or app.lower() in {str(w.get('app_name','')).lower(), str(w.get('bundle_id','')).lower()})]
+            if not matches and app and self.config.guest_profile == 'windows':
+                # Windows discovery names (e.g. a localized app display name)
+                # need not equal executable window names. Resolve only a unique
+                # discovered running process; never guess from a title or path.
+                apps = [a for a in self.list_apps() if app.casefold() in {
+                    str(a.get('name', '')).casefold(), str(a.get('bundle_id', '')).casefold()}]
+                pids = {a['pid'] for a in apps if type(a.get('pid')) is int and a['pid'] > 0}
+                if len(pids) != 1:
+                    raise ValueError('windows_app_target_not_unique')
+                matches = [w for w in windows if w.get('pid') in pids
+                           and (pid is None or w.get('pid') == pid)
+                           and (window_id is None or w.get('window_id') == window_id)]
             w = select_window(matches)
             target = {'pid': w['pid'], 'window_id': w['window_id']}
             reply = self._read('get_window_state', {**target, 'tree_format':'elements',
@@ -229,6 +241,9 @@ class OwnMachineBackend(ComputerUseBackend):
         output_mode = mode
         note = 'Pixel coordinates are local to this exact screenshot. Take a fresh capture after every pixel click; its capture binding is single-use. Element clicks invoke AXPress, not mouse focus. For a field without AXPress, use set_value or a fresh screenshot-grounded pixel click. Popup set_value selects only an existing menu option: inspect the open menu first, never guess a destination. File-location popups can list ancestors rather than destinations; use the dialog navigation controls or keyboard shortcuts for other folders. Any operator_review_required result overrides generic retry advice; stop until the operator inspects and acknowledges it. Each new capture replaces earlier tokens.\n'
         note += '\n'.join(f'#{e.index} actions: '+', '.join(str(a) for a in e.attributes['actions']) for e in elements if 'actions' in e.attributes)
+        if self.config.guest_profile == 'windows':
+            note = note.replace('Element clicks invoke AXPress, not mouse focus. For a field without AXPress,', 'Element clicks use UI Automation invocation, not mouse focus. For a field without an invoke action,')
+            note += '\nWindows: launch apps using list_apps then focus_app with the exact discovered name or identity; do not guess Start/taskbar coordinates. Use list_windows and capture with explicit pid/window_id to select the app or its newly opened dialog. App display names can differ from executable window names. Desktop/shell foreground activation may be refused; never bypass that refusal. Element actions use Windows UI Automation, not AXPress; only use advertised actions. A fresh capture is required after launch or dialog changes.\n'
         if self.config.guest_profile == 'omarchy':
             note += '\nLinux text/entry elements: use set_value to edit their contents; do not use element click to focus them. Foreground compositor input requires the explicitly enabled ABI-matched Hyprland module. Prefer keyboard shortcuts over opening menus: a foreground grab can refuse further compositor input. Experimental background requests never authorize foreground fallback; operator/control-gate refusals override generic escalation advice.\n'
         if mode == 'som' and raw:
@@ -343,8 +358,9 @@ class OwnMachineBackend(ComputerUseBackend):
             if (element is not None and self.config.guest_profile == 'omarchy'
                     and self.element_roles.get(element) in {'text','entry','password text'}):
                 return ActionResult(False,name,code='element_press_unsupported',message='Linux text elements are not activation targets. No input was dispatched. Use set_value for text or a fresh screenshot-grounded foreground pixel click to focus.',meta={'dispatched':False})
-            if element is not None and name == 'click' and 'AXPress' not in self.element_actions.get(element, ['AXPress']):
-                return ActionResult(False, name, code='element_press_unsupported', message='This element does not advertise AXPress. No input was dispatched. Use an appropriate value action or a fresh screenshot-grounded pixel click.', meta={'dispatched':False})
+            press_action = 'invoke' if self.config.guest_profile == 'windows' else 'AXPress'
+            if element is not None and name == 'click' and press_action not in self.element_actions.get(element, [press_action]):
+                return ActionResult(False, name, code='element_press_unsupported', message='This element does not advertise an invoke action. No input was dispatched. Use an appropriate value action or a fresh screenshot-grounded pixel click.', meta={'dispatched':False})
             if element is None and (x is None or y is None): raise ValueError('coordinates_required')
             if element is None:
                 name = 'click'
@@ -359,6 +375,17 @@ class OwnMachineBackend(ComputerUseBackend):
     @serialized
     def key(self,keys,*,delivery_mode=None,bring_to_front=False):
         parts = keys.split('+')
+        if self.config.guest_profile == 'windows' and delivery_mode == 'foreground' and len(parts) > 1:
+            # Windows hotkey takes a XAML accelerator-only branch even for
+            # explicit foreground delivery. press_key supports modifiers and
+            # the same exact-HWND SendInput admission; never change delivery
+            # mode or retry a refused action automatically.
+            if 'modifiers' not in self.transport.tools.get('press_key', {}).get('properties', {}):
+                return ActionResult(False,'press_key',code='windows_modifier_keys_unsupported',meta={'dispatched':False})
+            modifiers = {'ctrl','control','shift','alt','win','windows','meta','cmd','command'}
+            if not parts[-1] or any(p.lower() not in modifiers for p in parts[:-1]):
+                return ActionResult(False,'press_key',code='unsupported_key_combination',meta={'dispatched':False})
+            return self._input('press_key', {'key':parts[-1], 'modifiers':parts[:-1]}, delivery_mode, bring_to_front)
         return self._input('hotkey' if len(parts)>1 else 'press_key',
             {'keys':parts} if len(parts)>1 else {'key':keys},delivery_mode,bring_to_front)
 
@@ -390,13 +417,18 @@ class OwnMachineBackend(ComputerUseBackend):
             if not pid:
                 bundle_id = matches[0].get('bundle_id')
                 launch = {'bundle_id':bundle_id}
-                if self.config.guest_profile == 'omarchy':
-                    # Linux desktop discovery provides a launch_path; the
-                    # macOS bundle_id argument alone cannot launch Linux apps.
+                if self.config.guest_profile in {'omarchy', 'windows'}:
+                    # Round-trip the discovered launch identity. Windows UWP
+                    # bundle_id is a package family, not the complete AUMID.
                     path = matches[0].get('launch_path')
                     if not isinstance(path,str) or not path or any(ord(c)<32 for c in path):
-                        return ActionResult(False,'focus_app',code='linux_launch_identity_missing')
+                        return ActionResult(False,'focus_app',code='linux_launch_identity_missing' if self.config.guest_profile == 'omarchy' else 'windows_launch_identity_missing')
                     launch = {'launch_path':path}
+                    if self.config.guest_profile == 'windows' and path.startswith('shell:appsFolder\\'):
+                        aumid = path.split('\\', 1)[1]
+                        if '!' not in aumid:
+                            return ActionResult(False,'focus_app',code='windows_launch_identity_missing')
+                        launch = {'aumid':aumid}
                 result = self._write('launch_app', launch)
                 if not result.ok or not raise_window: return result
                 # Launch is background-only. Honor an explicitly requested raise,

@@ -238,6 +238,79 @@ b.stop()
   self.assertNotIn('launch_app',[n for n,a in self.fake.calls])
   self.assertFalse(self.b.lease.status()['pending'])
 
+ def test_windows_uwp_launch_uses_complete_aumid(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  self.cold_launch_fixture(launch_path='shell:appsFolder\\Example.Package!App')
+  self.assertTrue(self.b.focus_app('Browser',raise_window=True).ok)
+  launched=[a for n,a in self.fake.calls if n=='launch_app']
+  self.assertEqual(launched[0]['aumid'],'Example.Package!App')
+  self.assertNotIn('bundle_id',launched[0])
+
+ def test_windows_foreground_shortcut_preserves_exact_target_and_delivery(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  self.fake.tools['press_key']['properties']['modifiers']={}
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  self.assertTrue(self.b.key('ctrl+s',delivery_mode='foreground').ok)
+  name,args=self.fake.calls[-1]
+  self.assertEqual(name,'press_key');self.assertEqual(args['modifiers'],['ctrl'])
+  self.assertEqual((args['key'],args['pid'],args['window_id'],args['delivery_mode']),('s',12,34,'foreground'))
+  self.assertTrue(self.b.key('ctrl+s',delivery_mode='background').ok)
+  self.assertEqual(self.fake.calls[-1][0],'hotkey')
+
+ def test_windows_shortcut_requires_driver_modifier_contract(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  self.b.lease.transfer('agent');self.b.capture(app='Editor');count=len(self.fake.calls)
+  self.assertEqual(self.b.key('ctrl+s',delivery_mode='foreground').code,'windows_modifier_keys_unsupported')
+  self.assertEqual(len(self.fake.calls),count)
+
+ def test_windows_uia_invoke_action_is_supported(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  self.b.element_actions[1]=['invoke']
+  self.assertTrue(self.b.click(element=1).ok)
+  self.b.element_actions[1]=['set_value'];count=len(self.fake.calls)
+  self.assertEqual(self.b.click(element=1).code,'element_press_unsupported')
+  self.assertEqual(len(self.fake.calls),count)
+
+ def test_windows_display_name_resolves_exact_running_process(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  original=self.fake.call
+  def call(name,args):
+   if name=='list_apps':
+    return {'structuredContent':{'apps':[{'name':'Localized Editor','pid':12,'bundle_id':'package.editor'}]}}
+   return original(name,args)
+  self.fake.call=call
+  self.b.capture(app='Localized Editor',pid=12,window_id=34)
+  self.assertEqual(self.b.target,{'pid':12,'window_id':34})
+  with self.assertRaisesRegex(ValueError,'window_not_found'):
+   self.b.capture(app='Localized Editor',pid=99)
+
+ def test_windows_display_name_ambiguity_never_guesses(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  original=self.fake.call
+  def call(name,args):
+   if name=='list_apps':
+    return {'structuredContent':{'apps':[{'name':'Editor name','pid':p} for p in (12,13)]}}
+   return original(name,args)
+  self.fake.call=call
+  with self.assertRaisesRegex(ValueError,'windows_app_target_not_unique'):
+   self.b.capture(app='Editor name')
+  self.assertIsNone(self.b.target)
+
+ def test_windows_desktop_launch_preserves_discovered_command(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  path='"C:\\Program Files\\Example\\browser.exe" --profile=test'
+  self.cold_launch_fixture(launch_path=path)
+  self.assertTrue(self.b.focus_app('Browser').ok)
+  self.assertEqual([a for n,a in self.fake.calls if n=='launch_app'][0]['launch_path'],path)
+
  def test_linux_text_activation_refuses_without_poisoning_gate(self):
   from dataclasses import replace
   self.b.config=replace(self.config,guest_profile='omarchy')
