@@ -163,3 +163,23 @@ No VM disk existed afterward: domain registration and boot remain separate stage
 Both macOS and Ubuntu CI passed on this source checkpoint. The next live handoff
 is administrator registration of the separate stopped guest; clean guest boot,
 hardening, final capture and automatic retirement are still pending.
+
+### Registration refusal found during clean-host integration
+
+Administrator registration created the separate stopped domain and persistent
+security service. The first authenticated runtime check refused it: libvirt had
+normalized the private VNC socket under its managed QEMU directory into an
+automatic TCP listener. The guest never started or exposed a listener. Defining
+the same stopped domain with its socket outside that managed directory preserved
+the private Unix-socket definition. The renderer now also states the socket on
+the graphics element, and registration verifies libvirt's normalized definition
+before installing runtime authorizations or reporting success. The guide explains
+the storage-location constraint.
+
+The viewer user service installed through Hermes and is active; its shared
+control directory has the intended owner and mode 0700. This is service-start
+evidence, not stream or guest-input acceptance. A narrowly scoped administrator
+correction to the stopped fixture's root-owned console path/integrity record is
+pending. This first fixture therefore requires a repair and cannot qualify the
+repair-free clean-install requirement; a subsequent clean run must exercise the
+corrected registration path.

@@ -112,6 +112,9 @@ connection fields above. Keep this file private on the host. Configure:
 - Separate `operator_user`, `agent_user`, `viewer_user`, `qemu_user` and
   `console_group`; new runtime identities must not already exist. Configure a
   new private `console_socket` directory and root-owned `runtime_prefix`.
+  Keep the console outside libvirt's managed QEMU state directory (commonly
+  `/var/lib/libvirt/qemu`); libvirt can treat sockets there as generated paths
+  and rewrite them. Registration verifies the normalized socket definition.
 - `host_address`, optional `host_ssh_port` (22), pinned `host_known_hosts`, and
   optional `ssh_service` (`ssh`). No host key is accepted automatically.
 - Separate `guest_user` and `guest_setup_user`, plus `guest_install_root`.

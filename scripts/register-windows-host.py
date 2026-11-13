@@ -100,6 +100,14 @@ def main():
     call('setfacl','-m','d:u:'+p['viewer_user']+':rwx,d:o::---',str(console))
     call('virsh','-c','qemu:///system','net-define',str(state/'network.xml'))
     call('virsh','-c','qemu:///system','define',str(state/'domain.xml'))
+    # Verify libvirt's normalized definition before installing any runtime keys.
+    actual=ET.fromstring(call('virsh','-c','qemu:///system','dumpxml',p['vm_uuid']))
+    graphics=actual.findall('./devices/graphics')
+    if len(graphics)!=1 or graphics[0].get('socket')!=p['console_socket'] or graphics[0].get('autoport')=='yes':
+        raise ValueError('libvirt_did_not_preserve_private_console')
+    listeners=graphics[0].findall('listen')
+    if len(listeners)!=1 or listeners[0].get('type')!='socket' or listeners[0].get('socket')!=p['console_socket']:
+        raise ValueError('libvirt_did_not_preserve_private_console')
     # install-kvm-security validates existing ACL configuration and pins all code.
     call(sys.executable,str(ROOT/'scripts/install-kvm-security.py'),'--config',str(state/'install.json'),'--prefix',str(prefix))
     installed=prefix/(p['vm_uuid'].replace('-','')+'.json')

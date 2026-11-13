@@ -65,6 +65,7 @@ class FreshWindowsTests(unittest.TestCase):
             tree=ET.fromstring((Path(td)/'domain.xml').read_text())
             self.assertIsNone(tree.find('./devices/filesystem'))
             self.assertEqual(tree.find('./devices/graphics/listen').get('type'),'socket')
+            self.assertEqual(tree.find('./devices/graphics').get('socket'),c['provision']['console_socket'])
             self.assertEqual(tree.find('./devices/tpm/backend').get('version'),'2.0')
             self.assertEqual(len(tree.findall('./devices/disk')),3)
 

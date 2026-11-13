@@ -24,7 +24,7 @@ domain=f'''<domain type="kvm"><name>{name}</name><uuid>{ident}</uuid>
 <disk type="file" device="cdrom"><driver name="qemu" type="raw"/><source file={quoteattr(str(root/'bootstrap.iso'))}/><target dev="sdc" bus="sata"/><readonly/></disk>
 <interface type="network"><mac address={quoteattr(mac)}/><source network={quoteattr(c['vm_name'])}/><model type="e1000e"/></interface>
 <input type="tablet" bus="usb"/><controller type="usb" model="qemu-xhci"/>
-<graphics type="vnc"><listen type="socket" socket={quoteattr(c['console_socket'])}/></graphics>
+<graphics type="vnc" socket={quoteattr(c['console_socket'])}><listen type="socket" socket={quoteattr(c['console_socket'])}/></graphics>
 <video><model type="vga" vram="16384" heads="1" primary="yes"/></video>
 <tpm model="tpm-crb"><backend type="emulator" version="2.0"/></tpm><memballoon model="none"/>
 </devices></domain>'''
