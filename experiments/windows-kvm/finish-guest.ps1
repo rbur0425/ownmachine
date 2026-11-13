@@ -5,6 +5,9 @@ $cfg = Get-Content (Join-Path $seed 'guest.json') -Raw | ConvertFrom-Json
 $root = Split-Path $seed
 $driver = (Get-ChildItem (Join-Path $root 'driver') -Recurse -Filter cua-driver.exe | Select-Object -First 1).FullName
 try {
+    # ACPI shutdown must be a cold stop, not Windows Fast Startup kernel resume.
+    & powercfg.exe /hibernate off
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot disable hybrid shutdown' }
     $cap = Get-WindowsCapability -Online -Name 'OpenSSH.Server*'
     if ($cap.State -ne 'Installed') { Add-WindowsCapability -Online -Name $cap.Name | Out-Null }
     $sshDir = Join-Path $env:ProgramData 'ssh'

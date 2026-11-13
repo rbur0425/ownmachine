@@ -28,13 +28,13 @@ Hermes's category-provider loader retained the old module across normal plugin r
 
 The corrected provider completed the Notepad save through real Hermes: foreground Ctrl+S opened a separately discovered Save As window, Hermes entered the full destination and pressed Return, and the final capture showed a saved title without an unsaved marker. Independent administrative readback confirmed the exact requested 54 bytes, SHA-256 `e739a1fa0f7e83389905acea18361db016a4494d452f9749796be9a3adc6ad91`. No file-writing shell or API completed the model task.
 
-The viewer's graceful shutdown succeeded. Its subsequent start was refused by libvirt because the original per-domain policy omitted network dependencies. `update-network-acl.py` is a reviewable administrator step scoped to the viewer and the configured dedicated network/ports; it does not restart services. Do not share that network with unrelated VMs. Live application and cold-start persistence verification are pending that administrator step. This is not yet a passing viewer restart result.
+The viewer's graceful shutdown succeeded. Its subsequent start was refused by libvirt because the original per-domain policy omitted network dependencies. `update-network-acl.py` is a reviewable administrator step scoped to the viewer and the configured dedicated network/ports; it does not restart services. Do not share that network with unrelated VMs. After applying it, viewer start succeeded. The operator reran all 18 boundary checks, including configured versus unrelated network reads/mutations, and reported all true. The combined restart initially failed at start; the subsequent separate viewer stop/start cycle passed.
 
-The portable read-only `probe-saved-file.py` compares exact content and SHA-256 and records the guest boot timestamp, independently of model claims.
+The portable read-only `probe-saved-file.py` compares exact content and SHA-256 and records the guest boot timestamp, independently of model claims. The first shutdown/start exposed Windows Fast Startup: the file survived but the boot timestamp did not change. Provisioning now disables hibernation and rejects failure to do so. After applying that setting to the test guest, viewer stop/start changed the boot timestamp and preserved all 54 bytes and the identical SHA-256. After operator sign-in, the standard-user interactive driver returned to ready without repair. Permanent autologin remains off.
 
 ## Remaining graduation work
 
-- Complete guest cold-start and post-login driver acceptance after the scoped network-policy update; saved-file acceptance passed.
+- Complete broader lifecycle qualification; the supervised saved-file, genuine guest cold-boot persistence and post-login driver checks passed. Host reboot is a separate, untested Windows surface.
 - Qualify Windows foreground typing, shell/Start targets, background input, lock/sign-out and broader UIA behavior. Do not elevate the daemon to work around refusals.
 - Integrate health/forced guest-key setup into fully clean provisioning and retire temporary setup keys automatically.
 - Persist and revalidate host firewall policy, add supported provisioning/onboarding/doctor integration and review rollback paths.

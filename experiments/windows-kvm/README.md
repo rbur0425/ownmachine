@@ -25,6 +25,6 @@ Hermes uses an isolated profile with `computer_use.backend: ownmachine` and plug
 
 Discover the application with `list_apps`, then `focus_app` using its exact name/identity. Capture its actual `pid` and `window_id` from `list_windows`. On Windows, a display name can differ from an executable name; OwnMachine resolves unique discovered process identities without guessing. After opening Save or another dialog, rediscover and capture that dialog's exact window. Do not assume taskbar position, reuse the old editor target, or bypass an exact-window activation refusal. Start/shell activation remains a driver limitation under investigation.
 
-A normal guest shutdown/start preserves the disk but ends the interactive session. Permanent autologin is off: the operator must sign in before the Limited driver task can resume. Host reboot acceptance and persistent network policy are separate from guest restart acceptance.
+Bootstrap disables hibernation/Fast Startup so ACPI shutdown is a genuine cold stop; acceptance checks a changed boot timestamp, not only a running state. A normal guest shutdown/start preserves the disk but ends the interactive session. Permanent autologin is off: the operator must sign in before the Limited driver task can resume. Host reboot acceptance and persistent network policy are separate from guest restart acceptance.
 
 See [acceptance results](../../docs/windows-kvm-acceptance.md). Remaining work stays in the draft development PR; this experiment is not added to the guided production setup choices.

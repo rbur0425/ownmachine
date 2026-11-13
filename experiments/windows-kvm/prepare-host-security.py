@@ -23,6 +23,7 @@ for k in ('agent_user', 'viewer_user', 'operator_user', 'console_group', 'vm_nam
     if not re.fullmatch(r'[a-z][a-z0-9-]{1,30}', c[k]):
         raise SystemExit('Invalid identifier: '+k)
 uuid.UUID(c['vm_uuid'])
+uuid.UUID(c['network_uuid'])
 net = ipaddress.ip_network(c['subnet'])
 if net.version != 4 or not net.is_private or ipaddress.ip_address(c['guest_ip']) not in net:
     raise SystemExit('Invalid guest network')

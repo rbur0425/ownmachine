@@ -9,6 +9,8 @@ import uuid
 if os.geteuid() != 0:
     raise SystemExit('Administrator authentication required')
 c = json.loads(Path(sys.argv[1]).read_text())
+if 'network_uuid' not in c:
+    raise SystemExit('Configuration requires network_uuid; obtain and verify it with virsh net-uuid before retrying')
 network = str(uuid.UUID(c['network_uuid']))
 rule = Path('/etc/polkit-1/rules.d/00-ownmachine-spike.rules')
 s = rule.read_text()
