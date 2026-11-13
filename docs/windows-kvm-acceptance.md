@@ -32,6 +32,8 @@ The viewer's graceful shutdown succeeded. Its subsequent start was refused by li
 
 The portable read-only `probe-saved-file.py` compares exact content and SHA-256 and records the guest boot timestamp, independently of model claims. The first shutdown/start exposed Windows Fast Startup: the file survived but the boot timestamp did not change. Provisioning now disables hibernation and rejects failure to do so. After applying that setting to the test guest, viewer stop/start changed the boot timestamp and preserved all 54 bytes and the identical SHA-256. After operator sign-in, the standard-user interactive driver returned to ready without repair. Permanent autologin remains off.
 
+Post-boot real Hermes acceptance also reopened the saved file and read its exact text. This run needed operator intervention: UIA `set_value` on the Open dialog's filename Edit was resolved by the driver to its enclosing ComboBox and refused with `option_not_found`. OwnMachine blocked writes for review. After independent visual inspection and explicit acknowledgement, the model took a fresh capture, used explicitly foreground typing into the focused filename field and Return, then captured the reopened document. Independent readback again matched the original hash. This is a supervised passing recovery path, not proof that filename ComboBox value assignment or unattended recovery works. App launch reported a window-discovery timeout before a subsequent window listing found Notepad; delayed launch discovery also needs further qualification.
+
 ## Remaining graduation work
 
 - Complete broader lifecycle qualification; the supervised saved-file, genuine guest cold-boot persistence and post-login driver checks passed. Host reboot is a separate, untested Windows surface.
