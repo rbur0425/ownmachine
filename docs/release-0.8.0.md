@@ -99,7 +99,9 @@ and every-application reliability are not claimed.
 - [x] Live macOS guest cold start through the relay on the new macOS-only build,
   with no saved state, independent boot/credential-share checks and live noVNC:
   [hardware evidence and retained diagnostic failure](macos-cold-start-acceptance.md).
-  This does not claim completed guest onboarding or CuaDriver permission grants.
+  Follow-up onboarding and CuaDriver consent passed; a real Hermes Safari task
+  reached Google after one operator-reviewed recovery. This is not a background-only
+  or uninterrupted autonomous pass; see the same evidence document.
 - [ ] Revalidate the exact release head, packages/checksums and current-head CI
   after final edits.
 - [ ] On the release branch, remove development banners/wording and update release
