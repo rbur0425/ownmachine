@@ -7,9 +7,9 @@ def next_step(ctx,plan):
     accepted=ctx.state.get(KEY,default=None)
     if matches(ctx,plan,accepted):
         if accepted.get('stage')=='complete':return dict(stage='complete',next='Setup accepted. Use doctor for current health.')
-        if accepted.get('stage')=='retiring':return dict(stage='needs_inspection',next='Inspect setup-key retirement on the Mac. Do not reauthorize or replay it.')
+        if accepted.get('stage')=='retiring':return dict(stage='needs_inspection',next='Inspect setup-key retirement on the VM host. Do not reauthorize or replay it.')
     if not ctx.get_config('setup_host_alias','') or not ctx.get_config('setup_source_sha256',''):
-        return dict(stage='pairing_required',next='Pair a separate temporary setup key, independently confirm the Mac host key, and install the reviewed endpoint. Follow docs/wizard-quickstart.md; never send private keys in chat.')
+        return dict(stage='pairing_required',next='Pair a separate temporary setup key, independently confirm the VM host key, and install the reviewed endpoint. Follow docs/wizard-quickstart.md; never send private keys in chat.')
     progress=summary(ctx,plan)
     if progress.get('stage') in ('configuration_changed','awaiting_remote_result','needs_inspection'):
         return dict(stage='needs_inspection',next='Inspect the saved configuration and fetch setup --run progress before retrying. Never replay an uncertain mutation.')
@@ -37,6 +37,8 @@ def next_step(ctx,plan):
             handoffs['linux-start-desktop']='Run setup --run linux-start-desktop --apply. This verifies hardening and the host firewall before restarting into the protected desktop.'
             handoffs['driver']='Run setup --run driver --apply. Targeted Chromium input requires explicit enable_experimental_input in the operator configuration; capture readiness alone does not prove input works.'
             handoffs['permissions']='Log into the Linux graphical session, then run setup --run permissions. This checks the standard-mode driver and accessibility bus; no macOS TCC prompts apply.'
+        if plan.get('guest_profile')=='windows':
+            handoffs.update(build='Review Linux/KVM packages, firmware, TPM and verified Windows media. Fresh provisioning integration is pending; see docs/windows-production-plan.md.',firewall='The Linux administrator must install the reviewed persistent KVM security service. Then run setup --run firewall.',permissions='Sign into the Windows standard-user desktop, then run setup --run permissions. No macOS permissions or elevated driver are required.',verify='Windows final viewer verification and automatic retirement are still being integrated. Keep setup access temporary; see docs/windows-production-plan.md.')
         if step in handoffs:return dict(stage='await_'+step,next=handoffs[step])
         suffix=' --apply' if step in ('build','provision','relay','keys','harden','driver') else ''
         prefix='Refresh setup --run preflight first. ' if step in ('build','provision') else ''

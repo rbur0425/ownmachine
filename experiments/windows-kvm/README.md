@@ -1,6 +1,6 @@
 # Windows KVM development experiment
 
-Not a supported installer or an advertised Windows release. These are the reviewed components used for an isolated Linux x86-64/KVM experiment. Do not run the host scripts on an existing virtualization server without reviewing their account, libvirt authorization, SSH and firewall changes. The account installer restarts libvirtd; the acceptance host had no existing VMs when it ran. Host firewall persistence is unfinished.
+Not a supported installer or an advertised Windows release. These are the reviewed components used for an isolated Linux x86-64/KVM experiment. Do not run the host scripts on an existing virtualization server without reviewing their account, libvirt authorization, SSH and firewall changes. The account installer restarts libvirtd; the acceptance host had no existing VMs when it ran. For the production adapter and persistent-security follow-up, use [the production checklist](../../docs/windows-production-plan.md). These historical spike installers are not the production upgrade path.
 
 ## Configuration and boundaries
 
@@ -25,6 +25,6 @@ Hermes uses an isolated profile with `computer_use.backend: ownmachine` and plug
 
 Discover the application with `list_apps`, then `focus_app` using its exact name/identity. Capture its actual `pid` and `window_id` from `list_windows`. On Windows, a display name can differ from an executable name; OwnMachine resolves unique discovered process identities without guessing. After opening Save or another dialog, rediscover and capture that dialog's exact window. Do not assume taskbar position, reuse the old editor target, or bypass an exact-window activation refusal. Start/shell activation remains a driver limitation under investigation.
 
-Bootstrap disables hibernation/Fast Startup so ACPI shutdown is a genuine cold stop; acceptance checks a changed boot timestamp, not only a running state. A normal guest shutdown/start preserves the disk but ends the interactive session. Permanent autologin is off: the operator must sign in before the Limited driver task can resume. Host reboot acceptance and persistent network policy are separate from guest restart acceptance.
+Bootstrap disables hibernation/Fast Startup so ACPI shutdown is a genuine cold stop; acceptance checks a changed boot timestamp, not only a running state. A normal guest shutdown/start preserves the disk but ends the interactive session. Permanent autologin is off: the operator must sign in before the Limited driver task can resume. Host reboot acceptance is separate from guest restart acceptance. The production follow-up installs a persistent firewall service; the spike installer itself does not.
 
-See [acceptance results](../../docs/windows-kvm-acceptance.md). Remaining work stays in the draft development PR; this experiment is not added to the guided production setup choices.
+See [acceptance results](../../docs/windows-kvm-acceptance.md). Remaining work stays in the draft development PR; the Windows development setup choice saves plans and runs selected checks, but fresh provisioning remains explicitly blocked while integration continues.

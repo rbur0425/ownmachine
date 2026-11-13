@@ -1,6 +1,6 @@
 # Windows KVM development acceptance
 
-Windows is an experiment in this branch, not a released support claim. The existing macOS and Omarchy setup choices are unchanged. Operator components are under [experiments/windows-kvm](../experiments/windows-kvm/README.md); no deployment addresses, keys, seed media or raw desktop captures belong in Git.
+Windows is an experiment in this branch, not a released support claim. The Windows development setup choice now saves a plan and exposes read-only checks; fresh provisioning and final acceptance remain blocked until their integration is complete. Existing macOS and Omarchy behavior is preserved. Operator components are under [experiments/windows-kvm](../experiments/windows-kvm/README.md); no deployment addresses, keys, seed media or raw desktop captures belong in Git.
 
 ## Tested baseline — 13 November 2026
 
@@ -13,7 +13,7 @@ CuaDriver 0.49.3 Windows x86-64 is a **prerelease**. Archive SHA-256: `1f8caf9b0
 - Dedicated agent/viewer identities see only the assigned VM. Other-domain reads/mutations and QEMU monitor access are denied. Actual open/connect checks confirmed that only the viewer reaches the private console socket and only the agent reads the guest runtime key.
 - Forced SSH commands separate agent status/MCP from viewer console/lifecycle. Shell requests and cross-role operations were refused.
 - Browser streaming works through the private Unix console and restricted SSH relay. There is no TCP VNC listener. The new no-auth RFB path requires explicit Windows/private-Unix configuration and exact relay metadata; released Lume/password-VNC configurations cannot silently downgrade.
-- Guest probes could not reach host SSH or the tested LAN SSH endpoint, while public HTTPS worked. These sample the policy, not every address/port. Host firewall persistence remains unfinished.
+- Guest probes could not reach host SSH or the tested LAN SSH endpoint, while public HTTPS worked. These sample the policy, not every address/port. The spike firewall was session-only; the production persistence follow-up below supersedes that limitation.
 - Permanent autologin is disabled; bootstrap task, guest seed secrets and cached answer files were removed, and installation media ejected. Temporary setup administration remains solely for acceptance and must be retired afterward.
 
 ## Real Hermes results and targeting corrections
@@ -51,9 +51,68 @@ This was guided, supervised acceptance: per-action Allow once approvals remained
 - Complete broader lifecycle qualification; the supervised saved-file, genuine guest cold-boot persistence and post-login driver checks passed. Host reboot is a separate, untested Windows surface.
 - Qualify Windows foreground typing, shell/Start targets, background input, lock/sign-out and broader UIA behavior. Do not elevate the daemon to work around refusals.
 - Integrate health/forced guest-key setup into fully clean provisioning and retire temporary setup keys automatically.
-- Persist and revalidate host firewall policy, add supported provisioning/onboarding/doctor integration and review rollback paths.
+- Finish guided provisioning and rollback qualification; persistent policy and Windows doctor integration are implemented in the production follow-up below.
 - Replace or explicitly qualify the prerelease driver pin; test additional Windows editions/hypervisor configurations separately.
 
 The updated provider regression run passed 423 tests. Installed-plugin validation passed with the expected in-process callback and CLI-registration warnings. No production support claim follows from these checks.
 
 Network ACL design follows [libvirt object-scoped Polkit policy](https://www.libvirt.org/aclpolkit.html) and [network-port API permissions](https://libvirt.org/html/libvirt-libvirt-network.html). Offline CI initially rejected the newly added Hermes-dependent tests as undeclared skips; their explicit platform declarations now accompany the tests. They passed in the local Hermes-backed 420-test run.
+
+## Production adapter and persistence follow-up
+
+The KVM adapter now runs behind the production host entrypoint. Runtime code,
+configuration and guest key are root-owned; only the agent's dedicated group can
+read that key. Domain/network identity, private console configuration and guest
+standard-session readiness are checked before control. A narrow, read-only sudo
+probe compares the live nftables rules with the installed policy and checks the
+root-owned policy/configuration, network bridge/subnet and disabled VM autostart.
+The installed systemd service restores only its dedicated table. An unsafe state
+refuses access; graceful shutdown remains available.
+
+Live administrator installation passed on the test host. The prerequisite check
+initially misread a blank line before an enabled libvirt ACL directive; that parser
+was corrected without restarting libvirt. Both production role probes passed,
+cross-role operations were refused, and an extra restrictive DROP rule caused
+readiness refusal. Restoring the intended table restored readiness. Both runtime
+keys were then switched to the root-owned relay. The service reports enabled and
+active; **physical-host reboot recovery is not yet tested for this backend**.
+
+The browser connected to the production private console. Human reservation,
+display wake input and return to paused mode worked; the previously saved Notepad
+text remained visible. No VM or daemon restart was needed. The installed-plugin
+doctor check exposed a Lume-only assumption; Windows-specific doctor checks now
+have regression coverage and passed in an isolated installed Hermes profile.
+
+See [the production checklist](windows-production-plan.md) for remaining setup,
+release-image and qualification gates. These implementation/live checks do not
+turn the earlier spike into a released Windows support claim.
+
+Two end-to-end failures were fixed before accepting production MCP. The new
+firewall initially dropped replies to host-initiated guest SSH; it now admits
+established reply-direction traffic while retaining the guest-initiated host
+block. After a dedicated firewall-service restart, guest probes still could not
+reach host/LAN SSH and public HTTPS succeeded. All 18 production boundary checks
+passed. The service's boot apply path installs/checks nftables without querying
+libvirt, avoiding a boot-order dependency cycle; runtime checks still inspect
+libvirt state. Physical host reboot remains a release qualification gate.
+
+The MCP readiness subprocess originally inherited protocol stdin and could consume
+the client's initialization message. It now receives DEVNULL; tests cover that
+stream boundary and refusal of an unhealthy session. Installed Hermes doctor then
+passed all readiness checks, with only the intentional paused-control warning.
+A real Qwen3.8 Hermes run discovered/captured the existing Notepad window and read
+its exact 48-byte sentence through the production relay. The private viewer and
+independent file readback agreed. This was a read-only production transport test;
+the earlier save/reopen test remains the write-task evidence.
+
+Installed Hermes also saved a Windows plan with non-default storage/disk settings
+and returned the expected temporary-key pairing handoff on `setup --next`.
+Windows fresh provisioning and final verification/retirement are explicitly
+blocked until their stage integration is finished; no macOS installer fallback
+or fabricated completion is used. The Windows setup endpoint reuses source/plan
+binding, authenticated progress import and interruption handling.
+
+Final local regression validation: the complete 448-test suite passed. Installed-plugin validation passed with the expected in-process hook
+and CLI-registration warnings. The live deployment preceded the last restart
+revalidation safeguard; that safeguard is unit-tested, while another physical
+host/guest restart is not claimed here.

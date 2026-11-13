@@ -1,4 +1,5 @@
 import importlib.util
+from dataclasses import replace
 import json
 from pathlib import Path
 import sqlite3
@@ -144,3 +145,32 @@ class InstallTests(unittest.TestCase):
         with patch.object(self.module.shutil,'copyfile',side_effect=copy):
             with self.assertRaisesRegex(OSError,'license copy failed'): self.module.install(self.home,self.config)
         self.assertFalse(self.home.exists())
+
+
+class WindowsDiagnosticsTests(unittest.TestCase):
+    setUp=DiagnosticsTests.setUp
+    codes=DiagnosticsTests.codes
+    def test_windows_ready_needs_no_lume_or_macos_consent(self):
+        self.config=replace(self.config,guest_profile='windows')
+        self.remote.return_value=dict(host_reachable=True,vm_state='running',guest_os='windows',
+            driver_state='ready',driver_ready=True,guest_reachable=True,interactive_session=True,
+            driver_running=True,standard_mode=True,standard_user=True)
+        report=diagnose(self.config)
+        self.assertTrue(report['ok'])
+        self.assertNotIn('Lume',json.dumps(report));self.assertNotIn('capture_consent',json.dumps(report))
+
+    def test_windows_stopped_has_kvm_remedy(self):
+        self.config=replace(self.config,guest_profile='windows')
+        self.remote.return_value=dict(host_reachable=True,vm_state='stopped',driver_ready=False)
+        report=diagnose(self.config)
+        self.assertIn('vm_stopped',self.codes(report));self.assertIn('KVM',json.dumps(report))
+        self.assertNotIn('lume_missing',self.codes(report))
+
+
+    def test_windows_ssh_failure_does_not_claim_guest_reachable(self):
+        self.config=replace(self.config,guest_profile='windows')
+        self.remote.return_value=dict(host_reachable=True,vm_state='running',guest_reachable=False,driver_state='not_running',driver_ready=False)
+        report=diagnose(self.config)
+        self.assertIn('guest_unreachable',self.codes(report))
+        self.assertNotIn('guest_reachable',self.codes(report))
+        self.transport.assert_not_called()

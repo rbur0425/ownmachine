@@ -127,3 +127,17 @@ class StreamTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'setup_cancelled'):
                 t.exchange([sys.executable,'-c','import time; time.sleep(30)'],{},60)
         finally:t.CANCEL.reset(token)
+
+
+class WindowsEndpointTests(unittest.TestCase):
+    def test_windows_never_routes_to_macos_provisioner(self):
+        c={'services_file':'/private/services.json','plan_file':'/private/plan.json'}
+        argv=endpoint.command(c,dict(o.DEFAULTS,guest_profile='windows'),'provision',True)
+        self.assertTrue(argv[1].endswith('/setup-windows.py'))
+        self.assertIn('--apply',argv)
+
+    def test_windows_unimplemented_mutations_are_explicitly_blocked(self):
+        windows=module('test_windows_stages','scripts/setup-windows.py')
+        for step in ('build','provision','driver','harden'):
+            result=windows.execute({},dict(o.DEFAULTS,guest_profile='windows'),step)
+            self.assertFalse(result['ok']);self.assertEqual(result['stage'],'blocked')

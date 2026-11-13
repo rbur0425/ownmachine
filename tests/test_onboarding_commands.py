@@ -340,3 +340,22 @@ class OnboardingProgressTests(unittest.TestCase):
         for option in ('--os', '--image', '--guest-os'):
             with self.assertRaises(o.InputError):
                 args('setup', option, 'linux')
+
+
+class WindowsPlanningTests(unittest.TestCase):
+    def test_windows_plan_is_saved_without_provisioning(self):
+        ctx=Context()
+        with patch.object(o,'preflight',return_value=[]):
+            report=o.setup(ctx,args('setup','--guest-profile','windows','--target','remote','--storage-dir','/srv/vms','--save'))
+        self.assertEqual(report['guest_os'],'windows')
+        self.assertEqual(ctx.settings['setup_plan']['guest_profile'],'windows')
+        self.assertIn('integration pending',' '.join(report['steps']))
+        self.assertNotIn('Apple',' '.join(report['steps']))
+
+    def test_windows_disk_minimum(self):
+        with self.assertRaises(o.InputError):o.validate_plan(dict(o.DEFAULTS,guest_profile='windows',target='remote',disk_gb=50))
+
+    def test_windows_local_does_not_accept_a_mac(self):
+        plan=dict(o.DEFAULTS,guest_profile='windows',target='local')
+        with patch.object(o.platform,'system',return_value='Darwin'),patch.object(o.platform,'machine',return_value='arm64'):
+            self.assertTrue(any(c['status']=='fail' for c in o.preflight(plan)))
