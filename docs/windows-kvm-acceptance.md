@@ -152,3 +152,14 @@ to grant the non-admin setup account read access to the existing verified ISO,
 which is QEMU-owned. No installation, automatic retirement or fresh model-task
 success is claimed at this checkpoint. The container also reports its preexisting
 pnpm artifact warning; plugin installation and validation nevertheless passed.
+
+At source checkpoint `9d7c4cd`, the administrator granted the setup account
+read-only access to the QEMU-owned ISO. Hermes then installed that exact commit,
+refreshed authenticated preflight and completed `build --apply`. The build
+verified both media hashes, generated private bootstrap inputs and role keys,
+created the pinned viewer environment, and recorded its artifact receipt. A
+separate Hermes command imported the completed build checkpoint successfully.
+No VM disk existed afterward: domain registration and boot remain separate stages.
+Both macOS and Ubuntu CI passed on this source checkpoint. The next live handoff
+is administrator registration of the separate stopped guest; clean guest boot,
+hardening, final capture and automatic retirement are still pending.
