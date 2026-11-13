@@ -61,6 +61,10 @@ def diagnose(config, permission_mode="standard"):
     add('viewer','pass' if live else 'warn','viewer_running' if live else 'viewer_offline',
         '' if live else 'Optional: start the loopback viewer and open its private access link. The native provider does not require it.')
     remote = status(config)
+    if remote.get('host_reachable') and remote.get('code') == 'guest_profile_mismatch':
+        add('guest', 'fail', 'guest_profile_mismatch',
+            'Match guest_profile in the saved plan, plugin settings and configured host relay. Do not bypass the guest OS check.')
+        return result()
     if not remote.get('host_reachable') or remote.get('code'):
         code=remote.get('code')
         code=code if code in {'host_unreachable','ssh_connection_failed','invalid_host_response'} else 'host_unreachable'

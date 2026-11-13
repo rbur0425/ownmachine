@@ -22,6 +22,18 @@ class WorkspaceTests(unittest.TestCase):
             self.assertNotIn(name,result)
         self.assertEqual(status(Config(host_alias='example-mac'))['code'],'guest_profile_mismatch')
 
+    @patch('ownmachine.workspace.subprocess.run')
+    def test_nonrunning_linux_guest_preserves_reachable_host_and_vm_state(self, run):
+        for state in ('absent', 'stopped', 'provisioning', 'lume_not_installed', 'not_probed'):
+            with self.subTest(state=state):
+                run.return_value = subprocess.CompletedProcess([], 0, json.dumps({
+                    'vm_state': state, 'lume_installed': True, 'driver_state': 'vm_not_running'}), '')
+                result = status(Config(host_alias='example-mac', guest_profile='omarchy'))
+                self.assertTrue(result['host_reachable'])
+                self.assertEqual(result['vm_state'], state)
+                self.assertFalse(result['driver_ready'])
+                self.assertNotIn('code', result)
+
     def setUp(self):
         self.config = Config(host_alias='ownmachine-studio')
 

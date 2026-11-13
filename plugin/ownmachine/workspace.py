@@ -26,6 +26,14 @@ def status(config):
         state = state if isinstance(state, str) and state in states else 'not_probed'
         flags = {key: data.get(key) is True for key in
                  ('guest_reachable', 'accessibility', 'screen_recording', 'capture_consent_verified')}
+        # A stopped/absent guest cannot report its OS through the guest probe.
+        # Preserve the reachable host and VM diagnosis instead of inventing an
+        # OS mismatch. Running guests still require the exact profile below.
+        if data.get('vm_state') in {'stopped', 'provisioning', 'absent', 'lume_not_installed', 'not_probed'}:
+            return {'host_reachable': True, 'lume_installed': data.get('lume_installed') is True,
+                    'vm_state': data['vm_state'], 'driver_ready': False,
+                    'driver_state': 'vm_not_running', 'viewer_state': 'not_probed',
+                    'controller': 'not_initialized'}
         linux = data.get('guest_os') == 'linux' and data.get('guest_profile') == 'omarchy'
         if linux != (config.guest_profile == 'omarchy'):
             return {'host_reachable': True, 'driver_ready': False, 'code': 'guest_profile_mismatch'}
