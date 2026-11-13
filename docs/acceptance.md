@@ -16,6 +16,7 @@ limits without publishing deployment inventories or raw operator logs.
 | macOS model control | Safari reached Google after operator-reviewed recovery; not an uninterrupted or background-only pass. | [macOS run](macos-cold-start-acceptance.md) |
 | Security maintenance | Listing/log redaction, Linux cold start, combined firewall checks and optional guest-to-host SSH restriction passed. Later redaction build was not redeployed on the macOS test host. | [Maintenance](security-maintenance-acceptance.md) |
 | Rolling update | Zero pending migrations after update/restart; signed repository/prerequisite repair was needed. Future rolling updates remain unqualified. | [Maintenance](security-maintenance-acceptance.md) |
+| Fresh Hermes plugin installation | Empty Docker homes, pinned Git installation, dependencies, setup/reminder state and installed-plugin validation passed. Native-provider capture passed against an existing guest; no new guest provisioning or model task. | [Fresh Hermes follow-up](omarchy-guided-acceptance.md#fresh-hermes-installation-follow-up) |
 | Automated checks | CI and package validation apply only to their exact commit. Use current PR checks, not an older report's test count. | [CI procedure](ci.md) |
 
 ## Earlier evidence and limits
