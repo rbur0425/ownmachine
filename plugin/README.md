@@ -155,7 +155,7 @@ No secret is declared in `requires_env` or `config_schema`; if future functional
 needs one, it must use the applicable Hermes secret-scope or credentialed-request
 API, not direct environment or credential-file reads. Runtime and setup SSH children inherit only PATH, HOME, SSH_AUTH_SOCK and LANG.
 The setup-key retirement check additionally fixes LANG and LC_ALL to C. Reminder
-CLI children inherit only PATH, HOME and LANG, plus the active profile's HERMES_HOME;
+scheduling CLI children inherit only PATH, HOME and LANG, plus the active profile's HERMES_HOME;
 provider keys and Python injection variables are not forwarded. Hermes must be
 installed in the running Python environment, not supplied only through PYTHONPATH.
 Screenshot verification declares Pillow>=11.0.0,<14 and reports a setup error if that
