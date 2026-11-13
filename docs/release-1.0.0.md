@@ -1,4 +1,4 @@
-# OwnMachine Omarchy — release candidate notes
+# OwnMachine v1.0.0 — release candidate notes
 
 This candidate adds ARM64 Omarchy foreground desktop support on Apple Silicon,
 Hermes-driven resumable installation, and VNC credential isolation fixes for

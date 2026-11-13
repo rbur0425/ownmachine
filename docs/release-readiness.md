@@ -1,7 +1,7 @@
 # Release readiness
 
 PR 15 adds the tested Omarchy foreground configuration; macOS remains the default.
-The candidate release is **on hold** pending explicit approval. A pushed review
+The v1.0.0 candidate release is **on hold** pending explicit approval. A pushed review
 branch or passing CI is not a published release or catalog admission.
 
 ## Before promotion
@@ -12,7 +12,7 @@ branch or passing CI is not a published release or catalog admission.
 - Review the [acceptance overview](acceptance.md) and its limitations. Fresh
   installation and model task results have different scopes from historical host
   reboot tests. No new reboot is implied by documentation changes.
-- Follow [release upgrade notes](omarchy-release-candidate.md): rebuild patched Lume, save work,
+- Follow [release upgrade notes](release-1.0.0.md): rebuild patched Lume, save work,
   shut down, never resume old saved state, cold-start through the relay and verify.
 - Keep source, dependency provenance, license, screenshots and catalog pins
   consistent. [Catalog preparation](catalog/README.md) remains separate from

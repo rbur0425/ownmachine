@@ -10,7 +10,7 @@ private browser viewer lets you watch, pause it, reserve the workspace for human
 mouse/keyboard input, and return control. Your personal host desktop is not the
 computer-use target.
 
-This is a preview, not an approved Hermes catalog listing. It requires Hermes
+This is the unreleased v1.0.0 candidate, not an approved Hermes catalog listing. It requires Hermes
 0.23.1 or later (release testing on 0.23.1; current-upstream validation
 is recorded in the catalog readiness report), OpenSSH, and a compatible Apple Silicon Mac
 running the Lume guest. Hermes may run on another machine; a Linux Docker runtime

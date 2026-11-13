@@ -15,7 +15,7 @@ unrestricted sudo. Guest root remains trusted and can alter its own policy.
 
 The Hermes-aware suite passed 396 tests with zero skips at that revision. Linux
 0.47.19 provenance was reverified; pin/identity and upgrade policy remain in the
-[plan](omarchy-plan.md) and [release notes](omarchy-release-candidate.md).
+[plan](omarchy-plan.md) and [release notes](release-1.0.0.md).
 Existing users must rebuild, shut down and cold-start through the relay; never
 resume a pre-update saved state. See [security requirements](../SECURITY.md).
 

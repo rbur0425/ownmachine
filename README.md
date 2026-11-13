@@ -21,7 +21,7 @@ control back when you're ready.
 > official Nous Research product. Setup includes administrator firewall installation
 > and manual macOS permission grants. It is not yet listed in the Hermes catalog.
 
-> **Unreleased PR #15:** Omarchy foreground desktop support on Apple Silicon has passed fresh installation and real-model acceptance. macOS remains the default. Background Omarchy control remains experimental; see the [tested scope and final evidence](docs/omarchy-final-acceptance.md). The v0.7.0 downloads below do not include Omarchy.
+> **v1.0.0 candidate — unreleased PR #15:** Omarchy foreground desktop support on Apple Silicon has passed fresh installation and real-model acceptance. macOS remains the default. Background Omarchy control remains experimental; see the [tested scope and final evidence](docs/omarchy-final-acceptance.md). The v0.8.0 downloads below do not include Omarchy.
 
 ## A verified desktop task
 

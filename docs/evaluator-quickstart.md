@@ -24,7 +24,7 @@ The agent and viewer share **one underlying control directory**, not their homes
 Use persistent mounts and stable paths; a path inside a container may differ from
 its host path. On the Mac, use the same canonical VM storage path in the plan and
 relay configuration. `local` means the machine running Hermes, not your browser.
-The v0.7.0 release supports macOS; this unreleased tree also supports the tested
+The v0.8.0 release supports macOS; this unreleased v1.0.0 candidate also supports the tested
 Omarchy foreground configuration described below. Defaults are 4 CPUs, 8 GiB RAM, 64 GiB sparse disk,
 1900×1200 display and a configurable 60 GiB provisioning free-space budget.
 
