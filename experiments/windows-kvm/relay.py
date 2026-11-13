@@ -100,6 +100,11 @@ def main():
 
 if __name__=='__main__':
     try:main()
+    except subprocess.CalledProcessError as exc:
+        # virsh diagnostics contain no guest credentials; the plugin status
+        # parser still exposes only its strict readiness allowlist.
+        print(json.dumps(dict(ok=False,error='libvirt_operation_failed',detail=(exc.stderr or '')[:1000])),file=sys.stderr)
+        sys.exit(1)
     except Exception as exc:
         print(json.dumps(dict(ok=False,error=str(exc) if isinstance(exc,ValueError) else type(exc).__name__)),file=sys.stderr)
         sys.exit(1)

@@ -13,7 +13,7 @@ Hermes uses an isolated profile with `computer_use.backend: ownmachine` and plug
 ## Component sequence
 
 1. Review/install host dependencies, render an operator-owned host configuration and generate separate keys.
-2. Review `prepare-host-security.py` and `enable-runtime-ssh.py` with administrator access. They are spike tools, not idempotent production migration tools. Verify the resulting domain ACL and private console using `check-host-boundaries.py` (actual open/connect probes).
+2. Review `prepare-host-security.py` and `enable-runtime-ssh.py` with administrator access. They are spike tools, not idempotent production migration tools. Apply the reviewed `update-network-acl.py` for the viewer’s dedicated-network lifecycle dependencies; never reuse that network for other VMs. Verify the resulting domain ACL and private console using `check-host-boundaries.py` (actual open/connect probes).
 3. Obtain Windows media from Microsoft under an appropriate license. The experiment used Enterprise evaluation; it does not qualify Pro. Verify the pinned driver artifact and Sigstore identity recorded in the acceptance report.
 4. `render-inputs.py --help` describes private unattended seed generation; evaluation terms require explicit acceptance. It wipes guest disk zero, creates a standard desktop account and temporary setup administrator, and performs one initial automatic sign-in. Use only a newly created disposable domain. Never attach this seed to an existing VM.
 5. `render-host.py` renders domain/network XML without defining them. Review XML, allocate the configured sparse disk, build the seed ISO with label `OWNBOOT`, and define only the chosen network/domain. ISO boot may require a console keypress.
