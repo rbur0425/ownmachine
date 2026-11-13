@@ -95,6 +95,7 @@ class OwnMachineBackend(ComputerUseBackend):
         self.tokens = {}
         self.element_actions = {}
         self.element_roles = {}
+        self.combo_edit_tokens = set()
         self.target = None
         self.has_pixels = False
         self.capture_id = None
@@ -204,9 +205,25 @@ class OwnMachineBackend(ComputerUseBackend):
         if raw and (not 0 < width <= 8192 or not 0 < height <= 8192 or width*height > 32000000):
             raise ValueError('capture_dimensions_invalid')
         elements = []
+        rows = {row.get('element_index'): row for row in data.get('elements', [])
+                if type(row.get('element_index')) is int}
+        combo_edit_tokens = set()
         for row in data.get('elements', []):
             index, token = row.get('element_index'), row.get('element_token')
             if type(index) is not int or not isinstance(token,str) or not re.fullmatch(r's[0-9a-f]{8}:[0-9]+',token): continue
+            attributes = {k:row[k] for k in ('actions','value','enabled','focused') if k in row}
+            if self.config.guest_profile == 'windows' and row.get('role') == 'Edit':
+                parent, seen = row.get('parent_index'), {index}
+                while type(parent) is int and parent in rows and parent not in seen:
+                    seen.add(parent)
+                    if rows[parent].get('role') == 'ComboBox':
+                        # CuaDriver routes native combo child edits to option selection,
+                        # not free text. Never dispatch that misleading capability.
+                        combo_edit_tokens.add(token)
+                        if isinstance(attributes.get('actions'), list):
+                            attributes['actions'] = [a for a in attributes['actions'] if a != 'set_value']
+                        break
+                    parent = rows[parent].get('parent_index')
             frame = row.get('frame') or {}
             # AX frames are global points; expose only proven screenshot-local
             # bounds. AX-only captures deliberately have unknown pixel bounds.
@@ -226,13 +243,14 @@ class OwnMachineBackend(ComputerUseBackend):
             else: bounds=(0,0,0,0)
             elements.append(UIElement(index=index+1, role=row.get('role',''), label=row.get('label') or row.get('value') or '',
                 bounds=bounds, app=app or '', pid=(target or {}).get('pid',0), window_id=(target or {}).get('window_id',0),
-                element_token=token, attributes={k:row[k] for k in ('actions','value','enabled','focused') if k in row}))
+                element_token=token, attributes=attributes))
         if before != self.lease.status()['generation']: raise LeaseError('stale_capture')
         self.generation = before
         self.has_pixels = bool(raw)
         self.capture_id = data.get("capture_id") if raw else None
         self.pixel_size = (width, height)
         self.target = target or {'scope':'desktop'}
+        self.combo_edit_tokens = combo_edit_tokens
         self.tokens = {e.index:e.element_token for e in elements}
         self.element_actions = {e.index:e.attributes['actions'] for e in elements if isinstance(e.attributes.get('actions'),list)}
         self.element_roles = {e.index:e.role for e in elements}
@@ -241,6 +259,8 @@ class OwnMachineBackend(ComputerUseBackend):
         output_mode = mode
         note = 'Pixel coordinates are local to this exact screenshot. Take a fresh capture after every pixel click; its capture binding is single-use. Element clicks invoke AXPress, not mouse focus. For a field without AXPress, use set_value or a fresh screenshot-grounded pixel click. Popup set_value selects only an existing menu option: inspect the open menu first, never guess a destination. File-location popups can list ancestors rather than destinations; use the dialog navigation controls or keyboard shortcuts for other folders. Any operator_review_required result overrides generic retry advice; stop until the operator inspects and acknowledges it. Each new capture replaces earlier tokens.\n'
         note += '\n'.join(f'#{e.index} actions: '+', '.join(str(a) for a in e.attributes['actions']) for e in elements if 'actions' in e.attributes)
+        if combo_edit_tokens:
+            note += '\nWindows editable ComboBox child fields (including file names) do not support set_value through this driver. To enter new text, capture the exact dialog, confirm the edit has keyboard focus, and request explicitly foreground type/key input; verify the full value before submitting. Never infer focus from an element index. This does not authorize a background-to-foreground fallback or override an operator/control gate.\n'
         if self.config.guest_profile == 'windows':
             note = note.replace('Element clicks invoke AXPress, not mouse focus. For a field without AXPress,', 'Element clicks use UI Automation invocation, not mouse focus. For a field without an invoke action,')
             note += '\nWindows: launch apps using list_apps then focus_app with the exact discovered name or identity; do not guess Start/taskbar coordinates. Use list_windows and capture with explicit pid/window_id to select the app or its newly opened dialog. App display names can differ from executable window names. Desktop/shell foreground activation may be refused; never bypass that refusal. Element actions use Windows UI Automation, not AXPress; only use advertised actions. A fresh capture is required after launch or dialog changes.\n'
@@ -279,6 +299,10 @@ class OwnMachineBackend(ComputerUseBackend):
             if name not in self.transport.tools or (schema.get('additionalProperties') is False and set(args)-set(props)):
                 raise ValueError('unsupported_action')
             with self.lease.write(self.generation):
+                if name == 'set_value' and args.get('element_token') in self.combo_edit_tokens:
+                    return ActionResult(False, name, code='windows_combo_edit_requires_keyboard',
+                        message='No input was dispatched. This editable ComboBox child cannot accept free text through driver set_value. Take a fresh exact-dialog capture and confirm keyboard focus before explicitly requesting foreground typing; inspect the value before submission. No automatic input-mode fallback is authorized.',
+                        meta={'dispatched': False})
                 reply = self._call(name,args)
                 data = structured(reply)
                 if reply.get('isError') is True or data.get('ok') is False:

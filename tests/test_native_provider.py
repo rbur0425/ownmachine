@@ -266,6 +266,59 @@ b.stop()
   self.assertEqual(self.b.key('ctrl+s',delivery_mode='foreground').code,'windows_modifier_keys_unsupported')
   self.assertEqual(len(self.fake.calls),count)
 
+ def combo_edit_fixture(self, profile='windows'):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile=profile)
+  original=self.fake.call
+  def call(name,args):
+   reply=original(name,args)
+   if name=='get_window_state':
+    reply['structuredContent']['elements']=[
+     {'element_index':0,'element_token':'s00000001:0','role':'ComboBox','actions':['set_value']},
+     {'element_index':1,'element_token':'s00000001:1','role':'Edit','parent_index':0,'actions':['set_value'],'focused':True},
+     {'element_index':2,'element_token':'s00000001:2','role':'Edit','actions':['set_value']}]
+   return reply
+  self.fake.call=call
+  self.b.lease.transfer('agent')
+  return self.b.capture(app='Editor')
+
+ def test_windows_combo_edit_capability_is_filtered_before_dispatch(self):
+  cap=self.combo_edit_fixture()
+  self.assertNotIn('set_value',cap.elements[1].attributes['actions'])
+  self.assertIn('set_value',cap.elements[0].attributes['actions'])
+  self.assertIn('set_value',cap.elements[2].attributes['actions'])
+  self.assertIn('confirm the edit has keyboard focus',cap.note)
+  count=len(self.fake.calls)
+  result=self.b.set_value('new-file.txt',element=2)
+  self.assertEqual(result.code,'windows_combo_edit_requires_keyboard')
+  self.assertFalse(result.meta['dispatched']);self.assertEqual(len(self.fake.calls),count)
+  self.assertFalse(self.b.lease.status()['pending'])
+  self.assertTrue(self.b.type_text('new-file.txt',delivery_mode='foreground').ok)
+  self.assertTrue(self.b.set_value('ordinary edit',element=3).ok)
+  self.assertTrue(self.b.set_value('existing option',element=1).ok)
+
+ def test_windows_combo_edit_preflight_preserves_control_gates(self):
+  self.combo_edit_fixture();self.b.lease.transfer('human')
+  count=len(self.fake.calls)
+  self.assertEqual(self.b.set_value('x',element=2).code,'human_takeover')
+  self.assertEqual(len(self.fake.calls),count)
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  self.fake.fail=True
+  self.assertEqual(self.b.type_text('x').code,'transport_outcome_unknown')
+  self.fake.fail=False;self.b.capture(app='Editor')
+  self.assertEqual(self.b.set_value('x',element=2).code,'transport_outcome_unknown')
+  self.assertTrue(self.b.lease.status()['pending'])
+
+ def test_combo_edit_filter_is_windows_only_and_capture_scoped(self):
+  cap=self.combo_edit_fixture('macos')
+  self.assertIn('set_value',cap.elements[1].attributes['actions'])
+  self.assertTrue(self.b.set_value('x',element=2).ok)
+  self.combo_edit_fixture()
+  self.fake.call=FakeTransport.call.__get__(self.fake,FakeTransport)
+  self.b.capture(app='Editor')
+  self.assertFalse(self.b.combo_edit_tokens)
+  self.assertTrue(self.b.set_value('x',element=1).ok)
+
  def test_windows_uia_invoke_action_is_supported(self):
   from dataclasses import replace
   self.b.config=replace(self.config,guest_profile='windows')
