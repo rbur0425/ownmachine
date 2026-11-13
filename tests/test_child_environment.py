@@ -6,7 +6,7 @@ import subprocess
 import sys
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'plugin'))
 from ownmachine import setup_transport as setup, reminder_scheduler as scheduler
@@ -79,9 +79,10 @@ class ChildEnvironmentTests(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs['env'], {'HERMES_HOME': '/example/active'})
 
     def test_missing_pillow_reports_actionable_error_before_capture_or_retirement(self):
-        with patch.dict(sys.modules, {'PIL': None, 'PIL.Image': None}), \
-                patch.object(setup, 'dispatch', return_value={'ok': True}) as dispatch, \
-                patch('ownmachine.provider.OwnMachineBackend') as backend:
+        backend = Mock()
+        with patch.dict(sys.modules, {'PIL': None, 'PIL.Image': None,
+                                     'ownmachine.provider': SimpleNamespace(OwnMachineBackend=backend)}), \
+                patch.object(setup, 'dispatch', return_value={'ok': True}) as dispatch:
             with self.assertRaisesRegex(ValueError, 'requires_pillow_install_declared_plugin_dependencies'):
                 acceptance.finish(self.ctx, self.plan, apply=True)
         self.assertEqual([call.args[2] for call in dispatch.call_args_list], ['verify'])
