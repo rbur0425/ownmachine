@@ -1,6 +1,6 @@
 """Native Hermes contract; exact guest targets, durable write gate, no CLI fallback."""
 import base64
-import fcntl
+import threading
 import json
 import io
 import math
@@ -11,6 +11,7 @@ import time
 import uuid
 from pathlib import Path
 from tools.computer_use.backend import ComputerUseBackend, ComputerUseProvider, CaptureResult, ActionResult, UIElement
+from .session_lock import serialized
 from .config import Config
 from .lease import Lease, LeaseError
 from .transport import MCPTransport, TransportError
@@ -85,6 +86,8 @@ class OwnMachineBackend(ComputerUseBackend):
         self.transport = transport or MCPTransport(config)
         self.session = 'ownmachine-'+uuid.uuid4().hex[:12]
         self.owner = None
+        self._operation_lock = threading.RLock()
+        self._connected = False
         self._clear()
 
     def _clear(self):
@@ -102,21 +105,14 @@ class OwnMachineBackend(ComputerUseBackend):
     def is_available(self): return shutil.which('ssh') is not None
 
     def start(self):
-        if self.owner: return
-        self.owner = open(Path(self.config.control_dir)/'session.lock', 'a')
-        try:
-            fcntl.flock(self.owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self._connect()
-        except Exception:
-            self.stop()
-            raise
+        # Hermes caches backends in long-lived gateways. Connect only on use.
+        return None
 
     def stop(self):
-        # Closing the authenticated stream releases driver session resources.
-        self.transport.stop()
-        if self.owner:
-            self.owner.close(); self.owner = None
-        self._clear()
+        with self._operation_lock:
+            self.transport.stop()
+            self._connected = False
+            self._clear()
 
     def _call(self, name, args):
         schema = self.transport.tools.get(name)
@@ -135,10 +131,10 @@ class OwnMachineBackend(ComputerUseBackend):
     def _read(self, name, args=None):
         # Reconnect only for an explicitly requested read. A failed input is
         # never replayed, and its durable uncertainty marker survives this.
-        if self.owner and hasattr(self.transport, 'process') and self.transport.process is None:
+        if not self._connected or (hasattr(self.transport, 'process') and self.transport.process is None):
             self._clear()
-            self.session = 'ownmachine-'+uuid.uuid4().hex[:12]
             self._connect()
+            self._connected = True
         reply = self._call(name, args or {})
         if reply.get('isError'): raise RuntimeError('driver_read_failed')
         return reply
@@ -159,12 +155,15 @@ class OwnMachineBackend(ComputerUseBackend):
             self.transport.stop()
             raise
 
+    @serialized
     def list_apps(self):
         return structured(self._read('list_apps')).get('apps', [])
 
+    @serialized
     def list_windows(self):
         return structured(self._read('list_windows')).get('windows', [])
 
+    @serialized
     def capture(self, mode='som', app=None, pid=None, window_id=None):
         self._clear()
         before = self.lease.status()['generation']
@@ -334,6 +333,7 @@ class OwnMachineBackend(ComputerUseBackend):
         if element not in self.tokens: raise ValueError('stale_element')
         return {'element_token':self.tokens[element]}
 
+    @serialized
     def click(self, *, element=None,x=None,y=None,button='left',click_count=1,modifiers=None,delivery_mode=None,bring_to_front=False):
         if modifiers or button not in {'left','right'} or click_count not in {1,2} or (button=='right' and click_count!=1):
             return ActionResult(False,'click',code='unsupported_action')
@@ -352,14 +352,17 @@ class OwnMachineBackend(ComputerUseBackend):
             return self._input(name,args,delivery_mode,bring_to_front)
         except ValueError as e: return ActionResult(False,name,code=str(e))
 
+    @serialized
     def type_text(self,text,*,delivery_mode=None,bring_to_front=False):
         return self._input('type_text',{'text':text},delivery_mode,bring_to_front)
 
+    @serialized
     def key(self,keys,*,delivery_mode=None,bring_to_front=False):
         parts = keys.split('+')
         return self._input('hotkey' if len(parts)>1 else 'press_key',
             {'keys':parts} if len(parts)>1 else {'key':keys},delivery_mode,bring_to_front)
 
+    @serialized
     def scroll(self,*,direction,amount=3,element=None,x=None,y=None,modifiers=None,delivery_mode=None,bring_to_front=False):
         if modifiers: return ActionResult(False,'scroll',code='unsupported_action')
         try:
@@ -368,6 +371,7 @@ class OwnMachineBackend(ComputerUseBackend):
             return self._input('scroll',args,delivery_mode,bring_to_front)
         except ValueError as e: return ActionResult(False,'scroll',code=str(e))
 
+    @serialized
     def set_value(self,value,element=None):
         try:
             if element is None: raise ValueError('element_required')
@@ -377,6 +381,7 @@ class OwnMachineBackend(ComputerUseBackend):
     def drag(self,**kwargs):
         return ActionResult(False,'drag',code='unsupported_action',message='Drag is not supported in this release.')
 
+    @serialized
     def focus_app(self,app,raise_window=False):
         try:
             matches = [a for a in self.list_apps() if app.lower() in {str(a.get('name','')).lower(),str(a.get('bundle_id','')).lower()}]

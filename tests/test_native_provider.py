@@ -65,9 +65,51 @@ class NativeProviderTests(unittest.TestCase):
   self.assertEqual(len(self.fake.calls),count+1);self.assertTrue(self.b.lease.status()['pending'])
   self.fake.fail=False;self.b.capture(app='Editor');count=len(self.fake.calls)
   self.assertEqual(self.b.type_text('x').code,'transport_outcome_unknown');self.assertEqual(len(self.fake.calls),count)
- def test_one_session_per_shared_vm(self):
+ def test_idle_backend_does_not_lock_out_other_session(self):
   other=OwnMachineBackend(self.config,transport=FakeTransport())
-  with self.assertRaises(BlockingIOError):other.start()
+  other.start();self.addCleanup(other.stop)
+  self.b.lease.transfer('agent')
+  self.b.capture(app='Editor')
+  other.capture(app='Editor')
+  count=len(self.fake.calls)
+  self.assertEqual(self.b.type_text('stale').code,'capture_required')
+  self.assertEqual(len(self.fake.calls),count)
+  self.b.capture(app='Editor')
+  self.assertTrue(self.b.type_text('fresh').ok)
+
+ def test_active_operation_still_excludes_second_backend(self):
+  from ownmachine.session_lock import operation
+  other=OwnMachineBackend(self.config,transport=FakeTransport())
+  other.start();self.addCleanup(other.stop)
+  with operation(self.b):
+   with self.assertRaisesRegex(RuntimeError,'ownmachine_operation_busy'):
+    other.capture(app='Editor')
+  other.capture(app='Editor')
+
+ def test_idle_process_does_not_block_and_invalidates_old_capture(self):
+  import subprocess,os
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  script = """
+import sys
+from test_native_provider import FakeTransport,OwnMachineBackend,Config
+b=OwnMachineBackend(Config(host_alias='test',control_dir=sys.argv[1]),transport=FakeTransport())
+b.start();b.capture(app='Editor')
+print('captured',flush=True)
+sys.stdin.readline()
+b.stop()
+"""
+  env=dict(os.environ, PYTHONPATH=os.pathsep.join([str(Path(__file__).parent),str(Path(__file__).parents[1]/'plugin'),os.environ.get('PYTHONPATH','')]))
+  child=subprocess.Popen([sys.executable,'-c',script,self.tmp.name],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=env)
+  try:
+   self.assertEqual(child.stdout.readline().strip(),'captured')
+   self.assertIsNone(child.poll())
+   self.assertEqual(self.b.type_text('stale').code,'capture_required')
+   self.b.capture(app='Editor')
+   self.assertTrue(self.b.type_text('fresh').ok)
+  finally:
+   child.communicate('\n',timeout=15)
+  self.assertEqual(child.returncode,0)
+
  def test_invalid_capture_disarms_previous_target(self):
   self.b.lease.transfer('agent');self.b.capture(app='Editor')
   with self.assertRaises(ValueError):self.b.capture(app='Missing')

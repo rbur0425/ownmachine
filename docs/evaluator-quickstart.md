@@ -54,6 +54,9 @@ OwnMachine v1.0.0 supports macOS and the tested
 Omarchy foreground configuration described below. Defaults are 4 CPUs, 8 GiB RAM, 64 GiB sparse disk,
 1900×1200 display and a configurable 60 GiB provisioning free-space budget.
 
+Before final verification, complete the [runtime/provider configuration](wizard-quickstart.md#configure-the-runtime-before-final-verification)
+in the same agent profile; setup transport settings alone are insufficient.
+
 ## Install the reviewed release
 
 Check out the v1.0.0 source tag using the README instructions. If using a
@@ -327,10 +330,9 @@ The ordered handoffs are:
    Do not hide these decisions by weakening protection. Independently verify the
    visible result and saved file before marking acceptance complete.
 
-Continue follow-up desktop tasks in the same Hermes conversation. The provider
-holds an exclusive workspace session; a second conversation may be refused while
-the first still owns it. For CLI follow-ups use Hermes `--resume SESSION_ID`, or
-end the owning session through Hermes before starting another. After a VM restart,
+Use one conversation at a time for desktop tasks. Active operations are serialized;
+idle cached backends do not lock out another conversation. After another backend
+operates, take a fresh capture before input. After a VM restart,
 the first capture can report `transport_outcome_unknown` for the closed stream.
 Inspect the VM, then explicitly request a new read-only capture to reconnect;
 never replay an uncertain input. Control remains paused until you return it.

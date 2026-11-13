@@ -11,6 +11,7 @@ from setup_support import module
 retirement=module('tested_retirement','scripts/retire-setup-key.py')
 from ownmachine import setup_acceptance as a, setup_transport as t
 from test_onboarding_commands import Context
+from test_native_provider import OwnMachineBackend
 
 
 class RetirementTests(unittest.TestCase):
@@ -84,3 +85,36 @@ class RetirementTests(unittest.TestCase):
             self.assertEqual(json.loads(text)['stage'],'complete')
             self.assertEqual(code,0)
             dispatch.assert_not_called()
+
+    @unittest.skipIf(OwnMachineBackend is None, 'Requires installed Hermes public provider contract')
+    def test_local_blank_plan_alias_uses_explicit_runtime_alias(self):
+        from ownmachine import onboarding as o
+        from ownmachine.provider import OwnMachineBackend
+        from test_native_provider import FakeTransport
+        with tempfile.TemporaryDirectory() as tmp:
+            plan=dict(o.DEFAULTS,target='local',control_dir=tmp)
+            ctx=Context(dict(host_alias='paired-local-agent',control_dir=tmp))
+            transport=FakeTransport();original=transport.call
+            def call(name,args):
+                return original('get_window_state' if name=='get_desktop_state' else name,args)
+            transport.call=call
+            backend=OwnMachineBackend(o.configuration(ctx),transport=transport)
+            with patch('ownmachine.provider.OwnMachineBackend',return_value=backend):
+                proof=a.capture(ctx,plan)
+            self.assertEqual(proof['width'],100)
+            bound=a.identity(ctx,plan)
+            ctx.settings['host_alias']='another-agent'
+            self.assertFalse(a.matches(ctx,plan,bound))
+            plan['target']='remote'
+            with self.assertRaisesRegex(ValueError,'runtime_plan_mismatch'):
+                a.capture(ctx,plan)
+
+    def test_client_capture_failure_has_separate_actionable_status(self):
+        from test_onboarding_commands import args
+        ctx=Context(dict(setup_host_alias='setup',setup_source_sha256='a'*64))
+        plan=dict(host_alias='agent',vm_name='vm',control_dir='/control')
+        with patch.object(t,'dispatch',return_value={'ok':True}),patch.object(a,'capture',side_effect=ValueError('runtime_plan_mismatch')):
+            with self.assertRaises(ValueError):a.finish(ctx,plan,True)
+        message=a.failure_guidance(ctx,args('setup','--run','verify'),ValueError())
+        self.assertIn('Host verification passed',message)
+        self.assertIn('NOT been retired',message)
