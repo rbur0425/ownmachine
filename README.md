@@ -13,15 +13,15 @@ and working environment. You decide what goes into that workspace. Watch it in
 your browser, pause the agent, take over with your mouse and keyboard, then hand
 control back when you're ready.
 
-[![OwnMachine 15-second animated teaser](docs/media/ownmachine-teaser.gif)](https://raw.githubusercontent.com/rbur0425/ownmachine/v0.8.0/docs/media/ownmachine-teaser.mp4)
+[![OwnMachine 15-second animated teaser](docs/media/ownmachine-teaser.gif)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.0/docs/media/ownmachine-teaser.mp4)
 
-**[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v0.8.0/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
+**[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.0/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
 
-> **v0.8.0 preview — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
+> **v1.0.0 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
 > official Nous Research product. Setup includes administrator firewall installation
 > and manual macOS permission grants. It is not yet listed in the Hermes catalog.
 
-> **v1.0.0 candidate — unreleased PR #15:** Omarchy foreground desktop support on Apple Silicon has passed fresh installation and real-model acceptance. macOS remains the default. Background Omarchy control remains experimental; see the [tested scope and final evidence](docs/omarchy-final-acceptance.md). The v0.8.0 downloads below do not include Omarchy.
+> **Omarchy foreground support:** Omarchy foreground desktop support on Apple Silicon has passed fresh installation and real-model acceptance. macOS remains the default. Background Omarchy control remains experimental; see the [tested scope and final evidence](docs/omarchy-final-acceptance.md).
 
 ## A verified desktop task
 
@@ -87,7 +87,7 @@ compromised host or malicious software. Read the [security model](SECURITY.md).
 | Component | Deployment |
 | --- | --- |
 | macOS desktop | A Lume VM on a compatible Apple Silicon Mac. Local laptop and dedicated Mac-host installations have been tested. |
-| Omarchy desktop (unreleased) | ARM64 guest on Apple Silicon with patched Lume; tested foreground Chromium and Mousepad control. The native input module requires explicit opt-in and a matching Hyprland ABI. |
+| Omarchy desktop | ARM64 guest on Apple Silicon with patched Lume; tested foreground Chromium and Mousepad control. The native input module requires explicit opt-in and a matching Hyprland ABI. |
 | Hermes | On the same Mac or another machine with private SSH access to the host. A separate Linux Docker runtime has been tested. |
 | Browser viewer | On a configured runtime host, reached locally or over SSH forwarding. Human input requires a reservation. |
 | Cloud Mac | Potentially suitable if it supports Lume's virtualization requirements and private SSH connectivity. Cloud-hosted Macs have not been acceptance-tested. |
@@ -106,10 +106,10 @@ Apple Silicon Mac needed for the macOS guest.
 handoffs, separate runtime identities, shared-control permissions and a verified
 Safari-to-Google task. The detailed guides below remain available for each stage.
 
-Download the checksummed full-source bundle from the
-[v0.8.0 release](https://github.com/rbur0425/ownmachine/releases/tag/v0.8.0)
-and [verify it before extraction](docs/distribution.md). It includes the setup
-scripts and browser viewer; the plugin-only bundle does not.
+Use the [v1.0.0 source tag](https://github.com/rbur0425/ownmachine/tree/v1.0.0)
+with the checkout commands below. The full source includes setup scripts and the
+browser viewer; the plugin-only package does not. See [distribution](docs/distribution.md)
+for building and verifying portable bundles from this checkout.
 
 You'll need Hermes **0.23.1 or later** (tested on 0.23.1), Python and OpenSSH,
 plus a compatible Apple Silicon Mac running macOS 13 or later. The default guest
@@ -120,7 +120,7 @@ images, caches and guest growth need headroom. See [storage and VM setup](docs/v
 ```sh
 git clone https://github.com/rbur0425/ownmachine.git
 cd ownmachine
-git checkout v0.8.0
+git checkout v1.0.0
 ```
 
 Follow the setup in order. Installing the Hermes package alone does not create
@@ -161,7 +161,7 @@ See [persistent installation and startup](docs/permanent-installation.md),
 
 ## Roadmap
 
-1. ~~Implement an Omarchy image.~~ Completed for the tested ARM64 foreground configuration in the **unreleased v1.0.0 candidate** ([scope and evidence](docs/omarchy-final-acceptance.md)).
+1. ~~Implement an Omarchy image.~~ Completed for the tested ARM64 foreground configuration in the **v1.0.0** ([scope and evidence](docs/omarchy-final-acceptance.md)).
 2. Implement an Ubuntu image.
 3. Implement a Windows VM.
 4. Test various cloud providers and record tutorials and setup guides for each.

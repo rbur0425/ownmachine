@@ -10,7 +10,7 @@ private browser viewer lets you watch, pause it, reserve the workspace for human
 mouse/keyboard input, and return control. Your personal host desktop is not the
 computer-use target.
 
-This is the unreleased v1.0.0 candidate, not an approved Hermes catalog listing. It requires Hermes
+This is OwnMachine v1.0.0; this version is not an approved Hermes catalog listing. It requires Hermes
 0.23.1 or later (release testing on 0.23.1; current-upstream validation
 is recorded in the catalog readiness report), OpenSSH, and a compatible Apple Silicon Mac
 running the Lume guest. Hermes may run on another machine; a Linux Docker runtime
@@ -56,7 +56,7 @@ isolation/toolsets: follow the dedicated-profile setup below and start a new
 session after configuration changes. `hermes ownmachine doctor --json` and
 `/ownmachine doctor` report bounded read-only readiness.
 
-**macOS remains the default; this unreleased tree also supports Omarchy foreground desktop control on Apple Silicon.** See the [final acceptance and scope](../docs/omarchy-final-acceptance.md). Background input remains experimental. The terminal
+**macOS remains the default; v1.0.0 also supports Omarchy foreground desktop control on Apple Silicon.** See the [final acceptance and scope](../docs/omarchy-final-acceptance.md). Background input remains experimental. The terminal
 wizard offers those two profiles. Use `--guest-profile omarchy` for an explicit
 noninteractive choice. Read the [Omarchy evaluator steps](../docs/evaluator-quickstart.md)
 before provisioning: operator trust/bootstrap and firewall approval remain, while

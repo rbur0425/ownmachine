@@ -5,7 +5,7 @@ including administrator handoffs and shared-control permission checks.
 This is the guided onboarding path, not a claim of one-click setup.
 Use reviewed full source or a checksum-verified release bundle on each operator
 machine. The catalog-installed `plugin/` contains no privileged installers.
-macOS is the default guest. The unreleased v1.0.0 candidate also offers ARM64
+macOS is the default guest. OwnMachine v1.0.0 also offers ARM64
 Omarchy; choose `--guest-profile omarchy` and follow the [Linux operator guide](linux-development.md).
 Ubuntu and Windows are not available images.
 

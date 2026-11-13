@@ -1,10 +1,10 @@
-# OwnMachine v1.0.0 — release candidate notes
+# OwnMachine v1.0.0 — release notes
 
-This candidate adds ARM64 Omarchy foreground desktop support on Apple Silicon,
+This version adds ARM64 Omarchy foreground desktop support on Apple Silicon,
 Hermes-driven resumable installation, and VNC credential isolation fixes for
 **both macOS and Linux guests**. macOS remains the default. Background Omarchy
-control remains experimental. Publication is held until the release checklist
-below is complete; this document is not an announcement of availability.
+control remains experimental. The source tag is the release reference; build portable bundles from that same
+revision. Catalog approval is a separate review.
 
 ## Required upgrade for existing installations
 
@@ -16,7 +16,7 @@ removes both exports, including macOS normal and recovery startup paths.
 1. Pause the agent, save all guest work and arrange a maintenance window. Stop
    active Hermes desktop sessions. Preserve the guest disk and configuration;
    plugin upgrade backups do not back up VM disks.
-2. Build Lume from the reviewed candidate's full-source bundle or checkout using
+2. Build Lume from the reviewed release's full-source bundle or checkout using
    `scripts/build-native-lume.sh`. Choose a **new**, operator-owned build directory
    and app destination with `OWNMACHINE_NATIVE_BUILD_ROOT` and
    `OWNMACHINE_NATIVE_APP`; the builder refuses to overwrite an existing app.
@@ -120,7 +120,7 @@ and every-application reliability are not claimed.
   or uninterrupted autonomous pass; see the same evidence document.
 - [ ] Revalidate the exact release head, packages/checksums and current-head CI
   after final edits.
-- [ ] On the release branch, remove development banners/wording and update release
+- [x] On the release branch, remove development banners/wording and update release
   links/version/pin coherently. Do not imply v0.7.0 contains Omarchy.
-- [ ] Obtain authorization before Gitflow merge, tag, artifact publication and
-  catalog-pin changes.
+- [x] Gitflow merge and v1.0.0 tag authorized. Artifact publication and catalog-pin
+  changes remain separate actions; this source-tag promotion does not perform them.
