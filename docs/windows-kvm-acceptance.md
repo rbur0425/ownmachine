@@ -116,3 +116,15 @@ Final local regression validation: the complete 448-test suite passed. Installed
 and CLI-registration warnings. The live deployment preceded the last restart
 revalidation safeguard; that safeguard is unit-tested, while another physical
 host/guest restart is not claimed here.
+
+### Authenticated onboarding preflight
+
+Installed Hermes executed Windows preflight on the Linux host through a separate,
+temporarily paired forced-command key. The endpoint allowed only preflight and
+progress, and bound requests to the reviewed source and saved plan. The remote
+preflight returned `observed`; a subsequent command imported that authenticated
+checkpoint, and `setup --next` advanced to `await_build`. Reusing the request nonce
+was refused. No VM was provisioned or changed by this test. The exact temporary
+key was removed afterward while preserving unrelated authorizations, and a new
+SSH attempt with it was rejected. This test cleanup was manual, not evidence that
+the unfinished automatic retirement flow has passed.

@@ -31,7 +31,8 @@ Administrator changes remain trusted; this is not isolation from root.
 
 - [x] Add the Windows choice and Linux host preflight to the saved plan and wizard.
 - [x] Exercise plan save/resume guidance in installed Hermes.
-- [ ] Exercise authenticated Windows remote setup execution.
+- [x] Exercise authenticated Windows remote preflight/progress, replay refusal and test-key revocation.
+- [ ] Exercise the remaining mutating stages through Hermes.
 - [ ] Bind each stage to reviewed source, plan, separate setup identity and pinned host key.
 - [ ] Check KVM, storage, QEMU, libvirt ACLs, firmware, TPM and verified installation media.
 - [ ] Render portable domain/network/media configuration without overwriting existing disks.

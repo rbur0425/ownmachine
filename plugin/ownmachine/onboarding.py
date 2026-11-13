@@ -13,7 +13,7 @@ from .diagnostics import diagnose, render as render_doctor
 PREREQUISITE = ('CLI commands and the native provider require a dedicated Hermes profile with in-process loading. '
                 'In that profile, explicitly run: hermes config set plugins.isolation in_process. '
                 'This changes profile isolation; setup never changes it automatically.')
-def guide(ctx):
+def guide(ctx, profile=None):
     import re
     manifest = (Path(__file__).resolve().parents[1] / 'plugin.yaml').read_text()
     match = re.search(r'^version: ([0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.-]+)?)$', manifest, re.M)
@@ -21,7 +21,8 @@ def guide(ctx):
     ref = ctx.get_config('setup_guide_ref', '') or 'v' + match.group(1)
     if not isinstance(ref, str) or not re.fullmatch(r'(?:[a-f0-9]{40}|v[0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.-]+)?)', ref):
         raise ValueError('guide_requires_version_or_commit')
-    return 'https://github.com/rbur0425/ownmachine/blob/' + ref + '/docs/community-setup.md'
+    page='windows-onboarding.md' if profile=='windows' else 'community-setup.md'
+    return 'https://github.com/rbur0425/ownmachine/blob/' + ref + '/docs/'+page
 
 FIELDS = ('guest_profile', 'target', 'host_alias', 'vm_name', 'control_dir', 'storage_dir',
           'cpu', 'memory_gb', 'disk_gb', 'min_free_gb', 'display')
@@ -208,7 +209,7 @@ def setup(ctx, args):
                       'Start private viewer and verify human/agent handoff']),
             'next': ('Runtime connection saved. In this same Hermes profile explicitly set computer_use.backend ownmachine, computer_use.permission_mode standard and plugins.isolation in_process; review experimental_linux_background_input (default false). Restart existing sessions/gateway, then run ownmachine doctor. See docs/wizard-quickstart.md#configure-the-runtime-before-final-verification.' if args.connect else
                      'Plan saved; resume with the same setup command.' if args.save else 'Review this plan, then add --save to keep it.'),
-            'guide': guide(ctx), 'prerequisite': PREREQUISITE,
+            'guide': guide(ctx,plan['guest_profile']), 'prerequisite': PREREQUISITE,
             'scope': 'Planning/configuration only. No VM, account, firewall, key, service or permission was created or changed. Use --run with the approved setup endpoint for explicit remote execution.'}
 
 

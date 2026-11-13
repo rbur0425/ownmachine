@@ -348,6 +348,7 @@ class WindowsPlanningTests(unittest.TestCase):
         with patch.object(o,'preflight',return_value=[]):
             report=o.setup(ctx,args('setup','--guest-profile','windows','--target','remote','--storage-dir','/srv/vms','--save'))
         self.assertEqual(report['guest_os'],'windows')
+        self.assertTrue(report['guide'].endswith('/docs/windows-onboarding.md'))
         self.assertEqual(ctx.settings['setup_plan']['guest_profile'],'windows')
         self.assertIn('integration pending',' '.join(report['steps']))
         self.assertNotIn('Apple',' '.join(report['steps']))

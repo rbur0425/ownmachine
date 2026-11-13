@@ -9,7 +9,8 @@ def next_step(ctx,plan):
         if accepted.get('stage')=='complete':return dict(stage='complete',next='Setup accepted. Use doctor for current health.')
         if accepted.get('stage')=='retiring':return dict(stage='needs_inspection',next='Inspect setup-key retirement on the VM host. Do not reauthorize or replay it.')
     if not ctx.get_config('setup_host_alias','') or not ctx.get_config('setup_source_sha256',''):
-        return dict(stage='pairing_required',next='Pair a separate temporary setup key, independently confirm the VM host key, and install the reviewed endpoint. Follow docs/wizard-quickstart.md; never send private keys in chat.')
+        document='docs/windows-onboarding.md' if plan.get('guest_profile')=='windows' else 'docs/wizard-quickstart.md'
+        return dict(stage='pairing_required',next='Pair a separate temporary setup key, independently confirm the VM host key, and install the reviewed endpoint. Follow '+document+'; never send private keys in chat.')
     progress=summary(ctx,plan)
     if progress.get('stage') in ('configuration_changed','awaiting_remote_result','needs_inspection'):
         return dict(stage='needs_inspection',next='Inspect the saved configuration and fetch setup --run progress before retrying. Never replay an uncertain mutation.')
