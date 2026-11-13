@@ -18,7 +18,7 @@ Keep the chosen profile, VM name, storage and source pin consistent throughout.
 | Before remote execution — setup operator and Mac | Review matching full source, prepare/transfer the saved plan and service configuration, independently verify the Mac host key, and install the restricted temporary setup endpoint/key. Pair separate agent and viewer keys; keep private keys out of chat. | [Bootstrap trust](setup-transport.md#bootstrap-trust-once), [service configuration](wizard-quickstart.md#configure-the-service-stages) |
 | Before either runtime starts — runtime host/containers | Create separate agent/viewer users and private homes, persistent storage and one shared control directory. Verify permissions as both actual users, including SQLite/lock files. Install the viewer's own dependencies and service under its owner. | [Shared control](#prepare-shared-control-before-starting-either-runtime), [viewer setup](wizard-quickstart.md#start-the-viewer-and-check-readiness) |
 | After building Lume, before VNC — Mac administrator | Run the firewall installer for the exact app path and fixed port; require its success and the firewall stage check. A successful plugin install does not authorize sudo. | [Administrator handoff](#execute-setup-and-complete-the-administrator-handoff) |
-| During first boot — guest desktop | Complete first-run choices. For macOS, approve Accessibility, Screen Recording and final capture consent in the guest. For Omarchy, review browser terms/keyring prompts yourself; no macOS permission grants apply. | [macOS permissions](#approve-guest-permissions-and-open-the-viewer), [Omarchy handoffs](#omarchy-foreground-evaluation-unreleased-pr-15) |
+| During first boot — guest desktop | Complete first-run choices. For macOS, approve Accessibility, Screen Recording and final capture consent in the guest. For Omarchy, review browser terms/keyring prompts yourself; no macOS permission grants apply. | [macOS permissions](#approve-guest-permissions-and-open-the-viewer), [Omarchy handoffs](#omarchy-foreground-evaluation) |
 
 For Omarchy, verified image/private-bootstrap preparation is also required before
 provisioning; follow the [Linux bootstrap instructions](linux-development.md#private-installer-bootstrap).
@@ -50,14 +50,14 @@ The agent and viewer share **one underlying control directory**, not their homes
 Use persistent mounts and stable paths; a path inside a container may differ from
 its host path. On the Mac, use the same canonical VM storage path in the plan and
 relay configuration. `local` means the machine running Hermes, not your browser.
-The v0.8.0 release supports macOS; this unreleased v1.0.0 candidate also supports the tested
+OwnMachine v1.0.0 supports macOS and the tested
 Omarchy foreground configuration described below. Defaults are 4 CPUs, 8 GiB RAM, 64 GiB sparse disk,
 1900×1200 display and a configurable 60 GiB provisioning free-space budget.
 
 ## Install the reviewed release
 
-Obtain the full-source bundle and checksums from the release linked in the README;
-[verify before extraction](distribution.md). Keep the full source at a permanent
+Check out the v1.0.0 source tag using the README instructions. If using a
+separately distributed full-source bundle, [verify before extraction](distribution.md). Keep the full source at a permanent
 operator-owned location: the viewer service references it. The plugin-only package
 contains no privileged installers. For a Git checkout, select the release tag.
 
@@ -74,16 +74,16 @@ hermes --profile ownmachine setup
 ```
 
 Replace `RELEASE_COMMIT` with the full 40-character commit from the release, not a
-branch name. For this unreleased v1.0.0 candidate, use the reviewed PR commit for
-both plugin and full source, and set `setup_guide_ref` to that same full commit;
-there is no v1.0.0 release tag yet. Do not use v0.8.0 bundles for Omarchy.
+branch name. Resolve it from the v1.0.0 source checkout with
+`git rev-parse v1.0.0^{commit}` and use the same revision for plugin and full source.
+Do not use v0.8.0 bundles for Omarchy.
 The last command configures your model through Hermes. Never copy
 another profile's credential files. Verify that no extra tools/MCP servers restore
 host terminal/file access. `in_process` is explicit because the native provider
 and plugin terminal commands need this mode in the tested Hermes version.
 
-For an unreleased candidate only, bind documentation links to the same reviewed
-40-character source commit before starting the wizard:
+Released installs use version-matched documentation. To bind documentation to an
+exact reviewed 40-character source commit instead, set this override before the wizard:
 
 ```sh
 hermes --profile ownmachine config set plugins.entries.ownmachine.settings.setup_guide_ref REVIEWED_COMMIT
@@ -284,7 +284,7 @@ No reminder is scheduled merely by reading these commands or saving a plan.
 Chat setup/reminders also require an explicitly allowed sender. A reminder does
 not complete a manual step; recheck status and readiness when returning.
 
-## Omarchy foreground evaluation (unreleased PR #15)
+## Omarchy foreground evaluation
 
 Use the [Linux operator guide](linux-development.md) and [checked acceptance
 plan](omarchy-plan.md) for the tested ARM64 foreground path. Keep the released
