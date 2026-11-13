@@ -93,7 +93,10 @@ and every-application reliability are not claimed.
 
 ## Release gates
 
-- [x] PR #15 head `24f570c969d5ccf696cb53d436006ecce1075111`: macOS and Ubuntu CI green.
+- [x] Implementation and Studio acceptance head
+  `42609662a0fb3a4db4c7009bba3ac1c96fe0f56f`: macOS and Ubuntu
+  [CI passed](https://github.com/rbur0425/ownmachine/actions/runs/43320207309).
+  This is the feature baseline, not a substitute for final release-head validation.
 - [x] Fresh final-security Omarchy install, real-model tasks, human gate and restart:
   [independent evidence](omarchy-final-acceptance.md).
 - [x] Live macOS guest cold start through the relay on the new macOS-only build,
