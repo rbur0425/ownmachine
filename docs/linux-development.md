@@ -317,6 +317,6 @@ a new app directory. Register that exact app with the administrator firewall
 installer before selecting it in relay configuration. Never bypass the readiness
 check; a failed registration must leave VM start/viewing refused.
 
-See [host-service isolation and output redaction](../SECURITY.md#routine-lume-output-and-host-services)
+See [host-service isolation and output redaction](../SECURITY.md#boundaries-and-limitations)
 for optional configurable guest-to-host SSH blocking. This protects host SSH on the
 selected guest bridge; it is separate from the mandatory VNC firewall.

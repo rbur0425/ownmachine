@@ -1,119 +1,68 @@
-# Security model and reporting
+# Security and reporting
 
-OwnMachine is a development preview for one trusted operator and one configured VM.
-It is not a public remote-desktop service, multi-tenant sandbox or audited secret
-vault. Report vulnerabilities through a private channel offered by the repository
-host/maintainer. If none is available, request a private contact without posting
-an exploit, credentials or desktop data in a public issue. No dedicated security
-contact or response-time commitment is currently published.
+OwnMachine is for one trusted operator and one configured VM. It is not a
+multi-tenant service, hostile-code sandbox or audited secret vault.
 
-## Boundaries
+Report suspected vulnerabilities through the repository host's private reporting
+channel if available. Otherwise request a private maintainer contact without
+posting exploit details, credentials or desktop data in a public issue. No
+response-time commitment is currently published.
 
-- The Hermes plugin runs with standard permission mode. Host and operator scripts
-  stay outside the installable plugin. The model receives bounded status/errors,
-  not VNC passwords, viewer links or control-transfer tools.
-- A verified SSH alias reaches a forced-command relay for one configured VM.
-  The relay rejects arbitrary commands/destinations. The owning Mac account can
-  alter its relay, configuration and VM, so it is a trusted operator boundary.
-- Guest GUI control uses the signed standard-mode driver and manually granted
-  permissions. No script approves TCC or bypasses capture consent.
-- Browser access is a bearer capability in a private owner-only access file.
-  Possession permits viewing, input while human-reserved, control transfers and
-  lifecycle operations. The initial fragment is exchanged for an HttpOnly,
-  SameSite=Strict session cookie. Viewer restart rotates the capability.
-- HTTP binds numeric loopback. SSH protects remote transport. Do not publish the
-  port, add an unauthenticated reverse proxy, or expose the VNC socket. Host and
-  origin checks complement authentication; they do not replace it.
-- VNC requires a fixed unprivileged port and fresh root-owned evidence of active
-  PF and application-firewall blocking. The relay checks matching managed VNC
-  credentials and refuses stale/missing evidence. Confirm external blocking and
-  local relay access, including after boot; a localhost URL alone is not proof.
-- The bridge authenticates upstream VNC inside SSH and never sends the VNC
-  password to JavaScript. Server-side RFB parsing and the shared lease gate
-  key/pointer events, not merely noVNC's view-only UI. Clipboard synchronization,
-  file transfer and privileged client extensions are refused.
-- A held key/button keeps its transaction until release. Failed writes retain an
-  uncertain-outcome marker, never auto-replay. Human handoff waits for existing
-  writes; it cannot recall an already-dispatched event. Separate lease databases
-  break coordination. All writers must share one underlying control directory.
+## Requirements for safe installation
 
-## Local data and trusted access
+- Use a dedicated non-admin Mac VM account and separate agent/viewer runtime users
+  with distinct restricted SSH keys. Verify host keys independently. Keep the
+  temporary setup identity separate and retire it after verification.
+- Install the reviewed patched Lume build and mandatory PF/application firewall
+  rules for its exact app path and configured fixed port. Never expose VNC or the
+  viewer publicly. Verify external blocking and private relay access after updates
+  and host reboot. A localhost URL does not establish network isolation.
+- Keep viewer access state outside shared control, in its private owner-only
+  directory. All cooperating writers must use one underlying control directory;
+  check access as both actual runtime users before starting either service.
+- Disable Hermes host terminal/file/code tools in the dedicated profile; check the
+  effective tool list and avoid other tools that restore host execution. Profiles
+  alone do not isolate OS files. Do not mount the viewer home or Docker socket into
+  the agent container.
+- Approve macOS Accessibility, Screen Recording and capture consent inside the
+  guest through the normal guide. No host-desktop permission or consent bypass is
+  required. Omarchy managed startup requires verified guest hardening.
 
-The VM disk may contain browser sessions, documents and passwords. Guest login,
-Mac login, filesystem permissions and backups remain operator responsibilities.
-Autologin is convenient but increases access for anyone who can reach the guest.
-Do not distribute VM images, Lume runtime files, access JSON, private keys, raw
-logs or desktop captures as support/CI artifacts. Protect backups like the VM.
+Follow the [evaluator quickstart](docs/evaluator-quickstart.md) and
+[identity, firewall and permissions guide](docs/security-isolation.md) for commands.
+Do not weaken permissions or skip failed checks to complete installation.
 
-Local code running as the viewer or host owner is trusted; it can read the bearer
-capability or bypass application-level controls. Raw SSH/VNC credential holders
-are also trusted operators. The human gate coordinates cooperating writers; it
-is not isolation against a compromised host account or privileged local malware.
+## Boundaries and limitations
 
-The viewer stores no captures itself and suppresses request logging. noVNC source
-and licenses are vendored; PyCryptodome is pinned only for legacy VNC challenge
-compatibility inside the SSH path. Neither performs runtime self-updates. Review
-[dependency provenance](viewer/VENDOR.md) and keep pinned upgrades reviewable.
+The VNC listener binds all interfaces; PF and application firewall rules restrict
+reachability. Readiness evidence is periodically refreshed, not an atomic guarantee
+against privileged firewall changes. These rules do not isolate every host service.
+The [optional guest-to-host SSH restriction](docs/linux-development.md#maintenance-and-host-service-isolation)
+requires selecting the actual bridge/port and testing authorized remote access.
 
-## Safe diagnostics
+The host account, viewer account and root are trusted. Same-account code can read
+private credentials or change configuration. The shared human-control gate
+coordinates cooperating clients; it is not protection from arbitrary code with
+write access to its database. A handoff cannot recall input already dispatched.
+Uncertain writes require inspection; never blindly replay them.
 
-Native doctor does not read the viewer token. The separate operator viewer doctor
-reads it only to query the local authenticated endpoint and never prints it. Its
-optional shared VNC probe sends no desktop input/capture request. Reports are
-sanitized, but inspect any additional host logs before sharing them. See the
-[recovery guide](docs/recovery.md) for uncertain actions and failed connections.
+Viewer access links are bearer credentials. Keep them private, use the supported
+SSH transport and do not add a public proxy. The viewer does not send host VNC
+passwords to browser JavaScript. The managed relay uses private password files;
+normal Lume output is redacted, but explicitly requested private output must not
+be logged. Manual unmanaged Lume launches are outside the hardened path.
 
-## Hardened deployment
+## Upgrades and sensitive data
 
-Follow [identity separation](docs/security-isolation.md): separate agent/viewer
-SSH keys and runtime users, private viewer-access state outside shared control,
-a dedicated Mac VM account, private VNC credentials/logs and disabled Hermes
-host-execution tools. The status attestation has a bounded freshness window;
-root or the Mac VM account is still trusted. The application firewall does not
-replace local-user isolation. The v0.6.0 preview includes these changes.
+After upgrading an older Lume build, save guest work, shut down normally, then
+cold-start through the relay to rotate credentials. **Never resume an old saved
+state** with the former credential-sharing configuration. Old copies are not
+erased automatically; do not share host credential directories with the guest.
+Follow the [candidate upgrade requirements](docs/release-0.8.0.md).
 
-VNC passwords must never appear in command-line arguments: ordinary local macOS
-accounts can inspect another user's process argv. The locally built Lume patch
-accepts only a protected-file path from the relay, including detached children;
-the secret remains in a 0600 file under private host state. The 66-character
-URL-safe alphabet avoids upstream unescaped VNC URL parsing failures. Stock Lume
-without `--vnc-password-file` is not compatible with hardened viewer starts.
-
-### Host VNC credentials stay outside the guest
-
-OwnMachine's common Lume patch removes the automatic `lume-config` VirtioFS
-credential share and the fallback SSH copy to the guest home for both macOS and
-Linux. Host-local session state remains private to the dedicated host account.
-This is independent of the Linux-only clipboard/audio/share isolation patch.
-
-After updating an older build, shut down the guest normally and cold-start it
-through the configured relay: the relay generates a new private VNC password on
-each start. Do not resume a saved VM state made with the old credential-sharing
-device configuration. Old guest or temporary-host copies are not retroactively
-erased by the patch; password rotation makes those copies unusable. Do not
-manually configure a share of the host credential/state directory.
-
-### Routine Lume output and host services
-
-The reviewed OwnMachine build redacts VNC userinfo from normal `lume ls` and
-`get` text/JSON output and omits passwords from VNC startup logs. Only the
-viewer-role relay requests `ls --include-vnc-password`, captures that output
-privately and verifies it against its mode-0600 managed password file. Do not
-log that explicit private-output mode. Processes running as the same host account
-can still read that account's credentials; redaction prevents accidental logging,
-not same-account privilege separation. Use a dedicated host account.
-
-Lume's upstream VNC listener binds all interfaces; the reviewed API exposes no
-supported bind-address control. Required PF and application-firewall rules restrict
-reachability. Do not describe the underlying listener as loopback-bound or disable
-either firewall because the advertised URL contains `127.0.0.1`.
-
-VNC protection does not isolate every host service from the guest network. To
-block guest-to-host Remote Login, an administrator can install
-`scripts/install-guest-ssh-firewall.sh GUEST_BRIDGE HOST_SSH_PORT`. Select the actual
-VM bridge and SSH port; never assume an interface name. This separate persistent
-PF anchor blocks TCP to the host on that bridge without changing LAN SSH policy
-or flushing global rules/states. It affects every guest on the selected bridge.
-Verify a new guest connection is refused and the authorized remote client still
-connects. Existing connections are not forcibly terminated. Other host services
-and custom guest network configurations require their own policy.
+VM disks and backups can contain logins and documents. Keep credentials, viewer
+links, runtime configuration, private installer images, raw logs and private
+captures out of issues, Git and CI artifacts. Inspect diagnostics before sharing.
+A disclosed secret must be revoked or rotated; removing a file from Git is not
+revocation. See [recovery](docs/recovery.md), [dependency provenance](viewer/VENDOR.md)
+and the scoped [acceptance overview](docs/acceptance.md).
