@@ -166,6 +166,11 @@ def execute(request,c,plan):
                     raise ValueError('fresh_verification_and_capture_required')
                 from setup_support import module
                 retirement = module('endpoint_retirement','scripts/retire-setup-key.py')
+                if plan.get('guest_profile')=='windows':
+                    windows=module('retiring_windows','scripts/setup-windows.py')
+                    import windows_provision
+                    service=windows.configuration(Path(c['services_file']),plan)
+                    windows_provision.retire(service,state)
                 retirement.retire(c,state)
                 saved['outcomes'][step]=dict(stage='verified',observed_at=int(time.time()))
                 mac.write_state(path,saved)

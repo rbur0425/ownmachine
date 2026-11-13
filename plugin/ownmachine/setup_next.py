@@ -18,6 +18,8 @@ def next_step(ctx,plan):
     stages=['preflight','build','provision','firewall','relay','keys','harden','driver','permissions','viewer','verify']
     if plan.get('guest_profile')=='omarchy':
         stages=['preflight','build','firewall','provision','linux-boot-installer','linux-base','linux-boot-system','linux-desktop','relay','keys','harden','linux-start-desktop','driver','permissions','viewer','verify']
+    if plan.get('guest_profile')=='windows':
+        stages=['preflight','build','firewall','relay','keys','viewer','provision','harden','driver','permissions','verify']
     if plan['target']=='existing':stages=['permissions','viewer','verify']
     for step in stages:
         row=outcomes.get(step,{})
@@ -39,7 +41,7 @@ def next_step(ctx,plan):
             handoffs['driver']='Run setup --run driver --apply. Targeted Chromium input requires explicit enable_experimental_input in the operator configuration; capture readiness alone does not prove input works.'
             handoffs['permissions']='Log into the Linux graphical session, then run setup --run permissions. This checks the standard-mode driver and accessibility bus; no macOS TCC prompts apply.'
         if plan.get('guest_profile')=='windows':
-            handoffs.update(build='Review Linux/KVM packages, firmware, TPM and verified Windows media. Fresh provisioning integration is pending; see docs/windows-production-plan.md.',firewall='The Linux administrator must install the reviewed persistent KVM security service. Then run setup --run firewall.',permissions='Sign into the Windows standard-user desktop, then run setup --run permissions. No macOS permissions or elevated driver are required.',verify='Windows final viewer verification and automatic retirement are still being integrated. Keep setup access temporary; see docs/windows-production-plan.md.')
+            handoffs.update(viewer='Run setup --run viewer --apply to install the private viewer service under its configured owner before starting the guest.',build='Run setup --run build --apply after reviewing the verified Windows media and evaluation consent. Then have the administrator register the fresh stopped domain using docs/windows-onboarding.md.',firewall='The Linux administrator must install the reviewed persistent KVM security service. Then run setup --run firewall.',permissions='Sign into the Windows standard-user desktop, then run setup --run permissions. No macOS permissions or elevated driver are required.',verify='Pause control, then run setup --run verify. Use --apply to repeat screenshot verification and retire both guest and host setup keys.')
         if step in handoffs:return dict(stage='await_'+step,next=handoffs[step])
         suffix=' --apply' if step in ('build','provision','relay','keys','harden','driver') else ''
         prefix='Refresh setup --run preflight first. ' if step in ('build','provision') else ''

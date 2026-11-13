@@ -55,6 +55,16 @@ class KvmBackendTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'drift'): kvm.dispatch('agent')
             inspect.assert_not_called()
 
+    def test_fresh_guest_mcp_requires_hardening_even_with_ready_driver(self):
+        import subprocess
+        self.config.update(agent_user='agent',require_hardened=True)
+        health={k:True for k in ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')}
+        health['bootstrap_hardened']=False
+        with patch.object(kvm.pwd,'getpwuid') as user,patch.dict(kvm.os.environ,{'SSH_ORIGINAL_COMMAND':'ownmachine-host mcp --vm desktop'}),patch.object(kvm,'security_ready'),patch.object(kvm,'inspect',return_value=(None,'running')),patch.object(kvm,'guest_argv',return_value=['ssh']),patch.object(kvm.subprocess,'run',return_value=subprocess.CompletedProcess([],0,json.dumps(health))),patch.object(kvm.os,'execve') as execute:
+            user.return_value.pw_name='agent'
+            with self.assertRaisesRegex(ValueError,'hardening_required'):kvm.dispatch('agent')
+            execute.assert_not_called()
+
     def test_agent_cannot_start(self):
         self.config['agent_user']='agent'
         with patch.object(kvm.pwd,'getpwuid') as user,patch.dict(kvm.os.environ,{'SSH_ORIGINAL_COMMAND':'ownmachine-host start --vm desktop'}),patch.object(kvm,'security_ready') as ready:

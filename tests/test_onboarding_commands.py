@@ -350,7 +350,7 @@ class WindowsPlanningTests(unittest.TestCase):
         self.assertEqual(report['guest_os'],'windows')
         self.assertTrue(report['guide'].endswith('/docs/windows-onboarding.md'))
         self.assertEqual(ctx.settings['setup_plan']['guest_profile'],'windows')
-        self.assertIn('integration pending',' '.join(report['steps']))
+        self.assertIn('administrator registration',' '.join(report['steps']))
         self.assertNotIn('Apple',' '.join(report['steps']))
 
     def test_windows_disk_minimum(self):

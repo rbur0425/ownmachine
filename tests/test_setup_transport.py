@@ -136,8 +136,7 @@ class WindowsEndpointTests(unittest.TestCase):
         self.assertTrue(argv[1].endswith('/setup-windows.py'))
         self.assertIn('--apply',argv)
 
-    def test_windows_unimplemented_mutations_are_explicitly_blocked(self):
+    def test_windows_mutations_require_explicit_apply(self):
         windows=module('test_windows_stages','scripts/setup-windows.py')
-        for step in ('build','provision','driver','harden'):
-            result=windows.execute({},dict(o.DEFAULTS,guest_profile='windows'),step)
-            self.assertFalse(result['ok']);self.assertEqual(result['stage'],'blocked')
+        for step in ('build','provision','harden'):
+            with self.assertRaisesRegex(ValueError,'explicit_apply'):windows.execute({},dict(o.DEFAULTS,guest_profile='windows'),step)

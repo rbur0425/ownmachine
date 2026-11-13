@@ -64,11 +64,14 @@ def dispatch(role):
     if op != 'stop': security_ready()
     tree,state=inspect()
     if op=='status':
+        data={}
         flags={key:False for key in ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')}
         if role=='agent' and state=='running':
             p=subprocess.run(guest_argv('status'),env=ENV,capture_output=True,text=True,timeout=15)
             if p.returncode==0:
                 data=json.loads(p.stdout.lstrip('\ufeff'));flags={key:data.get(key) is True for key in flags}
+        if C.get('require_hardened'):
+            flags['bootstrap_hardened']=data.get('bootstrap_hardened') is True
         ready=all(flags.values())
         print(json.dumps(dict(**flags,vm_name=C['vm_name'],vm_uuid=C['vm_uuid'],vm_state={'running':'running','shut off':'stopped'}.get(state,'unknown'),guest_os='windows',guest_profile='windows',backend='kvm',driver_ready=ready,driver_state='ready' if ready else 'not_running')))
         return
@@ -78,6 +81,7 @@ def dispatch(role):
         health=json.loads(probe.stdout.lstrip('\ufeff'))
         if not all(health.get(k) is True for k in ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')):
             raise ValueError('interactive_standard_session_required')
+        if C.get('require_hardened') and health.get('bootstrap_hardened') is not True:raise ValueError('guest_hardening_required')
         os.execve('/usr/bin/ssh',guest_argv('mcp'),ENV)
     if op in ('start','stop','restart'):
         deadline=time.monotonic()+90
@@ -143,7 +147,7 @@ def configure(path):
     required={'backend','vm_name','vm_uuid','network_uuid','network_name','agent_user','viewer_user','qemu_user',
               'console_group','console_socket','guest_ip','subnet','guest_user','guest_key',
               'guest_known_hosts','driver_executable','guest_health_script','security_helper'}
-    if not isinstance(C,dict) or set(C)!=required or C['backend']!='kvm':
+    if not isinstance(C,dict) or (not required<=set(C) or set(C)-required-{'require_hardened'}) or C['backend']!='kvm':
         raise ValueError('invalid_kvm_configuration')
     for field in ('vm_name','network_name','agent_user','viewer_user','qemu_user','console_group'):
         if not isinstance(C[field],str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]{0,63}',C[field]):
@@ -157,6 +161,7 @@ def configure(path):
     for field in ('console_socket','guest_key','guest_known_hosts','security_helper'):
         if not isinstance(C[field],str) or not Path(C[field]).is_absolute() or any(ord(x)<32 for x in C[field]):
             raise ValueError('invalid_absolute_path')
+    if type(C.get('require_hardened',False)) is not bool:raise ValueError('invalid_hardening_gate')
     protected(C['security_helper'])
     protected(C['guest_known_hosts'])
     key=protected(C['guest_key']).stat()
