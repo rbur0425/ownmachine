@@ -34,6 +34,18 @@ The portable read-only `probe-saved-file.py` compares exact content and SHA-256 
 
 Post-boot real Hermes acceptance also reopened the saved file and read its exact text. This run needed operator intervention: UIA `set_value` on the Open dialog's filename Edit was resolved by the driver to its enclosing ComboBox and refused with `option_not_found`. OwnMachine blocked writes for review. After independent visual inspection and explicit acknowledgement, the model took a fresh capture, used explicitly foreground typing into the focused filename field and Return, then captured the reopened document. Independent readback again matched the original hash. This is a supervised passing recovery path, not proof that filename ComboBox value assignment or unattended recovery works. App launch reported a window-discovery timeout before a subsequent window listing found Notepad; delayed launch discovery also needs further qualification.
 
+## Filename-control compatibility fix
+
+CuaDriver 0.49.3 routes native ComboBox child Edit values through option selection, so a free-form filename can fail even though the snapshot advertises `set_value`. OwnMachine now follows snapshot parent indices to identify Windows Edit descendants of ComboBoxes, removes that unsupported action from the model-facing capture, and preflights an attempted value write without dispatching it. Plain Edit fields and ComboBox option selection are unchanged. The capture explains how to use explicitly requested foreground keyboard input after confirming focus, followed by value verification. There is no automatic input-mode fallback, filename-specific label matching, or review-gate reset. Existing human/paused/pending gates still take precedence. This is an adapter compatibility fix; it does not patch the upstream driver's native ComboBox implementation.
+
+Tests cover capability filtering, no dispatch/no pending marker for the unsupported operation, preserved plain-edit and combo-selection routes, explicit typing, capture invalidation, platform scoping, human takeover and pre-existing uncertain outcomes.
+
+### Live rerun
+
+The updated installed plugin completed a real Docker Hermes save-and-reopen test with the same Qwen3.8 model. The filtered capability note appeared in live dialog captures. The model saved the 48-byte text `OwnMachine filename control acceptance verified.`, opened its path through Notepad's Open dialog, and captured the matching document. Independent administrative readback before and after reopen matched SHA-256 `d2b923a103a18f5195db54e7b19a097b66ba20cf829c97711bed5d2b9f8ef71c`; the viewer independently showed the same text. No filename-control failure, manual desktop input, or pending-action acknowledgement was needed during the passing sequence.
+
+This was guided, supervised acceptance: per-action Allow once approvals remained enabled; explicit foreground keyboard delivery, English-guest filename focus guidance and sequential exact-dialog captures were supplied. An earlier general attempt was stopped before a background shortcut; another timed out on dialog navigation. The passing save run also reached its configured wall-clock budget before reopening, so a continuation completed Open without changing VM state or resetting a gate. This demonstrates the corrected filename path, not unattended general Windows reliability. The existing saved file from cold-start acceptance was preserved. Guest restart persistence was established earlier and was not repeated for this adapter-only change.
+
 ## Remaining graduation work
 
 - Complete broader lifecycle qualification; the supervised saved-file, genuine guest cold-boot persistence and post-login driver checks passed. Host reboot is a separate, untested Windows surface.
@@ -42,6 +54,6 @@ Post-boot real Hermes acceptance also reopened the saved file and read its exact
 - Persist and revalidate host firewall policy, add supported provisioning/onboarding/doctor integration and review rollback paths.
 - Replace or explicitly qualify the prerelease driver pin; test additional Windows editions/hypervisor configurations separately.
 
-The final provider regression run passed 420 tests. Installed-plugin validation passed with the expected in-process callback and CLI-registration warnings. No production support claim follows from these checks.
+The updated provider regression run passed 423 tests. Installed-plugin validation passed with the expected in-process callback and CLI-registration warnings. No production support claim follows from these checks.
 
 Network ACL design follows [libvirt object-scoped Polkit policy](https://www.libvirt.org/aclpolkit.html) and [network-port API permissions](https://libvirt.org/html/libvirt-libvirt-network.html). Offline CI initially rejected the newly added Hermes-dependent tests as undeclared skips; their explicit platform declarations now accompany the tests. They passed in the local Hermes-backed 420-test run.
