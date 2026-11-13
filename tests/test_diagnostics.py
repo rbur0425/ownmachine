@@ -49,6 +49,13 @@ class DiagnosticsTests(unittest.TestCase):
     def test_stopped_vm_not_started(self):
         self.remote.return_value={**READY,'vm_state':'stopped'}
         self.assertIn('vm_stopped',self.codes(diagnose(self.config)));self.transport.assert_not_called()
+    def test_profile_mismatch_is_not_reported_as_network_failure(self):
+        self.remote.return_value = {'host_reachable': True, 'code': 'guest_profile_mismatch'}
+        report = diagnose(self.config)
+        self.assertIn('guest_profile_mismatch', self.codes(report))
+        self.assertNotIn('host_unreachable', self.codes(report))
+        self.transport.assert_not_called()
+
     def test_lume_missing(self):
         self.remote.return_value={**READY,'lume_installed':False}
         self.assertIn('lume_missing',self.codes(diagnose(self.config)))

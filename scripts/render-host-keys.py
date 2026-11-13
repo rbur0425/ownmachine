@@ -6,8 +6,8 @@ from pathlib import Path
 import shlex
 
 
-def render(python, relay, agent_key, viewer_key):
-    for path in (python, relay):
+def render(python, relay, agent_key, viewer_key, config=None):
+    for path in ((python, relay, config) if config is not None else (python, relay)):
         if not Path(path).is_absolute() or any(ord(c)<32 or ord(c)==127 for c in str(path)):
             raise ValueError('absolute_executable_paths_required')
     keys=[]
@@ -22,7 +22,7 @@ def render(python, relay, agent_key, viewer_key):
     if keys[0]==keys[1]:raise ValueError('separate_keys_required')
     lines=[]
     for role,key in zip(('agent','viewer'),keys):
-        command=shlex.join([str(python),str(relay),'--role',role])
+        command=shlex.join([str(python),str(relay),'--role',role] + (['--config',str(config)] if config is not None else []))
         command=command.replace('\\','\\\\').replace('"','\\"')
         lines.append(f'restrict,command="{command}" {key} ownmachine-{role}')
     return '\n'.join(lines)+'\n'
@@ -34,9 +34,10 @@ def main():
     parser.add_argument('--relay',required=True)
     parser.add_argument('--agent-public-key',required=True,type=Path)
     parser.add_argument('--viewer-public-key',required=True,type=Path)
+    parser.add_argument('--config',type=Path)
     args=parser.parse_args()
     try:
-        print(render(args.python,args.relay,args.agent_public_key.read_text(),args.viewer_public_key.read_text()),end='')
+        print(render(args.python,args.relay,args.agent_public_key.read_text(),args.viewer_public_key.read_text(),args.config),end='')
     except (OSError,ValueError):parser.error('Use two different valid Ed25519 public keys and absolute executable paths.')
 
 if __name__=='__main__':main()

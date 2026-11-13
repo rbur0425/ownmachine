@@ -4,13 +4,13 @@ Start with the [evaluator quickstart](../docs/evaluator-quickstart.md) for the c
 
 **Give your AI agent its own desktop.**
 
-OwnMachine connects Hermes to a persistent, separate macOS VM through restricted
+OwnMachine connects Hermes to a persistent, separate macOS or ARM64 Omarchy VM through restricted
 SSH and MCP. The agent works in its own guest desktop; a separately installed
 private browser viewer lets you watch, pause it, reserve the workspace for human
 mouse/keyboard input, and return control. Your personal host desktop is not the
 computer-use target.
 
-This is a preview, not an approved Hermes catalog listing. It requires Hermes
+This is OwnMachine v1.0.0; this version is not an approved Hermes catalog listing. It requires Hermes
 0.23.1 or later (release testing on 0.23.1; current-upstream validation
 is recorded in the catalog readiness report), OpenSSH, and a compatible Apple Silicon Mac
 running the Lume guest. Hermes may run on another machine; a Linux Docker runtime
@@ -56,8 +56,13 @@ isolation/toolsets: follow the dedicated-profile setup below and start a new
 session after configuration changes. `hermes ownmachine doctor --json` and
 `/ownmachine doctor` report bounded read-only readiness.
 
-**macOS is the only supported guest image.** There is no OS/image picker and no
-Linux guest provisioning option.
+**macOS remains the default; v1.0.0 also supports Omarchy foreground desktop control on Apple Silicon.** See the [final acceptance and scope](../docs/omarchy-final-acceptance.md). Background input remains experimental. The terminal
+wizard offers those two profiles. Use `--guest-profile omarchy` for an explicit
+noninteractive choice. Read the [Omarchy evaluator steps](../docs/evaluator-quickstart.md)
+before provisioning: operator trust/bootstrap and firewall approval remain, while
+Hermes drives installation and boot transitions. Targeted foreground input
+requires explicit opt-in to the exact-ABI Hyprland module. Linux guest control
+does not require macOS guest Accessibility or Screen Recording permissions.
 
 The Hermes command layer provides planning, resume, connection configuration
 and diagnosis. `hermes ownmachine setup --run STAGE` now dispatches approved
@@ -241,3 +246,14 @@ reach Google, independently verified by a separate screenshot and URL read.
 [Acceptance evidence](../docs/docker-reminder-acceptance.md#fixed-cold-launch-rerun--passed)
 records both the initial cold-launch failure and passing fixed run. This is one
 keyboard/accessibility task; model-driven pixel-click acceptance remains deferred.
+
+
+### Experimental Omarchy background input
+
+Foreground remains the default. `experimental_linux_background_input: true`
+explicitly permits requested background actions to reach the ABI-matched module
+for per-target admission. Native Wayland Mousepad typing and saving passed a
+bounded real-model test; this does not certify Chromium/Electron, XWayland,
+background pointer actions or all GTK apps. No foreground fallback is performed,
+and human reservation still blocks all agent writes. See the [operator guide](../docs/linux-development.md#optional-background-keyboard-experiment)
+and [acceptance evidence](../docs/omarchy-guided-acceptance.md).

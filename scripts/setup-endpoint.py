@@ -33,11 +33,11 @@ def fingerprint():
 
 def configuration(path):
     c = json.loads(private_read(path))
-    permitted = {'plan_file','services_file','app','build_dir','ipsw','preset','allowed_steps','source_sha256','setup_public_key_file','use_existing_build'}
+    permitted = {'plan_file','services_file','app','build_dir','ipsw','preset','allowed_steps','source_sha256','setup_public_key_file','use_existing_build','iso','iso_sha256'}
     if not isinstance(c,dict) or set(c)-permitted or c.get('source_sha256') != fingerprint():
         raise ValueError('unreviewed_source')
     if 'use_existing_build' in c and type(c['use_existing_build']) is not bool: raise ValueError('invalid_build_adoption')
-    for key in ('plan_file','services_file','app','build_dir'):
+    for key in ('plan_file','services_file','app','build_dir','iso'):
         if key in c and (not isinstance(c[key],str) or not Path(c[key]).is_absolute()):
             raise ValueError('absolute_operator_paths_required')
     if not isinstance(c.get('allowed_steps'),list) or not c['allowed_steps'] or any(s not in STEPS for s in c['allowed_steps']):
@@ -48,12 +48,33 @@ def configuration(path):
     if not isinstance(raw,dict) or raw.get('schema_version',1)!=1: raise ValueError('invalid_plan_version')
     plan = {key: raw.get(key, DEFAULTS[key]) for key in FIELDS}
     validate_plan(plan)
-    if payload.get('guest_os','macos') != 'macos': raise ValueError('macos_only')
+    expected_os='linux' if plan.get('guest_profile')=='omarchy' else 'macos'
+    if payload.get('guest_os',expected_os)!=expected_os:raise ValueError('guest_profile_mismatch')
+    if 'iso_sha256' in c and (not isinstance(c['iso_sha256'],str) or not re.fullmatch('[a-f0-9]{64}',c['iso_sha256'])):raise ValueError('invalid_iso_checksum')
     c['_config_path'] = str(path.resolve())
     return c,plan
 
 
 def command(c,plan,step,apply):
+    if step in {'linux-boot-installer','linux-boot-system','linux-start-desktop','linux-base','linux-desktop'}:
+        if plan.get('guest_profile')!='omarchy':raise ValueError('linux_stage_requires_omarchy')
+        from setup_support import module
+        service=module('linux_endpoint_services','scripts/setup-services.py').config(Path(c['services_file']))
+        if service['vm_name']!=plan['vm_name'] or service.get('storage_dir')!=plan['storage_dir'] or service.get('guest_profile')!='omarchy':raise ValueError('service_plan_mismatch')
+        if step.startswith('linux-boot-') or step=='linux-start-desktop':
+            argv=[sys.executable,str(ROOT/'scripts/setup-linux-boot.py'),'--config',c['services_file'],'--step',step,'--apply']
+            if step=='linux-boot-installer':
+                for key in ('iso','iso_sha256'):
+                    if key not in c: raise ValueError('verified_iso_required')
+                    argv+=['--'+key.replace('_','-'),str(c[key])]
+            return argv
+        return [sys.executable,str(ROOT/'scripts/install-linux-desktop.py'),'--config',c['services_file'],'--step',step.removeprefix('linux-'),'--apply']
+    if step in {'build','provision'} and plan.get('guest_profile')=='omarchy':
+        argv=[sys.executable,str(ROOT/'scripts/setup-linux.py'),'--plan-file',c['plan_file'],'--step',step,'--apply']
+        for key in ('app','build_dir','iso','iso_sha256'):
+            if key in c:argv+=['--'+key.replace('_','-'),str(c[key])]
+        if step=='build' and c.get('use_existing_build'):argv.append('--use-existing-build')
+        return argv
     if step in {'build','provision'}:
         argv = [sys.executable,str(ROOT/'scripts/setup-mac.py'),'--plan-file',c['plan_file'],'--step',step,'--apply']
         if step=='build' and c.get('use_existing_build'): argv.append('--use-existing-build')
@@ -65,7 +86,7 @@ def command(c,plan,step,apply):
     from setup_support import module
     services = module('endpoint_services','scripts/setup-services.py')
     service = services.config(Path(c['services_file']))
-    if service['vm_name'] != plan['vm_name'] or service.get('storage_dir') != plan['storage_dir']:
+    if service['vm_name'] != plan['vm_name'] or service.get('storage_dir') != plan['storage_dir'] or service.get('guest_profile','macos')!=plan.get('guest_profile','macos'):
         raise ValueError('service_plan_mismatch')
     argv = [sys.executable,str(ROOT/'scripts/setup-services.py'),'--config',c['services_file'],'--step',step]
     if apply: argv += ['--apply']
@@ -179,6 +200,10 @@ def main():
     parser.add_argument('--fingerprint',action='store_true')
     parser.add_argument('--render-key',type=Path,help='Render a forced-command entry for a dedicated setup public key; never install it')
     args=parser.parse_args()
+    # A dropped setup client must not terminate a disk mutation. The endpoint
+    # retains its lock and records completion; reconnect imports progress.
+    import signal
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
     os.umask(0o077)
     if args.fingerprint:
         print(fingerprint());return 0

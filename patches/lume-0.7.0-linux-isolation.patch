@@ -1,0 +1,59 @@
+--- a/libs/lume/src/Virtualization/VMVirtualizationService.swift
++++ b/libs/lume/src/Virtualization/VMVirtualizationService.swift
+@@ -719,4 +719,7 @@
+-        // Audio configuration
+-        let soundDeviceConfiguration = VZVirtioSoundDeviceConfiguration()
+-        let inputAudioStreamConfiguration = VZVirtioSoundDeviceInputStreamConfiguration()
+-        let outputAudioStreamConfiguration = VZVirtioSoundDeviceOutputStreamConfiguration()
++        // Linux guests never inherit host clipboard, audio, Rosetta or folders.
++        guard config.sharedDirectories?.isEmpty != false else {
++            throw NSError(domain: "OwnMachine", code: 1,
++                userInfo: [NSLocalizedDescriptionKey: "Linux host shares are disabled"])
++        }
++        vzConfig.audioDevices = []
++        vzConfig.directorySharingDevices = []
+@@ -724,2 +726,0 @@
+-        inputAudioStreamConfiguration.source = VZHostAudioInputStreamSource()
+-        outputAudioStreamConfiguration.sink = VZHostAudioOutputStreamSink()
+@@ -727,37 +728,4 @@
+-        soundDeviceConfiguration.streams = [inputAudioStreamConfiguration, outputAudioStreamConfiguration]
+-        vzConfig.audioDevices = [soundDeviceConfiguration]
+-
+-        // Clipboard sharing via Spice agent
+-        let spiceAgentConsoleDevice = VZVirtioConsoleDeviceConfiguration()
+-        let spiceAgentPort = VZVirtioConsolePortConfiguration()
+-        spiceAgentPort.name = VZSpiceAgentPortAttachment.spiceAgentPortName
+-        let spiceAgentPortAttachment = VZSpiceAgentPortAttachment()
+-        spiceAgentPortAttachment.sharesClipboard = true
+-        spiceAgentPort.attachment = spiceAgentPortAttachment
+-        spiceAgentConsoleDevice.ports[0] = spiceAgentPort
+-        vzConfig.consoleDevices.append(spiceAgentConsoleDevice)
+-
+-        // Directory sharing
+-        var directorySharingDevices = createDirectorySharingDevices(
+-            sharedDirectories: config.sharedDirectories)
+-
+-        // Add Rosetta support if available
+-        if #available(macOS 13.0, *) {
+-            if VZLinuxRosettaDirectoryShare.availability == .installed {
+-                do {
+-                    let rosettaShare = try VZLinuxRosettaDirectoryShare()
+-                    let rosettaDevice = VZVirtioFileSystemDeviceConfiguration(tag: "rosetta")
+-                    rosettaDevice.share = rosettaShare
+-                    directorySharingDevices.append(rosettaDevice)
+-                    Logger.info("Added Rosetta support to Linux VM")
+-                } catch {
+-                    Logger.info("Failed to add Rosetta support: \(error.localizedDescription)")
+-                }
+-            } else {
+-                Logger.info("Rosetta not installed, skipping Rosetta support")
+-            }
+-        }
+-
+-        if !directorySharingDevices.isEmpty {
+-            vzConfig.directorySharingDevices = directorySharingDevices
+-        }
++
++
++
++

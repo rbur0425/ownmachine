@@ -146,14 +146,14 @@ class NativeProviderTests(unittest.TestCase):
   self.assertEqual(result.code,'capture_required')
   self.assertFalse(self.b.lease.status()['pending'])
 
- def cold_launch_fixture(self, *, fail_launch=False, windows=True):
+ def cold_launch_fixture(self, *, fail_launch=False, windows=True, launch_path=None):
   original=self.fake.call
   launched=False
   def call(name,args):
    nonlocal launched
    if name=='list_apps':
     self.fake.calls.append((name,args))
-    return {'structuredContent':{'apps':[{'name':'Browser','pid':77 if launched else 0,'bundle_id':'example.browser'}]}}
+    return {'structuredContent':{'apps':[{'name':'Browser','pid':77 if launched else 0,'bundle_id':'example.browser','launch_path':launch_path}]}}
    if name=='launch_app':
     self.fake.calls.append((name,args));launched=True
     return {'structuredContent':{'ok':not fail_launch,'message':'Launched in background'}}
@@ -178,6 +178,39 @@ class NativeProviderTests(unittest.TestCase):
   self.assertTrue(self.b.focus_app('Browser').ok)
   self.assertNotIn('bring_to_front',[n for n,a in self.fake.calls])
   self.assertIsNone(self.b.target)
+
+ def test_linux_launch_uses_discovered_path(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='omarchy')
+  self.cold_launch_fixture(launch_path='mousepad')
+  self.assertTrue(self.b.focus_app('Browser',raise_window=True).ok)
+  launched=[a for n,a in self.fake.calls if n=='launch_app']
+  self.assertEqual(launched[0]['launch_path'],'mousepad')
+  self.assertNotIn('bundle_id',launched[0])
+
+ def test_linux_missing_launch_path_refuses_before_dispatch(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='omarchy')
+  self.cold_launch_fixture()
+  self.assertEqual(self.b.focus_app('Browser').code,'linux_launch_identity_missing')
+  self.assertNotIn('launch_app',[n for n,a in self.fake.calls])
+  self.assertFalse(self.b.lease.status()['pending'])
+
+ def test_linux_text_activation_refuses_without_poisoning_gate(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='omarchy')
+  original=self.fake.call
+  def call(name,args):
+   reply=original(name,args)
+   if name=='get_window_state':reply['structuredContent']['elements'][0]['role']='text'
+   return reply
+  self.fake.call=call
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  count=len(self.fake.calls)
+  self.assertEqual(self.b.click(element=1).code,'element_press_unsupported')
+  self.assertEqual(len(self.fake.calls),count)
+  self.assertFalse(self.b.lease.status()['pending'])
+  self.assertTrue(self.b.set_value('Edited',element=1).ok)
 
  def test_failed_cold_launch_never_raises_and_keeps_review_gate(self):
   self.cold_launch_fixture(fail_launch=True)
@@ -263,3 +296,33 @@ class NativeProviderTests(unittest.TestCase):
   code += "; import json; from pathlib import Path; from model_tools import _select_tool_names; from toolsets import resolve_toolset; cfg=json.loads(Path(__import__('os').environ['HERMES_HOME']).joinpath('config.yaml').read_text()); disabled=cfg['agent']['disabled_toolsets']; selected=_select_tool_names(['terminal','file','code_execution','computer_use'],disabled,True); assert not (set(resolve_toolset('terminal')+resolve_toolset('file')+resolve_toolset('code_execution')) & selected); assert resolve_toolset('computer_use') and set(resolve_toolset('computer_use')) <= selected"
   result=subprocess.run([sys.executable,'-c',code],env={**os.environ,'HERMES_HOME':str(home)},capture_output=True,text=True,timeout=30)
   self.assertEqual(result.returncode,0,result.stderr)
+
+ def test_linux_background_opt_in_preserves_request_without_focus_or_fallback(self):
+  self.b.stop()
+  b=OwnMachineBackend(Config(host_alias='test',control_dir=self.tmp.name,guest_profile='omarchy',experimental_linux_background_input=True),transport=self.fake)
+  b.start();self.addCleanup(b.stop);b.lease.transfer('agent');b.capture(app='Editor')
+  before=len(self.fake.calls)
+  self.assertEqual(b.type_text('x',delivery_mode='background',bring_to_front=True).code,'background_focus_conflict')
+  self.assertEqual(len(self.fake.calls),before)
+  b.type_text('x',delivery_mode='background')
+  self.assertEqual(len(self.fake.calls),before+1)
+  self.assertEqual(self.fake.calls[-1][1]['delivery_mode'],'background')
+  b.lease.transfer('human');before=len(self.fake.calls)
+  refused=b.type_text('x',delivery_mode='background')
+  self.assertEqual(refused.code,'human_takeover')
+  self.assertEqual(refused.escalation,{'recommended':'operator'})
+  self.assertTrue(refused.meta['operator_review_required'])
+  self.assertFalse(refused.meta['dispatched'])
+  self.assertEqual(len(self.fake.calls),before)
+ def test_background_opt_in_rejects_nonboolean_and_wrong_profile(self):
+  for value,profile in [('true','omarchy'),(True,'macos')]:
+   with self.assertRaises(ValueError):Config(host_alias='test',experimental_linux_background_input=value,guest_profile=profile).validate()
+ def test_omarchy_defaults_foreground_and_refuses_background(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='omarchy')
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  self.b.type_text('foreground test')
+  self.assertEqual(self.fake.calls[-1][1]['delivery_mode'],'foreground')
+  count=len(self.fake.calls)
+  self.assertEqual(self.b.type_text('blocked',delivery_mode='background').code,'linux_background_input_not_certified')
+  self.assertEqual(len(self.fake.calls),count)

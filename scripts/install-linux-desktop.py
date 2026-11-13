@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+"""Explicit base/desktop stages over an independently pinned guest SSH identity.
+
+Only the base stage erases a disk, and only an empty /dev/vda inside an Apple
+virtualized Archboot live environment belonging to a newly created VM.
+"""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import subprocess
+import sys
+import urllib.request
+from setup_support import ROOT, mac, module, private_read, install_exact
+
+services=module('linux_desktop_services','scripts/setup-services.py')
+PIN='36c576698e7265a84fb3469c8b9d2c9824df6931'
+DIGESTS={'base':'f62d7d5e5c93201b010a60d71fe6f8d9a7a0adb472fc0e86dcc4d5064def61d4',
+         'desktop':'6208dfdad21c42f353661fdd7bcc67adec2250415f8db056abc75a41068e9fbe'}
+
+
+def user_units_script():
+    """Install the pinned desktop's first-run dependencies before graphical boot."""
+    return '''
+pacman -S --needed --noconfirm mousepad at-spi2-core fcitx5 bluez-tools
+python3 - <<'OWNMACHINE_UNITS'
+from pathlib import Path
+import re
+source = Path('/usr/share/omarchy/default/systemd/user')
+target = Path('/usr/lib/systemd/user')
+required = {'bt-agent.service', 'omarchy-recover-internal-monitor.service',
+            'omarchy-sleep-lock.service', 'omarchy-migrate-notify.service',
+            'omarchy-fcitx5.service', 'omarchy-crash-watch.service'}
+units = {p.name: p for p in source.glob('*.service')}
+if not required <= units.keys():
+    raise ValueError('pinned_user_units_missing')
+target.mkdir(parents=True, exist_ok=True)
+for name, path in units.items():
+    text = path.read_text()
+    # The ARM installer places Omarchy commands in /usr/local/bin, whereas
+    # the upstream unit files target /usr/bin. Keep other executables intact.
+    def command(match):
+        executable = Path('/usr/local/bin') / match.group(1)
+        if not executable.is_file():
+            raise ValueError('pinned_user_unit_command_missing')
+        return '=' + str(executable)
+    text = re.sub(r'=/usr/bin/(omarchy-[a-z0-9-]+)', command, text)
+    output = target / name
+    output.write_text(text)
+    output.chmod(0o644)
+OWNMACHINE_UNITS
+'''
+
+
+
+def shell_compat_script():
+    import base64
+    helper=base64.b64encode((ROOT/'scripts/linux-shell-compat.py').read_bytes()).decode()
+    manifest=base64.b64encode((ROOT/'patches/omarchy-color-inputs.json').read_bytes()).decode()
+    return "\npython3 - <<'OWNMACHINE_SHELL'\nimport base64,json\nnamespace={'__name__':'ownmachine_shell_patch'}\nexec(base64.b64decode("+repr(helper)+"),namespace)\nnamespace['apply'](namespace['Path']('/usr/share/omarchy/shell'),json.loads(base64.b64decode("+repr(manifest)+")))\nOWNMACHINE_SHELL\n"
+
+
+def hardening_gate_script():
+    """Fail closed before the upstream installer enables graphical boot."""
+    import base64
+    payload=base64.b64encode((ROOT/'scripts/linux-hardening-gate.py').read_bytes()).decode()
+    dropin='[Unit]\nRequires=ownmachine-firewall.service\nAfter=ownmachine-firewall.service\n\n[Service]\nExecStartPre=/usr/bin/python3 /usr/local/libexec/ownmachine-hardening-gate.py\n'
+    return "set -eu\npython3 - <<'OWNMACHINE_GATE'\nimport base64,os,stat\nfrom pathlib import Path\nos.umask(0o022)\n" + "payload=base64.b64decode("+repr(payload)+")\n" + "dropin="+repr(dropin.encode())+"\n" + '''
+for path, data in ((Path('/usr/local/libexec/ownmachine-hardening-gate.py'),payload),
+                   (Path('/etc/systemd/system/sddm.service.d/10-ownmachine-hardening.conf'),dropin)):
+    path.parent.mkdir(parents=True,exist_ok=True,mode=0o755)
+    for item in (path.parent,*path.parent.parents):
+        st=item.lstat()
+        if st.st_uid!=0 or st.st_mode & 0o022 or stat.S_ISLNK(st.st_mode):
+            raise ValueError('unsafe_gate_directory')
+    fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o644)
+    with os.fdopen(fd,'wb') as stream:
+        os.fchmod(stream.fileno(),0o644)
+        stream.write(data);stream.flush();os.fsync(stream.fileno())
+OWNMACHINE_GATE
+systemctl daemon-reload
+'''
+
+
+def download(stage):
+    name='install-arch.sh' if stage=='base' else 'install-omarchy.sh'
+    url=f'https://raw.githubusercontent.com/trycua/cua/{PIN}/docs/public/scripts/omarchy-arm64-lume/{name}'
+    with urllib.request.urlopen(url,timeout=60) as response:content=response.read(131073)
+    if len(content)>131072 or hashlib.sha256(content).hexdigest()!=DIGESTS[stage]:raise ValueError('installer_checksum_mismatch')
+    return content.decode()
+
+
+def execute(config_path,stage,apply):
+    c=services.config(config_path)
+    if c.get('guest_profile')!='omarchy':raise ValueError('omarchy_profile_required')
+    if not apply:return dict(ok=True,stage='planned',step='linux-'+stage)
+    if os.geteuid()==0:raise ValueError('non_root_operator_required')
+    mac.verify_build(Path(c['lume_app']),linux=True)
+    state=services.hardening_state(c);mac.private_dir(state)
+    receipt=json.loads(private_read(state/'provision.json'))
+    if receipt.get('guest_os')!='linux' or receipt.get('phase')!='created' or receipt.get('vm_name')!=c['vm_name'] or receipt.get('storage_dir')!=str(Path(c['storage_dir']).resolve()):raise ValueError('fresh_linux_provision_receipt_required')
+    identity=mac.digest(dict(config=c,source=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),installer=DIGESTS[stage],shell_compat=hashlib.sha256(shell_compat_script().encode()).hexdigest(),hardening_gate=hashlib.sha256(hardening_gate_script().encode()).hexdigest()))
+    checkpoint=state/'setup'/('linux-'+stage+'.json');mac.private_dir(checkpoint.parent)
+    import fcntl
+    fd=os.open(state/'setup/linux-install.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,'w') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        old=mac.read_state(checkpoint)
+        if old:
+            if old.get('identity')!=identity or old.get('stage')!='verified':raise ValueError('linux_install_requires_inspection')
+            return dict(ok=True,step='linux-'+stage,stage='verified',replayed=False)
+        connection = dict(c)
+        if stage=='base' and c.get('guest_bootstrap_ssh_alias'):
+            connection['guest_ssh_alias']=c['guest_bootstrap_ssh_alias']
+        argv=services.guest_argv(connection)
+        source=download(stage)
+        if stage=='base':
+            # Validate before recording a mutation. The live SSH key was confirmed
+            # in the native console, never accepted with StrictHostKeyChecking=no.
+            guard='''test "$(id -u)" = 0 && test "$(systemd-detect-virt)" = apple && grep -qx 'NAME="Archboot"' /etc/os-release && test "$(findmnt -n -o SOURCE /)" = /dev/zram0 && test -z "$(wipefs -n --noheadings -o TYPE /dev/vda)" && test "$(lsblk -nr -o NAME /dev/vda | wc -l)" -eq 1 && ! findmnt /mnt >/dev/null'''
+            services.call(argv+[guard])
+            # Archboot uses Type=simple: active alone does not mean its signing
+            # keyring is ready. Concurrent pacman can corrupt GnuPG migration.
+            services.call(argv+['set -eu\nfor attempt in $(seq 1 120); do\n  state=$(systemctl show pacman-init.service --property=SubState --value)\n  result=$(systemctl show pacman-init.service --property=Result --value)\n  test "$state" != failed && test "$result" = success || exit 1\n  if test "$state" = exited; then exit 0; fi\n  sleep 1\ndone\nexit 1'],timeout=130)
+            user=c['guest_user']
+            if user=='root':raise ValueError('non_root_desktop_user_required')
+            # The reviewed upstream base script fixes this username. Replace exact
+            # audited literals only after checksum verification, never arbitrary text.
+            source=source.replace('useradd -m -G wheel -s /bin/bash omarchy','useradd -m -G wheel -s /bin/bash '+shlex.quote(user))
+            source=source.replace("read -r -p 'Type ERASE to continue: ' confirmation",'confirmation=ERASE')
+            prefix='set -euo pipefail\numask 022\nfor attempt in 1 2 3; do\n  if pacman -Sy --noconfirm --needed gptfdisk; then break; fi\n  test "$attempt" -lt 3 || exit 1\n  sleep 5\ndone\n'
+            suffix='''
+# Preserve the operator-confirmed host identity across the live-to-installed boot.
+cp -a /etc/ssh/ssh_host_* /mnt/etc/ssh/
+install -m 444 /etc/machine-id /mnt/etc/machine-id
+if test -f /etc/systemd/network/00-ownmachine-bootstrap.network; then
+  install -m 644 /etc/systemd/network/00-ownmachine-bootstrap.network /mnt/etc/systemd/network/00-ownmachine-wired.network
+fi
+install -d -m 700 /mnt/home/USER/.ssh
+install -m 600 /root/.ssh/authorized_keys /mnt/home/USER/.ssh/authorized_keys
+arch-chroot /mnt chown -R USER:USER /home/USER/.ssh
+printf 'PasswordAuthentication no\\nKbdInteractiveAuthentication no\\nPermitRootLogin no\\n' > /mnt/etc/ssh/sshd_config.d/00-ownmachine-bootstrap.conf
+arch-chroot /mnt pacman -S --noconfirm --needed nftables python
+arch-chroot /mnt python3 -c 'import secrets; print("USER:"+secrets.token_urlsafe(32))' | arch-chroot /mnt chpasswd
+'''.replace('USER',user)
+            script=prefix+source+'\n'+suffix
+            command='/bin/bash -s'
+        else:
+            services.call(argv+['test "$(id -u)" -ne 0 && test "$(systemd-detect-virt)" = apple && test ! -e /etc/omarchy-source-commit && sudo -n true'])
+            script=hardening_gate_script()+'export OMARCHY_USER='+shlex.quote(c['guest_user'])+'\n'+source+'\n'+user_units_script()+shell_compat_script()
+            if c.get('enable_experimental_input'):
+                script+='\npacman -S --needed --noconfirm cmake ninja gcc pkgconf cpio\n'
+            # Customize only the freshly copied, pinned upstream defaults.
+            script+='\npython3 - '+shlex.quote(c['guest_user'])+' '+str(c.get('display_scale',1))+" <<'OWNMACHINE_DISPLAY'\n"+'''import pathlib,pwd,sys
+home=pathlib.Path(pwd.getpwnam(sys.argv[1]).pw_dir)
+scale=int(sys.argv[2])
+path=home/'.config/hypr/monitors.lua'
+text=path.read_text()
+for old,new in [('local omarchy_gdk_scale = 2','local omarchy_gdk_scale = '+str(scale)),('local omarchy_monitor_scale = "auto"','local omarchy_monitor_scale = '+str(scale))]:
+    if text.count(old)!=1:raise ValueError('unexpected_pinned_monitor_configuration')
+    text=text.replace(old,new)
+path.write_text(text)
+path=home/'.config/hypr/looknfeel.lua'
+with path.open('a') as stream:stream.write('\\nhl.config({ animations = { enabled = false } })\\n')
+path=home/'.config/hypr/bindings.lua'
+with path.open('a') as stream:stream.write('\\nhl.unbind("SUPER + RETURN")\\no.bind("SUPER + RETURN", "Terminal", "foot")\\n')
+OWNMACHINE_DISPLAY
+'''
+            script+='\nrunuser -u '+shlex.quote(c['guest_user'])+' -- env OMARCHY_PATH=/usr/share/omarchy OMARCHY_THEME_HEADLESS=1 /usr/share/omarchy/bin/omarchy-theme-set '+shlex.quote(c.get('desktop_theme','catppuccin'))+'\n'
+            command='sudo -n /bin/bash -s'
+        record=dict(schema_version=1,identity=identity,stage='running')
+        mac.write_state(checkpoint,record)
+        try:
+            services.call(argv+[command],data=script.encode(),timeout=7200)
+            verification='test -s /mnt/boot/loader/entries/arch.conf && test "$(stat -c %a /mnt/etc)" = 755' if stage=='base' else 'test "$(cat /etc/omarchy-source-commit)" = 13f18b2cb7286fb54f87daf571a031aa6af3d8f0'
+            services.call(argv+[verification])
+        except BaseException as error:
+            if isinstance(error,subprocess.CalledProcessError):
+                # Operator-private diagnostics; never send raw installer output to chat.
+                detail=(error.stdout or b'')+b'\n'+(error.stderr or b'')
+                install_exact(state/'setup'/('linux-'+stage+'-failure.log'),detail)
+            mac.write_state(checkpoint,dict(record,stage='needs_inspection'));raise
+        mac.write_state(checkpoint,dict(record,stage='verified'))
+        return dict(ok=True,step='linux-'+stage,stage='verified',next='Shut down the guest and boot its installed disk without the ISO.' if stage=='base' else 'Run hardening before restarting into the graphical session; driver setup also requires verified hardening.')
+
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,required=True);p.add_argument('--step',choices=['base','desktop'],required=True);p.add_argument('--apply',action='store_true')
+    a=p.parse_args();os.umask(0o077)
+    try:print(json.dumps(execute(a.config,a.step,a.apply)))
+    except (ValueError,OSError,subprocess.SubprocessError):
+        print(json.dumps(dict(ok=False,step='linux-'+a.step,stage='needs_attention',code='linux_install_requires_inspection')));raise SystemExit(2)
+
+if __name__=='__main__':main()

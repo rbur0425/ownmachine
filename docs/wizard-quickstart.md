@@ -5,15 +5,25 @@ including administrator handoffs and shared-control permission checks.
 This is the guided onboarding path, not a claim of one-click setup.
 Use reviewed full source or a checksum-verified release bundle on each operator
 machine. The catalog-installed `plugin/` contains no privileged installers.
-macOS is the only guest image; no OS choice is needed.
+macOS is the default guest. OwnMachine v1.0.0 also offers ARM64
+Omarchy; choose `--guest-profile omarchy` and follow the [Linux operator guide](linux-development.md).
+Ubuntu and Windows are not available images.
+
+**Start with the [manual prerequisite checklist](evaluator-quickstart.md#manual-prerequisites-before-hermes-can-provision).**
+You can install the plugin and save a plan first, but Hermes cannot provision the
+Mac until the operator has prepared trusted SSH setup access and matching source/
+configuration. The wizard does not create the host account or grant administrator
+privileges. Firewall approval and guest consent remain later human handoffs.
+If blocked, use the [status-to-documentation and reminder steps](evaluator-quickstart.md#resume-without-guessing).
 
 ## Start in Hermes
 
-In a dedicated OwnMachine profile:
+Use a dedicated OwnMachine profile; replace `ownmachine` below with your chosen
+profile name (create/install it using the evaluator guide first):
 
 ```sh
-hermes config set plugins.isolation in_process
-hermes ownmachine setup
+hermes --profile ownmachine config set plugins.isolation in_process
+hermes --profile ownmachine ownmachine setup
 ```
 
 Typical wizard conversation:
@@ -34,8 +44,8 @@ Hermes, not your browser. Chat has `/ownmachine setup`, `/ownmachine status` and
 allowlist. The terminal wizard remains available without that chat grant.
 
 ```sh
-hermes ownmachine setup --json > plan.json
-hermes ownmachine status --json
+hermes --profile ownmachine ownmachine setup --json > plan.json
+hermes --profile ownmachine ownmachine status --json
 ```
 
 Transfer/review the initial non-secret plan through your operator bootstrap channel.
@@ -165,9 +175,9 @@ to the viewer's private directory (never the Hermes agent container):
 
 ```sh
 python3 scripts/setup-services.py --config verification-services.json --step verify --events
-hermes ownmachine setup --target existing --host-alias example-agent-mac \
+hermes --profile ownmachine ownmachine setup --target existing --host-alias example-agent-mac \
   --control-dir /absolute/shared/control --connect
-hermes ownmachine doctor
+hermes --profile ownmachine ownmachine doctor
 ```
 
 Final readiness checks both SSH identities, refusal of arbitrary commands, guest
@@ -209,9 +219,9 @@ separate. Pause agent control in the viewer before verification; verification
 will refuse a human reservation or uncertain input rather than take it over.
 
 ```sh
-hermes ownmachine setup --run verify --json
-hermes ownmachine setup --run verify --apply --json
-hermes ownmachine status --json
+hermes --profile ownmachine ownmachine setup --run verify --json
+hermes --profile ownmachine ownmachine setup --run verify --apply --json
+hermes --profile ownmachine ownmachine status --json
 ```
 
 The first call validates a real screenshot without removing access. The second

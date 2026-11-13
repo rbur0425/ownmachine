@@ -68,6 +68,7 @@ def main():
     parser.add_argument('--hermes-home',required=True)
     parser.add_argument('--host-alias',required=True)
     parser.add_argument('--vm-name',default='ownmachine')
+    parser.add_argument('--guest-profile',choices=['macos','omarchy'],default='macos')
     parser.add_argument('--control-dir',required=True)
     parser.add_argument('--connect-timeout-seconds',type=int,default=15)
     parser.add_argument('--action-timeout-seconds',type=int,default=30)

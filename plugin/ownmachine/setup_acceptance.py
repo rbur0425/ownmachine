@@ -27,7 +27,7 @@ def capture(ctx, plan):
     except ImportError:
         raise ValueError('screenshot_verification_requires_pillow_install_declared_plugin_dependencies') from None
     config = configuration(ctx).validate()
-    if any(getattr(config, k) != plan[k] for k in ('host_alias', 'vm_name', 'control_dir')) or not config.control_dir:
+    if any(getattr(config, k) != plan[k] for k in ('host_alias', 'vm_name', 'control_dir', 'guest_profile')) or not config.control_dir:
         raise ValueError('runtime_plan_mismatch')
     backend = OwnMachineBackend(config)
     try:
