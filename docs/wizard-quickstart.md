@@ -5,7 +5,9 @@ including administrator handoffs and shared-control permission checks.
 This is the guided onboarding path, not a claim of one-click setup.
 Use reviewed full source or a checksum-verified release bundle on each operator
 machine. The catalog-installed `plugin/` contains no privileged installers.
-macOS is the only guest image; no OS choice is needed.
+macOS is the default guest image. The terminal wizard also offers ARM64 Omarchy;
+use `--guest-profile omarchy` for an explicit choice and follow the
+[Omarchy operator guide](linux-development.md) for its requirements.
 
 ## Start in Hermes
 
