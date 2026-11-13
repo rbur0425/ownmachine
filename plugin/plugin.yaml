@@ -2,7 +2,7 @@ name: ownmachine
 # Load operator commands before a computer-use provider is selected.
 # The native provider remains available through Hermes category discovery.
 kind: standalone
-version: 0.7.0
+version: 0.8.0
 manifest_version: 2
 api_version: 1
 description: Native Hermes computer use for a persistent private macOS VM

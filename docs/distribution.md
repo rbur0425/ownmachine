@@ -3,7 +3,7 @@
 This operator workflow creates local artifacts; it does not publish a release,
 create a tag, upload files or submit a catalog entry. Published preview bundles are available from the
 [GitHub releases page](https://github.com/rbur0425/ownmachine/releases).
-The first preview was v0.6.0; v0.7.0 adds guided onboarding and reminders.
+The first preview was v0.6.0; v0.7.0 adds guided onboarding and reminders. v0.8.0 restricts setup/reminder child environments and declares the screenshot dependency.
 
 ## Build from an exact commit
 
