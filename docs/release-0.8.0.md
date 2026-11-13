@@ -107,7 +107,11 @@ and every-application reliability are not claimed.
   or uninterrupted autonomous pass; see the same evidence document.
 - [ ] Revalidate the exact release head, packages/checksums and current-head CI
   after final edits.
-- [ ] On the release branch, remove development banners/wording and update release
-  links/version/pin coherently. Do not imply v0.7.0 contains Omarchy.
+- [x] Release-branch README, quickstarts, Linux guide and plugin README no longer
+  describe Omarchy as unreleased development. Plugin version is 0.8.0; candidate
+  installation instructions use reviewed source without claiming unpublished
+  artifacts exist or implying v0.7.0 contains Omarchy.
+- Exact final-commit validation results are recorded in PR #15 after the commit
+  exists, so this document does not pretend an earlier CI run validates later edits.
 - [ ] Obtain authorization before Gitflow merge, tag, artifact publication and
   catalog-pin changes.

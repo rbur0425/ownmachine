@@ -1,8 +1,10 @@
-# Experimental Linux development
+# Omarchy guest operator guide
 
-OwnMachine supports the tested ARM64 Omarchy foreground desktop on an Apple Silicon Mac. See [final acceptance and boundaries](omarchy-final-acceptance.md). Background control remains experimental. macOS remains
-the released installation path. All Linux work is tracked in PR #15 and the
-[Omarchy plan](omarchy-plan.md); the setup planner accepts `--guest-profile omarchy`; macOS is the default.
+OwnMachine supports the tested ARM64 Omarchy foreground desktop on an Apple Silicon
+Mac. See [final acceptance and boundaries](omarchy-final-acceptance.md). Background
+control remains experimental. macOS is the default; select `--guest-profile omarchy`
+in the setup planner for Omarchy. The [Omarchy plan](omarchy-plan.md) records the
+implementation and acceptance history.
 
 ## Isolated host build
 

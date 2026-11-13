@@ -17,7 +17,7 @@ control back when you're ready.
 
 **[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v0.7.0/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
 
-> **v0.8.0 release candidate — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
+> **Free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
 > official Nous Research product. Setup includes administrator firewall installation
 > and manual macOS permission grants. It is not yet listed in the Hermes catalog.
 
