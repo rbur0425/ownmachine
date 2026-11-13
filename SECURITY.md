@@ -92,3 +92,28 @@ each start. Do not resume a saved VM state made with the old credential-sharing
 device configuration. Old guest or temporary-host copies are not retroactively
 erased by the patch; password rotation makes those copies unusable. Do not
 manually configure a share of the host credential/state directory.
+
+### Routine Lume output and host services
+
+The reviewed OwnMachine build redacts VNC userinfo from normal `lume ls` and
+`get` text/JSON output and omits passwords from VNC startup logs. Only the
+viewer-role relay requests `ls --include-vnc-password`, captures that output
+privately and verifies it against its mode-0600 managed password file. Do not
+log that explicit private-output mode. Processes running as the same host account
+can still read that account's credentials; redaction prevents accidental logging,
+not same-account privilege separation. Use a dedicated host account.
+
+Lume's upstream VNC listener binds all interfaces; the reviewed API exposes no
+supported bind-address control. Required PF and application-firewall rules restrict
+reachability. Do not describe the underlying listener as loopback-bound or disable
+either firewall because the advertised URL contains `127.0.0.1`.
+
+VNC protection does not isolate every host service from the guest network. To
+block guest-to-host Remote Login, an administrator can install
+`scripts/install-guest-ssh-firewall.sh GUEST_BRIDGE HOST_SSH_PORT`. Select the actual
+VM bridge and SSH port; never assume an interface name. This separate persistent
+PF anchor blocks TCP to the host on that bridge without changing LAN SSH policy
+or flushing global rules/states. It affects every guest on the selected bridge.
+Verify a new guest connection is refused and the authorized remote client still
+connects. Existing connections are not forcibly terminated. Other host services
+and custom guest network configurations require their own policy.

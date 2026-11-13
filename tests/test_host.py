@@ -304,9 +304,10 @@ class SecurityBoundaryTests(unittest.TestCase):
             with patch.object(relay,'firewall_ready'),patch.object(relay.subprocess,'run',return_value=result),patch.object(relay.socket,'create_connection') as connect:
                 with self.assertRaises(ValueError):relay.vnc('ownmachine',str(binary))
                 connect.assert_not_called()
-        with patch.object(relay,'firewall_ready'),patch.object(relay.subprocess,'run',return_value=listing()),patch.object(relay.socket,'create_connection',side_effect=RuntimeError('reached_socket')) as connect:
+        with patch.object(relay,'firewall_ready'),patch.object(relay.subprocess,'run',return_value=listing()) as listing_run,patch.object(relay.socket,'create_connection',side_effect=RuntimeError('reached_socket')) as connect:
             with self.assertRaisesRegex(RuntimeError,'reached_socket'):relay.vnc('ownmachine',str(binary))
             connect.assert_called_once_with(('127.0.0.1',5555),timeout=10)
+            self.assertIn('--include-vnc-password',listing_run.call_args.args[0])
 
 class HardenedLaunchTests(unittest.TestCase):
     setUp = HostLifecycleTests.setUp

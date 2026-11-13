@@ -1,0 +1,161 @@
+diff --git a/libs/lume/src/Commands/List.swift b/libs/lume/src/Commands/List.swift
+index 89a6dc6ec..cb3460b86 100644
+--- a/libs/lume/src/Commands/List.swift
++++ b/libs/lume/src/Commands/List.swift
+@@ -13,6 +13,9 @@ struct List: AsyncParsableCommand {
+     @Option(name: .long, help: "Filter by storage location name")
+     var storage: String?
+ 
++    @Flag(name: .long, help: "Include private VNC credentials. For authenticated relay use only; never log this output.")
++    var includeVncPassword = false
++
+     init() {
+     }
+     
+@@ -27,7 +30,7 @@ struct List: AsyncParsableCommand {
+                 print("No virtual machines found")
+             }
+         } else {
+-            try VMDetailsPrinter.printStatus(vms, format: self.format)
++            try VMDetailsPrinter.printStatus(vms, format: self.format, includeVncPassword: self.includeVncPassword)
+         }
+     }
+ }
+diff --git a/libs/lume/src/VM/VMDetailsPrinter.swift b/libs/lume/src/VM/VMDetailsPrinter.swift
+index 2200688e5..b8e1070bb 100644
+--- a/libs/lume/src/VM/VMDetailsPrinter.swift
++++ b/libs/lume/src/VM/VMDetailsPrinter.swift
+@@ -3,6 +3,16 @@ import Foundation
+ 
+ /// Prints labeled VM fields in terminals and a table when redirected.
+ enum VMDetailsPrinter {
++    // Preserve connection metadata without leaking userinfo into routine logs.
++    static func redactedVNCURL(_ value: String?) -> String? {
++        guard let value else { return nil }
++        guard var url = URLComponents(string: value), url.scheme == "vnc",
++              url.host != nil, url.port != nil else { return "[redacted]" }
++        url.user = nil
++        url.password = nil
++        return url.string
++    }
++
+     /// Represents a column in the VM status table
+     private struct Column: Sendable {
+         let header: String
+@@ -72,13 +82,22 @@ enum VMDetailsPrinter {
+     /// JSON and redirected text retain their existing formats.
+     /// - Parameter isTerminal: Whether standard output is a terminal; detected by default.
+     static func printStatus(
+-        _ vms: [VMDetails], format: FormatOption, isTerminal: Bool = isatty(STDOUT_FILENO) == 1,
++        _ vms: [VMDetails], format: FormatOption, includeVncPassword: Bool = false, isTerminal: Bool = isatty(STDOUT_FILENO) == 1,
+         print: (String) -> Void = { print($0) }
+     ) throws {
+         if format == .json {
+             let jsonEncoder = JSONEncoder()
+             jsonEncoder.outputFormatting = .prettyPrinted
+-            let jsonData = try jsonEncoder.encode(vms)
++            let encoded = try jsonEncoder.encode(vms)
++            var rows = try JSONSerialization.jsonObject(with: encoded) as! [[String: Any]]
++            if !includeVncPassword {
++                for index in rows.indices {
++                    if let value = rows[index]["vncUrl"] as? String {
++                        rows[index]["vncUrl"] = redactedVNCURL(value)
++                    }
++                }
++            }
++            let jsonData = try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+             let jsonString = String(data: jsonData, encoding: .utf8)!
+             print(jsonString)
+         } else if isTerminal {
+@@ -89,13 +108,13 @@ enum VMDetailsPrinter {
+                 }
+                 for column in columns {
+                     let label = "\(column.header):".paddedToWidth(labelWidth)
+-                    print(label + column.getValue(vm))
++                    print(label + (column.header == "vnc" && !includeVncPassword ? redactedVNCURL(vm.vncUrl) ?? "-" : column.getValue(vm)))
+                 }
+             }
+         } else {
+             print(columns.map { $0.header.paddedToWidth($0.width) }.joined())
+             for vm in vms {
+-                let values = columns.map { $0.getValue(vm).paddedToWidth($0.width) }
++                let values = columns.map { ($0.header == "vnc" && !includeVncPassword ? redactedVNCURL(vm.vncUrl) ?? "-" : $0.getValue(vm)).paddedToWidth($0.width) }
+                 print(values.joined())
+             }
+         }
+diff --git a/libs/lume/tests/VM/VMDetailsPrinterTests.swift b/libs/lume/tests/VM/VMDetailsPrinterTests.swift
+index 4813d9cce..40d728858 100644
+--- a/libs/lume/tests/VM/VMDetailsPrinterTests.swift
++++ b/libs/lume/tests/VM/VMDetailsPrinterTests.swift
+@@ -27,7 +27,7 @@ struct VMDetailsPrinterTests {
+     func printStatus_whenJSON(isTerminal: Bool) throws {
+         var output = ""
+         try VMDetailsPrinter.printStatus(
+-            vms, format: .json, isTerminal: isTerminal, print: { output = $0 })
++            vms, format: .json, includeVncPassword: true, isTerminal: isTerminal, print: { output = $0 })
+ 
+         let actual = try #require(JSONSerialization.jsonObject(with: Data(output.utf8)) as? NSArray)
+         let expected = try JSONSerialization.jsonObject(with: JSONEncoder().encode(vms)) as? NSArray
+@@ -53,7 +53,7 @@ struct VMDetailsPrinterTests {
+             shared_dirs: \(vm.sharedDirectories![0].hostPath) (ro)
+             ip:          -
+             ssh:         -
+-            vnc:         \(vm.vncUrl!)
++            vnc:         \(VMDetailsPrinter.redactedVNCURL(vm.vncUrl)!)
+             """
+         }.joined(separator: "\n\n")
+         #expect(lines.joined(separator: "\n") == expected)
+@@ -76,11 +76,25 @@ struct VMDetailsPrinterTests {
+                 (vm.name, 40), ("macOS", 8), ("4", 8), ("8.00G", 8), ("24.0B/30.0B", 16),
+                 ("1024x768", 12), ("running", 28), ("nat", 12), ("home", 16),
+                 ("\(vm.sharedDirectories![0].hostPath) (ro)", 54), ("-", 16), ("-", 6),
+-                (vm.vncUrl!, 50),
++                (VMDetailsPrinter.redactedVNCURL(vm.vncUrl)!, 50),
+             ].map { value, width in
+                 value.padding(toLength: width, withPad: " ", startingAt: 0)
+             }.joined()
+             #expect(line == expected)
+         }
+     }
++    @Test(arguments: [true, false])
++    func credentialsAreRedactedByDefault(isTerminal: Bool) throws {
++        for format in [FormatOption.json, .text] {
++            var lines: [String] = []
++            try VMDetailsPrinter.printStatus(vms, format: format, isTerminal: isTerminal,
++                                             print: { lines.append($0) })
++            let output = lines.joined(separator: "\n")
++            #expect(!output.contains("example-password"))
++            #expect(output.contains("vnc://127.0.0.1:59000"))
++        }
++        #expect(VMDetailsPrinter.redactedVNCURL("invalid:secret") == "[redacted]")
++        #expect(VMDetailsPrinter.redactedVNCURL(nil) == nil)
++    }
++
+ }
+--- a/libs/lume/src/VNC/VNCService.swift
++++ b/libs/lume/src/VNC/VNCService.swift
+@@ -114,11 +114,10 @@
+                     // Get the local IP address for the URL - prefer IPv4
+                     let hostIP = try getLocalIPAddress() ?? "127.0.0.1"
+                     let url = "vnc://:\(password)@127.0.0.1:\(assignedPort)"  // Use localhost for local connections
+-                    let externalUrl = "vnc://:\(password)@\(hostIP):\(assignedPort)"  // External URL for remote connections
+ 
+                     Logger.info("VNC server started", metadata: [
+-                        "local": url,
+-                        "external": externalUrl
++                        "local": "vnc://127.0.0.1:\(assignedPort)",
++                        "external": "vnc://\(hostIP):\(assignedPort)"
+                     ])
+ 
+                     // Save session information with local URL for the client
+--- a/libs/lume/src/VM/VM.swift
++++ b/libs/lume/src/VM/VM.swift
+@@ -1576,7 +1576,7 @@
+ 
+             let vncInfo = try await setupSession(
+                 port: vncPort, sharedDirectories: sharedDirectories)
+-            Logger.info("VNC info", metadata: ["vncInfo": vncInfo])
++            Logger.info("VNC info", metadata: ["vncInfo": VMDetailsPrinter.redactedVNCURL(vncInfo) ?? "disabled"])
+ 
+             // Start the VM
+             guard let service = virtualizationService else {
