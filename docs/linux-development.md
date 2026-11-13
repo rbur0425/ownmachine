@@ -298,3 +298,27 @@ Existing experimental guests without the gate need reviewed operator repair or
 a fresh guided installation. A completed old checkpoint is not permission to skip
 the new checks. Source-bound onboarding checkpoints prevent replaying installation
 with changed scripts. See [regression evidence](omarchy-security-acceptance.md).
+
+## Maintenance and host-service isolation
+
+Keep the tested package versions in the acceptance record. Before an intentional
+update, pause agent control, save guest work and check the configured package
+repositories and signing keys. Omarchy migrations may require packages outside the
+base Arch Linux ARM repositories; an absent official Omarchy repository can stop a
+migration with `target not found`. Use the upstream official ARM64 repository and
+its pinned signing-key procedure, with signature checking required; do not substitute
+unsigned packages, mark failed migrations complete, or suppress update notifications.
+Record each failure, repair its actual prerequisite, and resume the upstream update.
+Afterward verify no migrations remain, restart the guest, check hardening and driver
+readiness, verify the Hyprland module ABI, and rerun the model/browser acceptance.
+An update completing is not itself proof that desktop automation still works.
+
+When multiple signed Lume copies collide in macOS application-firewall registration,
+set `OWNMACHINE_LUME_BUNDLE_ID` to a distinct reverse-DNS identity when building into
+a new app directory. Register that exact app with the administrator firewall
+installer before selecting it in relay configuration. Never bypass the readiness
+check; a failed registration must leave VM start/viewing refused.
+
+See [host-service isolation and output redaction](../SECURITY.md#routine-lume-output-and-host-services)
+for optional configurable guest-to-host SSH blocking. This protects host SSH on the
+selected guest bridge; it is separate from the mandatory VNC firewall.

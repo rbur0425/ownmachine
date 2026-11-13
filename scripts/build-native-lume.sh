@@ -18,6 +18,7 @@ GIT_LFS_SKIP_SMUDGE=1 git -C "$build_root/source" checkout --detach "$revision"
 git -C "$build_root/source" apply "$root/patches/lume-0.7.0-key-clipboard.patch"
 git -C "$build_root/source" apply "$root/patches/lume-0.7.0-private-vnc-password.patch"
 git -C "$build_root/source" apply "$root/patches/lume-0.7.0-no-guest-vnc-credentials.patch"
+git -C "$build_root/source" apply "$root/patches/lume-0.7.0-redact-vnc-output.patch"
 case "${OWNMACHINE_LINUX_GUESTS:-0}" in
   0) ;;
   1) git -C "$build_root/source" apply --unidiff-zero "$root/patches/lume-0.7.0-linux-isolation.patch" ;;
@@ -31,12 +32,14 @@ cp "$build_root/source/libs/lume/resources/Info.plist" "$app/Contents/Info.plist
 # Separate Linux experimental builds from the production app's firewall identity.
 bundle_id=org.ownmachine.lume
 if [ "${OWNMACHINE_LINUX_GUESTS:-0}" = 1 ]; then bundle_id=org.ownmachine.lume.linux; fi
+bundle_id=${OWNMACHINE_LUME_BUNDLE_ID:-$bundle_id}
+[[ $bundle_id =~ ^[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z0-9-]+)+$ ]] || { echo 'Invalid OWNMACHINE_LUME_BUNDLE_ID' >&2; exit 1; }
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $bundle_id" "$app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName OwnMachine Lume' "$app/Contents/Info.plist"
 cp -R "$bin/lume_lume.bundle" "$app/Contents/Resources/"
 # This is an explicitly local, ad-hoc build, not the notarized vendor app.
 printf '%s\n' "$revision" > "$app/Contents/Resources/ownmachine-upstream-revision"
-shasum -a 256 "$root/patches/lume-0.7.0-key-clipboard.patch" "$root/patches/lume-0.7.0-private-vnc-password.patch" "$root/patches/lume-0.7.0-no-guest-vnc-credentials.patch" > "$app/Contents/Resources/ownmachine-patch-sha256"
+shasum -a 256 "$root/patches/lume-0.7.0-key-clipboard.patch" "$root/patches/lume-0.7.0-private-vnc-password.patch" "$root/patches/lume-0.7.0-no-guest-vnc-credentials.patch" "$root/patches/lume-0.7.0-redact-vnc-output.patch" > "$app/Contents/Resources/ownmachine-patch-sha256"
 if [ "${OWNMACHINE_LINUX_GUESTS:-0}" = 1 ]; then
   shasum -a 256 "$root/patches/lume-0.7.0-linux-isolation.patch" >> "$app/Contents/Resources/ownmachine-patch-sha256"
 fi

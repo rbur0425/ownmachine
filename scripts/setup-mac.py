@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / 'plugin'))
 from ownmachine.onboarding import DEFAULTS, FIELDS, validate_plan
 
 REVISION = '666c196f42dc9c83dbe075e20318f16c3e3a6d84'
-PATCHES = ('lume-0.7.0-key-clipboard.patch', 'lume-0.7.0-private-vnc-password.patch', 'lume-0.7.0-no-guest-vnc-credentials.patch')
+PATCHES = ('lume-0.7.0-key-clipboard.patch', 'lume-0.7.0-private-vnc-password.patch', 'lume-0.7.0-no-guest-vnc-credentials.patch', 'lume-0.7.0-redact-vnc-output.patch')
 
 
 def digest(value):
@@ -83,7 +83,9 @@ def verify_build(app, linux=False):
         raise ValueError('Lume patches differ')
     run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(app)])
     exe = str(app / 'Contents/MacOS/lume')
-    if '--verification-vnc' not in run([exe, 'create', '--help']).stdout or '--vnc-password-file' not in run([exe, 'run', '--help']).stdout:
+    if ('--verification-vnc' not in run([exe, 'create', '--help']).stdout
+            or '--vnc-password-file' not in run([exe, 'run', '--help']).stdout
+            or '--include-vnc-password' not in run([exe, 'ls', '--help']).stdout):
         raise ValueError('Required protected provisioning features unavailable')
 
 

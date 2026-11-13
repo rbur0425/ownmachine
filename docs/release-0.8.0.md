@@ -56,6 +56,19 @@ rotation is essential. Neither a plugin-only upgrade nor restoring an older VM
 saved state completes this security upgrade. Retain the required firewall and
 private account/storage permissions throughout.
 
+## Additional maintenance hardening
+
+Rebuild Lume and deploy the matching relay together for the VNC-output redaction
+patch. Normal listings/startup logs omit credentials; the viewer relay uses the
+explicit private-output option. Register any new app identity with the mandatory
+firewall before startup. The listener remains firewall-restricted rather than
+loopback-bound. Optional guest-bridge SSH blocking is a separate administrator
+step with configurable interface and port. See the [maintenance acceptance
+record](security-maintenance-acceptance.md) for tested network boundaries, empty
+legacy-directory cleanup and the completed Omarchy migrations/model retest.
+This follow-up invalidates the earlier release-head validation; revalidate the
+new final commit and do not publish older bundles as containing these fixes.
+
 ## Linux driver pin and upgrade policy
 
 The reviewed Linux CuaDriver pin is **0.47.19**. Treat the integration as

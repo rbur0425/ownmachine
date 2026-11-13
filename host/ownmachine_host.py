@@ -360,7 +360,7 @@ def vnc(name,binary):
     executable=next((p for p in candidates if p.is_file() and os.access(p,os.X_OK)),None)
     if executable is None:raise ValueError('lume_not_installed')
     firewall_ready(settings.get('vnc_port'), str(executable))
-    probe=subprocess.run([str(executable),'ls','--format','json'] + storage_arguments(settings),capture_output=True,text=True,timeout=5,check=True)
+    probe=subprocess.run([str(executable),'ls','--format','json','--include-vnc-password'] + storage_arguments(settings),capture_output=True,text=True,timeout=5,check=True)
     rows=json.loads(probe.stdout)
     vm=next((x for x in rows if isinstance(x,dict) and x.get('name')==name),None)
     if not vm or vm.get('status')!='running':raise ValueError('vm_not_running')
