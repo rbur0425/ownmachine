@@ -60,7 +60,11 @@ for the administrator and runtime-key handoffs.
 - [x] Supervised real Hermes browser navigation, Notepad save/reopen and independent file readback.
 - [x] Genuine guest cold boot preserves a saved file; driver recovers after operator sign-in.
 - [x] Run installed-Hermes doctor and a real-model read/capture task through the production relay.
-- [ ] Repeat a write/save task from a fully fresh Hermes installation.
+- [x] Repeat a supervised write/save task from a fresh Hermes installation.
+      An isolated Docker install saved and reopened the fresh guest's Notepad
+      document; independent UIA and visual checks matched the exact text. Closing
+      the last tab needed inspection/acknowledgement of a driver focus warning.
+- [ ] Qualify uninterrupted save/close/reopen and mixed-profile provider loading.
 - [ ] Exercise combined restart, lock/unlock, sign-out, driver restart and gateway restart.
 - [ ] Qualify input modes and prerelease-driver update policy; document unsupported actions.
 - [ ] Test Windows editions separately; keep claims within the tested matrix.

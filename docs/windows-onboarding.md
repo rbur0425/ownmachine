@@ -2,7 +2,8 @@
 
 Windows is under qualification in PR #28. Saved plans, authenticated execution
 and progress import now include a fresh provisioning implementation, described
-below. Clean-install acceptance is still pending. Do not mark stages complete
+below. One repair-free guest installation has passed; broader release qualification
+is still pending. Do not mark stages complete
 manually or run a macOS installer for Windows.
 
 ## Start in Hermes
@@ -12,6 +13,21 @@ and explicitly configure `plugins.isolation in_process`. For development docs, s
 OwnMachine's `setup_guide_ref` to that reviewed immutable commit; released versions
 use versioned documentation. No model credentials or unrelated authentication files
 need to be copied into the plugin.
+
+For qualification, use an isolated Hermes installation/home containing only the
+reviewed plugin. On the tested Hermes build, a live process could reuse an older
+OwnMachine provider loaded from another profile even after the target profile's
+plugin was updated. A named profile alone did not isolate that module cache.
+OwnMachine input results now include `meta.input_route` to identify the selected
+driver operation; explicit Windows foreground shortcuts should use `press_key`.
+If an updated installation behaves like an old one, stop and check installation
+isolation before retrying input. Do not patch Hermes core or clear a pending gate
+to work around this.
+
+The tested Windows driver can report foreground uncertainty when closing an app's
+last window, even if closure succeeded. Inspect the viewer before acknowledging
+that result, then rediscover windows rather than repeating the close operation.
+See the [supervised save/reopen evidence](windows-kvm-acceptance.md#foreground-save-and-reopen-supervised-acceptance-passed).
 
 Run `hermes ownmachine setup` and choose `windows`, or save an explicit plan:
 

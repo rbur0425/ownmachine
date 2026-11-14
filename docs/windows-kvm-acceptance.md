@@ -330,6 +330,53 @@ The viewer independently confirmed review-required control afterward.
 The installed provider contains the Windows foreground modifier routing, and an
 isolated no-dispatch probe maps that request to `press_key` with modifiers; a
 no-input Hermes dispatcher probe also preserves foreground kwargs. The difference
-between those probes and the live result remains unresolved. Do not describe this
-as a passing write/save test or infer that repeating it is safe. The clean setup,
-screenshot and retirement results above remain valid independently of this task.
+was subsequently traced to provider loading, as described below. This attempt
+itself did not pass; the clean setup, screenshot and retirement results above
+remain valid independently of it.
+
+### Foreground save and reopen: supervised acceptance passed
+
+The live Hermes session had loaded an older OwnMachine provider from another
+profile under the shared `_hermes_user_computer_use.ownmachine` module namespace.
+A temporary read-only diagnostic reported that module's source path and confirmed
+the new routing metadata was absent. Installing the current plugin in the target
+profile alone did not replace the cached provider. No Hermes core code was patched.
+
+An isolated Docker instance with a new Hermes home installed OwnMachine at
+`178aa3a8fa6e94d7dd97df92d1994a6de5ad72b6` through the public plugin installer.
+It reused only the configured agent SSH identity and existing shared control
+directory, not the old profile's plugins, history or credential stores. The local
+model endpoint needed no provider secret. The container's dedicated numeric user
+needed a passwd entry before OpenSSH could operate; this was test-container setup,
+not a guest repair. Plugin validation passed with no warnings, and 460 local tests
+passed for this implementation. Hermes was v0.23.1, upstream `3b421578`.
+
+Real Qwen3.8/Hermes then:
+
+1. Captured the existing unsaved Notepad document and checked its exact text.
+2. Sent explicit foreground Ctrl+S. Routing metadata confirmed `press_key` with
+   modifiers, and a new capture confirmed Save As opened.
+3. Typed the full destination into the observed filename field, saved with Enter,
+   and captured the unmodified saved document.
+4. Closed its last tab. The window really closed, but the driver's post-action
+   foreground check reported uncertainty because the target HWND no longer existed.
+   The model stopped. Independent window enumeration and the live viewer confirmed
+   closure before an operator acknowledged the gate. No save or reopen was done
+   manually, and the action was not retried.
+5. Relaunched Notepad to an empty Untitled document, used foreground Ctrl+O to open
+   the exact saved path, and captured the reopened text.
+
+After the model exited, a separate read-only UI Automation capture and visual
+inspection confirmed `ownmachine-fresh-acceptance.txt` contained exactly
+`OwnMachine fresh Windows acceptance passed.` (43 characters). The SHA-256 of that
+captured text's UTF-8 encoding was
+`8ac49cff418c86cd1801cef837fb1e5ed8104ffad13d2aae10395b2b336773a2`.
+This is independent reopened-content verification, not a raw disk-byte hash.
+Private session logs and screenshots remain outside Git.
+
+All desktop writes retained individual Allow once approvals, standard driver
+privilege and the shared human-control gate. The temporary diagnostic plugin was
+disabled after use. This establishes supervised save/reopen on the fresh guest
+from a fresh Hermes installation, not an uninterrupted autonomous pass. Mixed
+profile provider loading and last-window foreground closure remain explicit
+compatibility limitations; release remains held.
