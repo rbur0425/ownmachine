@@ -268,6 +268,71 @@ b.stop()
   self.assertEqual(self.b.key('ctrl+s',delivery_mode='foreground').code,'windows_modifier_keys_unsupported')
   self.assertEqual(len(self.fake.calls),count)
 
+ def close_fixture(self, *, label='Close Tab', profile='windows', failure=None,
+                   windows=None, probe=None, probe_error=False):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile=profile)
+  original=self.fake.call
+  dispatched=False
+  def call(name,args):
+   nonlocal dispatched
+   if name=='click':
+    self.fake.calls.append((name,args));dispatched=True
+    return failure or {'isError':True,'structuredContent':{'code':'tool_invocation_failed',
+     'message':'foreground_unavailable: exact target HWND 0x22 or a verified same-process post-action window was not foreground after the click (actual foreground HWND 0x33)'}}
+   if dispatched and name=='list_windows':
+    self.fake.calls.append((name,args))
+    return windows if windows is not None else {'structuredContent':{'windows':[]}}
+   if dispatched and name=='get_window_state':
+    self.fake.calls.append((name,args))
+    if probe_error:raise TransportError('transport_outcome_unknown')
+    return probe if probe is not None else {'isError':True,'content':[{'type':'text',
+     'text':'No window with window_id 34 exists. Call `list_windows({"pid": 12})` for candidates.'}]}
+   reply=original(name,args)
+   if name=='get_window_state':
+    row=reply['structuredContent']['elements'][0]
+    row.update(role='Button',label=label,actions=['invoke','AXPress'])
+   return reply
+  self.fake.call=call
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+
+ def test_last_window_close_verified_without_replay_or_transfer(self):
+  self.close_fixture();generation=self.b.lease.status()['generation']
+  result=self.b.click(element=1,delivery_mode='foreground')
+  self.assertTrue(result.ok);self.assertTrue(result.verified)
+  self.assertEqual(result.code,'window_closed_verified')
+  self.assertEqual(self.b.lease.status(),dict(controller='agent',generation=generation,pending=False))
+  self.assertIsNone(self.b.target);self.assertEqual(self.b.tokens,{})
+  self.assertEqual([n for n,a in self.fake.calls].count('click'),1)
+  self.assertEqual(self.b.type_text('no stale input').code,'capture_required')
+
+ def test_close_reconciliation_rejects_ambiguous_and_non_close_results(self):
+  cases=[{'label':'Delete'}, {'profile':'macos'},
+   {'failure':{'isError':True,'structuredContent':{'code':'tool_invocation_failed','message':'foreground_unavailable: refused before input'}}},
+   {'windows':{'structuredContent':{}}},
+   {'windows':{'isError':True,'structuredContent':{'windows':[]}}},
+   {'windows':{'structuredContent':{'windows':[{}]}}},
+   {'windows':{'structuredContent':{'windows':[{'pid':12,'window_id':34,'minimized':True}]}}},
+   {'windows':{'structuredContent':{'windows':[{'pid':12,'window_id':35}]}}},
+   {'windows':{'structuredContent':{'windows':[{'pid':13,'window_id':34}]}}},
+   {'probe':{'structuredContent':{'elements':[]}}},
+   {'probe':{'isError':True,'content':[{'type':'text','text':'capture failed'}]}},
+   {'probe':{'isError':True,'content':[{'type':'text','text':'window_id 34 belongs to pid 13, not pid 12.'}]}},
+   {'probe_error':True}]
+  for case in cases:
+   with self.subTest(case=case):
+    self.b.stop();self.fake=FakeTransport()
+    self.b=OwnMachineBackend(self.config,transport=self.fake)
+    self.close_fixture(**case)
+    result=self.b.click(element=1,delivery_mode='foreground')
+    self.assertFalse(result.ok);self.assertTrue(self.b.lease.status()['pending'])
+    self.assertEqual([n for n,a in self.fake.calls].count('click'),1)
+
+ def test_background_close_is_not_reclassified(self):
+  self.close_fixture()
+  self.assertFalse(self.b.click(element=1,delivery_mode='background').ok)
+  self.assertTrue(self.b.lease.status()['pending'])
+
  def combo_edit_fixture(self, profile='windows'):
   from dataclasses import replace
   self.b.config=replace(self.config,guest_profile=profile)

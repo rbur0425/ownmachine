@@ -95,6 +95,7 @@ class OwnMachineBackend(ComputerUseBackend):
         self.tokens = {}
         self.element_actions = {}
         self.element_roles = {}
+        self.close_tokens = set()
         self.combo_edit_tokens = set()
         self.target = None
         self.has_pixels = False
@@ -254,6 +255,9 @@ class OwnMachineBackend(ComputerUseBackend):
         self.tokens = {e.index:e.element_token for e in elements}
         self.element_actions = {e.index:e.attributes['actions'] for e in elements if isinstance(e.attributes.get('actions'),list)}
         self.element_roles = {e.index:e.role for e in elements}
+        self.close_tokens = {e.element_token for e in elements
+            if e.role == 'Button' and e.label in {'Close', 'Close Tab'}
+            and 'invoke' in e.attributes.get('actions', [])}
         self._last_target = target
         self._last_app = app or data.get('app_name')
         output_mode = mode
@@ -289,7 +293,35 @@ class OwnMachineBackend(ComputerUseBackend):
             elements=elements, app=app or data.get('app_name',''), window_title=data.get('window_title',''),
             ax_max_elements=200, note=note)
 
-    def _write(self, name, args):
+    def _verified_closed_target(self, reply, data, target):
+        """Read-only reconciliation of the pinned driver's post-click focus check.
+
+        Never treats a general input refusal, timeout, missing list field or hidden
+        window as closure. No retry, mode switch or control transfer is performed.
+        """
+        if data.get('code') != 'tool_invocation_failed': return False
+        message = data.get('summary') or data.get('message') or '\n'.join(
+            p.get('text', '') for p in reply.get('content', []) if p.get('type') == 'text')
+        hwnd, pid = target['window_id'], target['pid']
+        pattern = (rf'foreground_unavailable: exact target HWND 0x{hwnd:x} or a verified same-process '
+                   r'post-action window was not foreground after the click \(actual foreground HWND 0x[0-9a-f]+\)')
+        if not re.fullmatch(pattern, message): return False
+        listing = self._call('list_windows', {})
+        windows = structured(listing).get('windows')
+        if listing.get('isError') or not isinstance(windows, list): return False
+        if any(not isinstance(w, dict) or type(w.get('window_id')) is not int
+               or type(w.get('pid')) is not int for w in windows): return False
+        if any(w['window_id'] == hwnd or w['pid'] == pid for w in windows): return False
+        # Listing alone can omit hidden windows. Require the driver's exact HWND
+        # lookup to positively report Missing; wrong-owner and capture errors fail.
+        probe = self._call('get_window_state', {**target, 'tree_format': 'elements',
+                                               'include_screenshot': False})
+        expected = (f'No window with window_id {hwnd} exists. '
+                    f'Call `list_windows({{"pid": {pid}}})` for candidates.')
+        texts = [p.get('text') for p in probe.get('content', []) if p.get('type') == 'text']
+        return probe.get('isError') is True and texts == [expected]
+
+    def _write(self, name, args, *, closing_target=None):
         try:
             if self.generation is None:
                 return ActionResult(False, name, code='capture_required', message='Capture the desktop or intended window before launch, focus or input.')
@@ -306,6 +338,17 @@ class OwnMachineBackend(ComputerUseBackend):
                 reply = self._call(name,args)
                 data = structured(reply)
                 if reply.get('isError') is True or data.get('ok') is False:
+                    closed = False
+                    if closing_target:
+                        try: closed = self._verified_closed_target(reply, data, closing_target)
+                        except (ValueError, RuntimeError, TransportError): pass
+                    if closed:
+                        self._clear()
+                        return ActionResult(True, name, code='window_closed_verified', verified=True,
+                            message='The captured close control removed the last target window. Independent window listing and exact-HWND lookup confirmed closure after the driver post-click focus warning. Capture fresh state before further input.',
+                            delivery_mode=args.get('delivery_mode'),
+                            meta={'closure_verification': 'window_list_and_exact_hwnd_missing',
+                                  'driver_warning': 'post_click_foreground_target_gone'})
                     raise LeaseError('driver_action_failed_review_required')
                 if data.get('code') in {'transport_outcome_unknown','timeout_outcome_unknown'}:
                     raise TransportError('transport_outcome_unknown')
@@ -365,7 +408,12 @@ class OwnMachineBackend(ComputerUseBackend):
             for key in ('pid','window_id'):
                 if key not in props: payload.pop(key,None)
         if delivery_mode: payload['delivery_mode'] = delivery_mode
-        result = self._write(name,payload)
+        closing_target = None
+        if (self.config.guest_profile == 'windows' and name == 'click'
+                and delivery_mode == 'foreground' and args.get('element_token') in self.close_tokens
+                and type(self.target.get('pid')) is int and type(self.target.get('window_id')) is int):
+            closing_target = dict(self.target)
+        result = self._write(name,payload,closing_target=closing_target)
         result.meta = {**result.meta, 'input_route': {
             'guest_profile': self.config.guest_profile,
             'requested_delivery_mode': delivery_mode, 'driver_tool': name}}
