@@ -264,3 +264,22 @@ fixes from the beginning. The Windows viewer's unconditional red/blue swap was
 also removed: normal colors are now the default, with a boolean compatibility
 override. All 460 local tests pass for that change; visual confirmation belongs to
 the next clean fixture. Release remains held.
+
+
+### Final pristine fixture: host registration and runtime handoff
+
+A separate fixture built from `0b4395f` passed administrator registration without
+a console-path repair. The installed Hermes profile then passed authenticated
+firewall, relay, separate-key and viewer-service stages. Its isolated agent key
+was paired into the container; a direct runtime status check confirmed the
+configured Windows domain was stopped. The viewer credential remains outside the
+container's shared control directory.
+
+Provisioning has not yet begun: browser automation was interrupted by an extension
+popup before the private viewer could be unlocked. The initial DVD-boot prompt
+requires an available viewer. The preceding test guest's graceful relay stop
+also timed out; its inspected Windows desktop offered an update/shutdown action,
+which began a restart/update sequence. No forced power-off or memory
+overcommit was used. These are pending operational checks, not a clean-install
+completion claim. The prior pending-review viewer displayed its desktop again;
+after inspection, human reservation was explicitly acknowledged for shutdown.
