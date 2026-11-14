@@ -63,6 +63,26 @@ class FreshWindowsTests(unittest.TestCase):
         with patch.object(w,'guest',return_value={k:True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')}):
             self.assertEqual(stages.execute({}, {},'driver',True)['stage'],'verified')
 
+    def test_ejected_cdrom_accepts_live_index_but_rejects_media(self):
+        import xml.etree.ElementTree as ET
+        for source,empty in [('',True),('<source index="4"/>',True),
+                             ('<source file="/private/media.iso" index="4"/>',False),
+                             ('<source dev="/dev/sr0"/>',False),
+                             ('<source protocol="https"><host name="media.example"/></source>',False),
+                             ('<source index="not-a-number"/>',False)]:
+            with self.subTest(source=source):
+                self.assertEqual(w.empty_cdrom(ET.fromstring('<disk>'+source+'</disk>')),empty)
+
+    def test_media_ejection_checks_persistent_definition_too(self):
+        live='<domain><devices><disk device="cdrom"><source index="4"/></disk></devices></domain>'
+        saved='<domain><devices><disk device="cdrom"><source file="/private/media.iso"/></disk></devices></domain>'
+        with tempfile.TemporaryDirectory() as td:
+            config=Path(td)/'runtime.json';config.write_text(json.dumps({'vm_uuid':'test'}))
+            for persistent,expected in [(live,True),(saved,False)]:
+                with patch.object(w,'run',side_effect=[subprocess.CompletedProcess([],0,live),subprocess.CompletedProcess([],0,persistent)]) as run:
+                    self.assertEqual(w.media_ejected({'runtime_config':str(config)}),expected)
+                    self.assertIn('--inactive',run.call_args.args[0])
+
     def test_domain_has_only_private_console_no_host_share(self):
         c,p=self.config()
         with tempfile.TemporaryDirectory() as td:

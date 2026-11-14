@@ -124,11 +124,23 @@ def guest(c,operation):
     return json.loads(result.stdout.lstrip('\ufeff'))
 
 
+def empty_cdrom(disk):
+    # Live libvirt XML can retain an index-only source after successful eject.
+    # Never treat file/device/network attributes or child elements as empty.
+    source=disk.find('source')
+    return source is None or (set(source.attrib)<= {'index'}
+        and ('index' not in source.attrib or source.get('index').isdigit())
+        and not len(source) and not (source.text or '').strip())
+
+
 def media_ejected(c):
     import xml.etree.ElementTree as ET
     runtime=json.loads(Path(c['runtime_config']).read_text())
-    tree=ET.fromstring(run(['virsh','-c','qemu:///system','dumpxml',runtime['vm_uuid']]).stdout)
-    return all(d.find('source') is None for d in tree.findall('./devices/disk') if d.get('device')=='cdrom')
+    for flags in ([],['--inactive']):
+        tree=ET.fromstring(run(['virsh','-c','qemu:///system','dumpxml',runtime['vm_uuid'],*flags]).stdout)
+        if not all(empty_cdrom(d) for d in tree.findall('./devices/disk') if d.get('device')=='cdrom'):
+            return False
+    return True
 
 
 def eject(c):
@@ -137,7 +149,7 @@ def eject(c):
     tree=ET.fromstring(run(['virsh','-c','qemu:///system','dumpxml',runtime['vm_uuid']]).stdout)
     if tree.findtext('name')!=c['vm_name']:raise ValueError('domain_mismatch')
     for disk in tree.findall('./devices/disk'):
-        if disk.get('device')=='cdrom' and disk.find('source') is not None:
+        if disk.get('device')=='cdrom' and not empty_cdrom(disk):
             target=disk.find('target').get('dev')
             if target not in ('sdb','sdc'):raise ValueError('unexpected_media_target')
             run(['virsh','-c','qemu:///system','change-media',runtime['vm_uuid'],target,'--eject','--live','--config'])

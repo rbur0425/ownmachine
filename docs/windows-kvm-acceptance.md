@@ -205,3 +205,27 @@ concatenation. A native Windows PowerShell probe reproduced the original failure
 expressions against strict, non-mutating stubs successfully. Parser-only checks
 had missed this failure. A new clean installation must qualify the fix; this
 fixture is not a passing clean-install result.
+
+
+### Second fresh fixture: bootstrap passed; media-normalization fix
+
+A separate fixture using `66644dd` passed Hermes preflight, artifact build,
+administrator registration, firewall, both runtime-role checks and viewer setup.
+Its private console definition survived libvirt normalization without repair.
+After the documented DVD-boot keypress, Windows installed and signed into its
+standard user without guest-file/permission repairs. The Windows SSH-component
+installation took several minutes after the desktop appeared; the initial
+bootstrap checkpoint did not show intermediate progress. Authenticated provision
+then reported configured, Secure Boot/TPM ready, and driver signature/hash valid.
+MCP was refused before hardening.
+
+Hermes ejected both CDs but rejected the resulting live XML: libvirt retained
+`<source index="…"/>` for empty drives. A diagnostic invocation of the same fixed
+guest hardening command succeeded, while Hermes's media check continued to fail.
+This was not an uninterrupted end-to-end pass. The check now accepts only empty
+or index-only sources and checks both live and persistent definitions; sources
+with file/device/network attributes or children remain refused. Regression tests
+cover retained live indexes and media still attached in the persistent definition.
+No guest scripts, privileges or file ownership were manually repaired. Remaining
+verification/retirement must exercise the updated host-side check; a pristine run
+from one final source commit is still a separate qualification requirement.

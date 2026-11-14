@@ -173,11 +173,21 @@ hermes ownmachine setup --run preflight
 hermes ownmachine setup --run provision --apply
 ```
 
-Provision starts only the configured guest. Windows may require a boot-media
-keypress in the private viewer. A still-installing response is not success:
+Provision starts only the configured guest. Open the private viewer, reserve human
+control, click inside the desktop, and press a key when Windows asks to boot from
+CD/DVD. If the prompt expires, enter the firmware boot menu and select the
+Windows installation ISO (not the smaller bootstrap ISO), then respond to its
+keypress prompt. Do not press a key at later restarts: let the installed disk boot.
+This console step is currently manual; creation is not fully unattended.
+
+A still-installing response is not success:
 fetch progress, refresh preflight and repeat provision to check bootstrap; it
 will not recreate a running guest or its disk. Build refuses an uncertain partial
-artifact directory rather than erasing it.
+artifact directory rather than erasing it. If the desktop appears but provisioning
+never completes, inspect `bootstrap-status.json` under the configured guest
+installation root through the viewer. A `failed` result requires diagnosis; do not
+mark the stage complete or start the driver manually. Keep bootstrap media mounted
+until provisioning confirms success; the hardening stage ejects it.
 
 ```sh
 hermes ownmachine setup --run harden --apply
