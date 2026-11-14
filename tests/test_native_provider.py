@@ -252,7 +252,9 @@ b.stop()
   self.b.config=replace(self.config,guest_profile='windows')
   self.fake.tools['press_key']['properties']['modifiers']={}
   self.b.lease.transfer('agent');self.b.capture(app='Editor')
-  self.assertTrue(self.b.key('ctrl+s',delivery_mode='foreground').ok)
+  result=self.b.key('ctrl+s',delivery_mode='foreground')
+  self.assertTrue(result.ok)
+  self.assertEqual(result.meta['input_route'],dict(guest_profile='windows',requested_delivery_mode='foreground',driver_tool='press_key'))
   name,args=self.fake.calls[-1]
   self.assertEqual(name,'press_key');self.assertEqual(args['modifiers'],['ctrl'])
   self.assertEqual((args['key'],args['pid'],args['window_id'],args['delivery_mode']),('s',12,34,'foreground'))

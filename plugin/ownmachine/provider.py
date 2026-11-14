@@ -365,7 +365,11 @@ class OwnMachineBackend(ComputerUseBackend):
             for key in ('pid','window_id'):
                 if key not in props: payload.pop(key,None)
         if delivery_mode: payload['delivery_mode'] = delivery_mode
-        return self._write(name,payload)
+        result = self._write(name,payload)
+        result.meta = {**result.meta, 'input_route': {
+            'guest_profile': self.config.guest_profile,
+            'requested_delivery_mode': delivery_mode, 'driver_tool': name}}
+        return result
 
     def _element(self, element):
         if element is None: return {}
