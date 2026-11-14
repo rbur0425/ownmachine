@@ -296,8 +296,10 @@ class OwnMachineBackend(ComputerUseBackend):
     def _verified_closed_target(self, reply, data, target):
         """Read-only reconciliation of the pinned driver's post-click focus check.
 
-        Never treats a general input refusal, timeout, missing list field or hidden
-        window as closure. No retry, mode switch or control transfer is performed.
+        Never treats a general input refusal, timeout or missing list field as
+        closure. Verifies disappearance from the driver's desktop-window contract,
+        not process exit or native handle destruction (close-to-tray is possible).
+        No retry, mode switch or control transfer is performed.
         """
         if data.get('code') != 'tool_invocation_failed': return False
         message = data.get('summary') or data.get('message') or '\n'.join(
@@ -312,8 +314,9 @@ class OwnMachineBackend(ComputerUseBackend):
         if any(not isinstance(w, dict) or type(w.get('window_id')) is not int
                or type(w.get('pid')) is not int for w in windows): return False
         if any(w['window_id'] == hwnd or w['pid'] == pid for w in windows): return False
-        # Listing alone can omit hidden windows. Require the driver's exact HWND
-        # lookup to positively report Missing; wrong-owner and capture errors fail.
+        # Corroborate enumeration with the driver's exact-HWND listed-window lookup;
+        # wrong-owner and capture errors fail. Both APIs expose desktop windows,
+        # so Missing is not a claim that the underlying process has terminated.
         probe = self._call('get_window_state', {**target, 'tree_format': 'elements',
                                                'include_screenshot': False})
         expected = (f'No window with window_id {hwnd} exists. '

@@ -392,6 +392,8 @@ window list must contain neither that HWND nor another window of the target PID;
 the driver's separate exact-HWND lookup must then explicitly report that window
 missing. Successful verification invalidates all old targets/tokens and returns
 `window_closed_verified`. The original warning remains visible in metadata.
+These checks verify closure from the driver's desktop-window view, not native
+handle destruction or process termination; an application may close to its tray.
 There is no input replay, background fallback, control transfer or acknowledgement
 of an already-pending action. Unknown failures and failed verification retain the
 durable review marker. This reconciles a completed close; it does not suppress
