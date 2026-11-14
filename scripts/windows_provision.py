@@ -34,7 +34,7 @@ def settings(c,plan):
               'driver_zip','accept_evaluation_terms','operator_user','agent_user','viewer_user','qemu_user','console_group',
               'console_socket','host_address','host_known_hosts','runtime_prefix','guest_user','guest_setup_user','guest_install_root',
               'viewer_python','viewer_control_dir','access_dir','viewer_port'}
-    if not isinstance(p,dict) or (not required<=set(p) or set(p)-required-{'host_ssh_port','ssh_service'}):raise ValueError('explicit_windows_provisioning_configuration_required')
+    if not isinstance(p,dict) or (not required<=set(p) or set(p)-required-{'host_ssh_port','ssh_service','viewer_swap_red_blue'}):raise ValueError('explicit_windows_provisioning_configuration_required')
     if p['accept_evaluation_terms'] is not True:raise ValueError('evaluation_terms_consent_required')
     for name in ('operator_user','agent_user','viewer_user','qemu_user','console_group','guest_user','guest_setup_user'):
         if not isinstance(p[name],str) or not re.fullmatch('[a-z][a-z0-9_-]{0,19}',p[name]):raise ValueError('invalid_account')
@@ -52,6 +52,7 @@ def settings(c,plan):
         value=p[name]
         if not isinstance(value,str) or not re.fullmatch(r'/[A-Za-z0-9_./-]+',value) or '..' in Path(value).parts:raise ValueError('safe_absolute_path_required')
     if not re.fullmatch(r'C:/[A-Za-z0-9_/-]+',p['guest_install_root']):raise ValueError('invalid_guest_install_root')
+    if type(p.get('viewer_swap_red_blue',False)) is not bool:raise ValueError('invalid_viewer_color_override')
     if type(p['viewer_port']) is not int or not 0<=p['viewer_port']<=65535:raise ValueError('invalid_viewer_port')
     if not re.fullmatch('[a-f0-9]{64}',p['windows_iso_sha256']):raise ValueError('verified_windows_media_required')
     if set(p) & set(plan):raise ValueError('ambiguous_provisioning_configuration')
@@ -161,12 +162,19 @@ def user_unit(*args):
     return subprocess.run(['systemctl','--user',*args],env=env,stdin=subprocess.DEVNULL,capture_output=True,text=True,check=True,timeout=30)
 
 
+def viewer_argv(c,p):
+    argv=[p['viewer_python'],str(ROOT/'viewer/server.py'),'--host-alias',c['viewer_alias'],'--vm-name',p['vm_name'],
+          '--guest-profile','windows','--console-transport','private-unix','--control-dir',p['viewer_control_dir'],
+          '--access-dir',p['access_dir'],'--port',str(p['viewer_port'])]
+    if p.get('viewer_swap_red_blue',False):argv.append('--swap-red-blue')
+    return argv
+
+
 def viewer(c,plan,apply):
     p=settings(c,plan);state=Path(plan['storage_dir']);unit='ownmachine-viewer-'+plan['vm_name']+'.service'
     if apply:
         import shlex
-        argv=[p['viewer_python'],str(ROOT/'viewer/server.py'),'--host-alias',c['viewer_alias'],'--vm-name',plan['vm_name'],
-              '--guest-profile','windows','--console-transport','private-unix','--control-dir',p['viewer_control_dir'],'--access-dir',p['access_dir'],'--port',str(p['viewer_port']),'--swap-red-blue']
+        argv=viewer_argv(c,p)
         # Values contain no control chars or systemd expansion operators.
         content='[Unit]\nDescription=OwnMachine private Windows viewer\n[Service]\nEnvironment=PATH='+str(state/'ssh-bin')+':/usr/bin:/bin\nExecStart='+shlex.join(argv)+'\nRestart=on-failure\n[Install]\nWantedBy=default.target\n'
         path=Path.home()/'.config/systemd/user'/unit;install_exact(path,content.encode())

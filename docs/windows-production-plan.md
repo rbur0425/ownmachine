@@ -40,17 +40,19 @@ for the administrator and runtime-key handoffs.
 - [x] Add the Windows choice and Linux host preflight to the saved plan and wizard.
 - [x] Exercise plan save/resume guidance in installed Hermes.
 - [x] Exercise authenticated Windows remote preflight/progress, replay refusal and test-key revocation.
-- [ ] Exercise the remaining mutating stages through Hermes.
-- [ ] Bind each stage to reviewed source, plan, separate setup identity and pinned host key.
-- [ ] Check KVM, storage, QEMU, libvirt ACLs, firmware, TPM and verified installation media.
-- [ ] Render portable domain/network/media configuration without overwriting existing disks.
-- [ ] Prompt for evaluation/license consent and administrator actions before mutations.
-- [ ] Install standard guest account, pinned driver and narrowly restricted guest SSH.
-- [ ] Remove answer-file secrets, one-time login, setup tasks and bootstrap media.
-- [ ] Install both runtime roles and the separately owned private viewer.
+- [x] Exercise the remaining mutating stages through Hermes.
+- [x] Bind each stage to reviewed source, plan, separate setup identity and pinned host key.
+- [x] Check KVM, storage, QEMU, libvirt ACLs, firmware, TPM and verified installation media.
+- [x] Render portable domain/network/media configuration without overwriting existing disks.
+- [x] Prompt for evaluation/license consent and administrator actions before mutations.
+- [x] Install standard guest account, pinned driver and narrowly restricted guest SSH.
+- [x] Remove answer-file secrets, one-time login, setup tasks and bootstrap media.
+- [x] Install both runtime roles and the separately owned private viewer.
 - [ ] Use doctor and saved progress to explain exact manual handoffs and reminder options.
-- [ ] Verify both runtime roles, private console and computer_use capture, then retire setup keys.
+- [x] Verify both runtime roles, private console and computer_use capture, then retire setup keys.
 - [ ] Run two clean installations, including non-default paths/names and interruption/resume.
+      Two fresh fixtures exposed and qualified fixes; one-source, repair-free final
+      installation remains pending. Setup retirement passed after a reviewed host-source update.
 
 ## Runtime acceptance
 

@@ -229,3 +229,38 @@ cover retained live indexes and media still attached in the persistent definitio
 No guest scripts, privileges or file ownership were manually repaired. Remaining
 verification/retirement must exercise the updated host-side check; a pristine run
 from one final source commit is still a separate qualification requirement.
+
+
+### Verified setup and automatic retirement after host-side correction
+
+With the reviewed `65f7a99` host source re-pinned, the previous endpoint receipts
+were archived and checks rerun rather than carried forward. Hermes passed
+preflight, firewall, separate runtime roles, provision, harden, driver and
+permissions. Native `computer_use` screenshot verification decoded and checked a
+1280×800 PNG. `verify --apply` repeated verification, disabled guest setup access,
+proved its key rejected, removed temporary installation artifacts, retired the
+host setup key and proved runtime readiness afterward. The receipt reported
+`complete`, `setup_key_rejected=true`, `runtime_verified=true` and no pending
+reminder cleanup. Doctor passed all readiness checks.
+
+Independent follow-up SSH attempts isolated each retired identity (no fallback
+keys) and both were refused. Filesystem inspection confirmed the temporary guest
+setup key, seeded host key, bootstrap ISO and seed directory were absent; the disk
+and viewer key remained. These are live retirement results, not mocks. The
+retirement checkpoint is in the endpoint's private state directory, not VM storage.
+
+A real-model read/capture attempt through the installed plugin succeeded. Its
+one-shot input was correctly refused by Hermes's approval policy. An interactive
+repeat retained per-action Allow once approvals but stopped on modern Notepad's
+unsupported background new-tab shortcut and entered operator review. It did not
+complete the requested write/save task. No approval policy, driver privilege or
+pending-input gate was relaxed to obtain a passing result. The viewer then showed
+a blank stream with the pending-review notice; review-state viewing and the
+explicit foreground task path need follow-up qualification. This does not undo
+setup/retirement acceptance or establish unattended desktop reliability.
+
+A final pristine run must include the bootstrap argument and media-normalization
+fixes from the beginning. The Windows viewer's unconditional red/blue swap was
+also removed: normal colors are now the default, with a boolean compatibility
+override. All 460 local tests pass for that change; visual confirmation belongs to
+the next clean fixture. Release remains held.

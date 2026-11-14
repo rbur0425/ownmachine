@@ -206,3 +206,10 @@ then removes the exact host setup authorization. Hermes independently verifies
 host-key rejection and continuing runtime health. Any uncertain retirement stops
 for inspection. Permanent guest automatic sign-in remains disabled; after future
 cold starts, sign in through the private viewer when doctor requests it.
+
+
+The Windows viewer preserves the server's normal RGB colors by default. Set the
+optional boolean `provision.viewer_swap_red_blue` only for a console server that
+actually needs that compatibility workaround; do not enable it for every Windows
+VM. Its default is `false`. The private-console transport and human-input gate
+are unchanged by this display-only setting.

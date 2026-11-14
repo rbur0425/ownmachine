@@ -83,6 +83,14 @@ class FreshWindowsTests(unittest.TestCase):
                     self.assertEqual(w.media_ejected({'runtime_config':str(config)}),expected)
                     self.assertIn('--inactive',run.call_args.args[0])
 
+    def test_viewer_preserves_normal_colors_unless_explicitly_overridden(self):
+        c,p=self.config();c['viewer_alias']='viewer-test'
+        self.assertNotIn('--swap-red-blue',w.viewer_argv(c,w.settings(c,p)))
+        c['provision']['viewer_swap_red_blue']=True
+        self.assertIn('--swap-red-blue',w.viewer_argv(c,w.settings(c,p)))
+        c['provision']['viewer_swap_red_blue']='true'
+        with self.assertRaisesRegex(ValueError,'color_override'):w.settings(c,p)
+
     def test_domain_has_only_private_console_no_host_share(self):
         c,p=self.config()
         with tempfile.TemporaryDirectory() as td:
