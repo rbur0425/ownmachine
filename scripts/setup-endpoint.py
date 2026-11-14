@@ -48,7 +48,7 @@ def configuration(path):
     if not isinstance(raw,dict) or raw.get('schema_version',1)!=1: raise ValueError('invalid_plan_version')
     plan = {key: raw.get(key, DEFAULTS[key]) for key in FIELDS}
     validate_plan(plan)
-    expected_os='linux' if plan.get('guest_profile')=='omarchy' else 'macos'
+    expected_os={'omarchy':'linux','windows':'windows','macos':'macos'}[plan.get('guest_profile','macos')]
     if payload.get('guest_os',expected_os)!=expected_os:raise ValueError('guest_profile_mismatch')
     if 'iso_sha256' in c and (not isinstance(c['iso_sha256'],str) or not re.fullmatch('[a-f0-9]{64}',c['iso_sha256'])):raise ValueError('invalid_iso_checksum')
     c['_config_path'] = str(path.resolve())
@@ -56,6 +56,8 @@ def configuration(path):
 
 
 def command(c,plan,step,apply):
+    if plan.get('guest_profile')=='windows':
+        return [sys.executable,str(ROOT/'scripts/setup-windows.py'),'--config',c['services_file'],'--plan-file',c['plan_file'],'--step',step]+(['--apply'] if apply else [])
     if step in {'linux-boot-installer','linux-boot-system','linux-start-desktop','linux-base','linux-desktop'}:
         if plan.get('guest_profile')!='omarchy':raise ValueError('linux_stage_requires_omarchy')
         from setup_support import module
@@ -164,6 +166,11 @@ def execute(request,c,plan):
                     raise ValueError('fresh_verification_and_capture_required')
                 from setup_support import module
                 retirement = module('endpoint_retirement','scripts/retire-setup-key.py')
+                if plan.get('guest_profile')=='windows':
+                    windows=module('retiring_windows','scripts/setup-windows.py')
+                    import windows_provision
+                    service=windows.configuration(Path(c['services_file']),plan)
+                    windows_provision.retire(service,state)
                 retirement.retire(c,state)
                 saved['outcomes'][step]=dict(stage='verified',observed_at=int(time.time()))
                 mac.write_state(path,saved)
@@ -180,7 +187,7 @@ def execute(request,c,plan):
                     report=json.loads(result.stdout)
                     if isinstance(report,dict) and result.returncode==0 and report.get('ok') is True and report.get('stage') in {'verified','checks_passed','observed'}:
                         stage=report['stage']
-                        if step=='preflight' and (report.get('free_gib',0)<plan['min_free_gb'] or not report.get('swift_available')
+                        if step=='preflight' and (report.get('free_gib',0)<plan['min_free_gb'] or not report.get('kvm_available' if plan.get('guest_profile')=='windows' else 'swift_available')
                                 or report.get('cpu_count',0)<plan['cpu'] or report.get('memory_gib',0)<plan['memory_gb']):
                             stage='needs_attention'
                     elif isinstance(report,dict) and result.returncode==2 and report.get('stage') in {'needs_attention','blocked'}:

@@ -13,7 +13,7 @@ from .diagnostics import diagnose, render as render_doctor
 PREREQUISITE = ('CLI commands and the native provider require a dedicated Hermes profile with in-process loading. '
                 'In that profile, explicitly run: hermes config set plugins.isolation in_process. '
                 'This changes profile isolation; setup never changes it automatically.')
-def guide(ctx):
+def guide(ctx, profile=None):
     import re
     manifest = (Path(__file__).resolve().parents[1] / 'plugin.yaml').read_text()
     match = re.search(r'^version: ([0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.-]+)?)$', manifest, re.M)
@@ -21,7 +21,8 @@ def guide(ctx):
     ref = ctx.get_config('setup_guide_ref', '') or 'v' + match.group(1)
     if not isinstance(ref, str) or not re.fullmatch(r'(?:[a-f0-9]{40}|v[0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.-]+)?)', ref):
         raise ValueError('guide_requires_version_or_commit')
-    return 'https://github.com/rbur0425/ownmachine/blob/' + ref + '/docs/community-setup.md'
+    page='windows-onboarding.md' if profile=='windows' else 'community-setup.md'
+    return 'https://github.com/rbur0425/ownmachine/blob/' + ref + '/docs/'+page
 
 FIELDS = ('guest_profile', 'target', 'host_alias', 'vm_name', 'control_dir', 'storage_dir',
           'cpu', 'memory_gb', 'disk_gb', 'min_free_gb', 'display')
@@ -42,7 +43,7 @@ class Parser(argparse.ArgumentParser):
 def add_arguments(parser):
     subs = parser.add_subparsers(dest='ownmachine_command')
     setup = subs.add_parser('setup', help='Plan or resume setup; explicitly save non-secret settings')
-    setup.add_argument('--guest-profile', choices=['macos','omarchy'], help='macos (default) or Omarchy foreground desktop on Apple Silicon')
+    setup.add_argument('--guest-profile', choices=['macos','omarchy','windows'], help='macos or Omarchy on Apple Silicon; Windows x64 on Linux/KVM (development onboarding)')
     setup.add_argument('--target', choices=['local', 'remote', 'existing'])
     for name in ('host-alias', 'vm-name', 'control-dir', 'storage-dir', 'display'):
         setup.add_argument('--' + name)
@@ -74,8 +75,8 @@ def configuration(ctx):
 
 
 def validate_plan(plan):
-    if plan.get('guest_profile','macos') not in {'macos','omarchy'}:
-        raise InputError('Choose macos or experimental omarchy.')
+    if plan.get('guest_profile','macos') not in {'macos','omarchy','windows'}:
+        raise InputError('Choose macos, omarchy or development windows (Linux/KVM).')
     if plan['target'] not in ('local', 'remote', 'existing'):
         raise InputError('Choose a target: local (Hermes runs on this Mac), remote, or existing.')
     for key in ('host_alias', 'vm_name', 'control_dir', 'storage_dir', 'display'):
@@ -84,7 +85,9 @@ def validate_plan(plan):
     Config(host_alias=plan['host_alias'] or 'not-configured', vm_name=plan['vm_name'],
            control_dir=plan['control_dir']).validate()
     if plan['storage_dir'] and not Path(plan['storage_dir']).is_absolute():
-        raise InputError('Storage directory must be an absolute path on the Mac host.')
+        raise InputError('Storage directory must be an absolute path on the VM host.')
+    if plan.get('guest_profile')=='windows' and plan['disk_gb']<64:
+        raise InputError('Windows requires at least 64 GiB virtual disk capacity.')
     linux=plan.get('guest_profile')=='omarchy'
     for key, low, high in (('cpu', 2, 32), ('memory_gb', 8, 128), ('disk_gb', 32 if linux else 50, 1000), ('min_free_gb', 16 if linux else 32, 2000)):
         if type(plan[key]) is not int or not low <= plan[key] <= high:
@@ -99,9 +102,12 @@ def preflight(plan):
     checks = [{'check': 'ssh_client', 'status': 'pass' if shutil.which('ssh') else 'fail',
                'detail': 'OpenSSH is required in the Hermes environment.'}]
     if plan['target'] == 'local':
-        compatible = platform.system() == 'Darwin' and platform.machine() == 'arm64'
+        if plan.get('guest_profile')=='windows':
+            compatible=platform.system()=='Linux' and platform.machine() in ('x86_64','amd64')
+        else:
+            compatible = platform.system() == 'Darwin' and platform.machine() == 'arm64'
         checks.append({'check': 'local_mac', 'status': 'pass' if compatible else 'fail',
-                       'detail': 'Local means the machine running Hermes, not your browser. Apple Silicon macOS is required.'})
+                       'detail': 'Local means the machine running Hermes, not your browser. '+('Linux x86-64 with KVM is required for Windows.' if plan.get('guest_profile')=='windows' else 'Apple Silicon macOS is required.')})
         if plan['storage_dir']:
             path = Path(plan['storage_dir'])
             while not path.exists() and path != path.parent:
@@ -113,10 +119,10 @@ def preflight(plan):
             except OSError:
                 checks.append({'check': 'storage', 'status': 'fail', 'detail': 'Cannot inspect selected storage location.'})
         else:
-            checks.append({'check': 'storage', 'status': 'pending', 'detail': 'Select an absolute storage directory on the Mac.'})
+            checks.append({'check': 'storage', 'status': 'pending', 'detail': 'Select an absolute storage directory on the VM host.'})
     else:
-        checks.append({'check': 'mac_host', 'status': 'pending',
-                       'detail': 'Remote hardware/storage are not inferred from this Hermes machine; verify on the Mac.'})
+        checks.append({'check': 'linux_host' if plan.get('guest_profile')=='windows' else 'mac_host', 'status': 'pending',
+                       'detail': 'Remote hardware/storage are not inferred from this Hermes machine; run the host preflight.'})
     return checks
 
 
@@ -194,16 +200,16 @@ def setup(ctx, args):
         onboarding_state.checkpoint(ctx, plan, checks, connected=args.connect, previous=previous)
     return {'ok': not any(c['status'] == 'fail' for c in checks), 'stage': 'planned',
             'saved': bool(args.save or args.connect), 'connection_saved': bool(args.connect),
-            'guest_os': 'linux' if plan['guest_profile']=='omarchy' else 'macos',
+            'guest_os': {'omarchy':'linux','windows':'windows','macos':'macos'}[plan['guest_profile']],
             'plan': plan, 'checks': checks,
             'progress': onboarding_state.summary(ctx, {k: ctx.get_config('setup_plan', {}).get(k, DEFAULTS[k]) for k in FIELDS}) if ctx.get_config('setup_plan', {}) else {'stage': 'not_started'},
-            'steps': ['Check Mac capacity and build tools', 'Prepare dedicated account and restricted SSH keys',
+            'steps': (['Check Linux KVM, storage, firmware and TPM', 'Review Windows installation media and license consent', 'Install persistent firewall and restricted runtime identities', 'Provision verified media after administrator registration; harden the standard-user guest', 'Sign into the guest and verify its standard-mode driver', 'Verify private viewer and screenshot, then retire temporary guest and host setup keys'] if plan['guest_profile']=='windows' else ['Check Mac capacity and build tools', 'Prepare dedicated account and restricted SSH keys',
                       'Install and verify firewall', 'Provision Arch base and Omarchy desktop through pinned SSH stages' if plan['guest_profile']=='omarchy' else 'Provision guest without Apple sign-in',
                       'Verify graphical-session driver and AT-SPI accessibility' if plan['guest_profile']=='omarchy' else 'Approve guest Accessibility, Screen Recording and capture consent',
-                      'Start private viewer and verify human/agent handoff'],
+                      'Start private viewer and verify human/agent handoff']),
             'next': ('Runtime connection saved. In this same Hermes profile explicitly set computer_use.backend ownmachine, computer_use.permission_mode standard and plugins.isolation in_process; review experimental_linux_background_input (default false). Restart existing sessions/gateway, then run ownmachine doctor. See docs/wizard-quickstart.md#configure-the-runtime-before-final-verification.' if args.connect else
                      'Plan saved; resume with the same setup command.' if args.save else 'Review this plan, then add --save to keep it.'),
-            'guide': guide(ctx), 'prerequisite': PREREQUISITE,
+            'guide': guide(ctx,plan['guest_profile']), 'prerequisite': PREREQUISITE,
             'scope': 'Planning/configuration only. No VM, account, firewall, key, service or permission was created or changed. Use --run with the approved setup endpoint for explicit remote execution.'}
 
 
@@ -212,7 +218,7 @@ def render_setup(report):
     for question in report.get('questions', []):
         lines.append(question)
     if 'guest_os' in report:
-        lines.append('Guest image: Omarchy ARM64 (foreground; background experimental)' if report['guest_os']=='linux' else 'Guest image: macOS (default; Omarchy ARM64 also available)')
+        lines.append('Guest image: Windows x64 on Linux/KVM (development)' if report['guest_os']=='windows' else 'Guest image: Omarchy ARM64 (foreground; background experimental)' if report['guest_os']=='linux' else 'Guest image: macOS (default; Omarchy ARM64 also available)')
     if 'plan' in report:
         lines.extend(f'{key}: {value or "not selected"}' for key, value in report['plan'].items())
     lines.extend(f'[{c["status"].upper()}] {c["check"]}: {c["detail"]}' for c in report.get('checks', []))
@@ -286,14 +292,16 @@ def interactive(ctx, args):
         value = input(f'{label}' + (f' [{default}]' if default else '') + ': ').strip()
         return value or default
     if args.guest_profile is None:
-        args.guest_profile=ask('Guest image: macos / omarchy (experimental)',saved.get('guest_profile',ctx.get_config('guest_profile','macos')))
+        args.guest_profile=ask('Guest image: macos / omarchy / windows (Windows onboarding under development)',saved.get('guest_profile',ctx.get_config('guest_profile','macos')))
     if args.guest_profile=='omarchy':
         print('Experimental ARM64 Omarchy: Apple Silicon host; foreground control; exact-window browser input requires explicit native-module opt-in.')
+    if args.guest_profile=='windows':
+        print('Windows x64 requires a Linux/KVM host and licensed or evaluation media. Fresh provisioning is not yet integrated; checks never pretend it is complete.')
     args.target = ask('Where will the desktop run? local / remote / existing', saved.get('target', 'local'))
     args.host_alias = ask('Verified SSH alias (leave blank until configured)', saved.get('host_alias', ctx.get_config('host_alias', '')))
     args.control_dir = ask('Absolute shared control directory', saved.get('control_dir', ctx.get_config('control_dir', '')))
     if args.target != 'existing':
-        args.storage_dir = ask('Absolute VM storage directory on the Mac', saved.get('storage_dir', ''))
+        args.storage_dir = ask('Absolute VM storage directory on the host', saved.get('storage_dir', ''))
     args.vm_name = ask('VM name', saved.get('vm_name', 'ownmachine'))
     preview, _ = execute(ctx, args)
     print(preview)

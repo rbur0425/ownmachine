@@ -7,9 +7,10 @@ def next_step(ctx,plan):
     accepted=ctx.state.get(KEY,default=None)
     if matches(ctx,plan,accepted):
         if accepted.get('stage')=='complete':return dict(stage='complete',next='Setup accepted. Use doctor for current health.')
-        if accepted.get('stage')=='retiring':return dict(stage='needs_inspection',next='Inspect setup-key retirement on the Mac. Do not reauthorize or replay it.')
+        if accepted.get('stage')=='retiring':return dict(stage='needs_inspection',next='Inspect setup-key retirement on the VM host. Do not reauthorize or replay it.')
     if not ctx.get_config('setup_host_alias','') or not ctx.get_config('setup_source_sha256',''):
-        return dict(stage='pairing_required',next='Pair a separate temporary setup key, independently confirm the Mac host key, and install the reviewed endpoint. Follow docs/wizard-quickstart.md; never send private keys in chat.')
+        document='docs/windows-onboarding.md' if plan.get('guest_profile')=='windows' else 'docs/wizard-quickstart.md'
+        return dict(stage='pairing_required',next='Pair a separate temporary setup key, independently confirm the VM host key, and install the reviewed endpoint. Follow '+document+'; never send private keys in chat.')
     progress=summary(ctx,plan)
     if progress.get('stage') in ('configuration_changed','awaiting_remote_result','needs_inspection'):
         return dict(stage='needs_inspection',next='Inspect the saved configuration and fetch setup --run progress before retrying. Never replay an uncertain mutation.')
@@ -17,6 +18,8 @@ def next_step(ctx,plan):
     stages=['preflight','build','provision','firewall','relay','keys','harden','driver','permissions','viewer','verify']
     if plan.get('guest_profile')=='omarchy':
         stages=['preflight','build','firewall','provision','linux-boot-installer','linux-base','linux-boot-system','linux-desktop','relay','keys','harden','linux-start-desktop','driver','permissions','viewer','verify']
+    if plan.get('guest_profile')=='windows':
+        stages=['preflight','build','firewall','relay','keys','viewer','provision','harden','driver','permissions','verify']
     if plan['target']=='existing':stages=['permissions','viewer','verify']
     for step in stages:
         row=outcomes.get(step,{})
@@ -37,6 +40,8 @@ def next_step(ctx,plan):
             handoffs['linux-start-desktop']='Run setup --run linux-start-desktop --apply. This verifies hardening and the host firewall before restarting into the protected desktop.'
             handoffs['driver']='Run setup --run driver --apply. Targeted Chromium input requires explicit enable_experimental_input in the operator configuration; capture readiness alone does not prove input works.'
             handoffs['permissions']='Log into the Linux graphical session, then run setup --run permissions. This checks the standard-mode driver and accessibility bus; no macOS TCC prompts apply.'
+        if plan.get('guest_profile')=='windows':
+            handoffs.update(viewer='Run setup --run viewer --apply to install the private viewer service under its configured owner before starting the guest.',build='Run setup --run build --apply after reviewing the verified Windows media and evaluation consent. Then have the administrator register the fresh stopped domain using docs/windows-onboarding.md.',firewall='The Linux administrator must install the reviewed persistent KVM security service. Then run setup --run firewall.',permissions='Sign into the Windows standard-user desktop, then run setup --run permissions. No macOS permissions or elevated driver are required.',verify='Pause control, then run setup --run verify. Use --apply to repeat screenshot verification and retire both guest and host setup keys.')
         if step in handoffs:return dict(stage='await_'+step,next=handoffs[step])
         suffix=' --apply' if step in ('build','provision','relay','keys','harden','driver') else ''
         prefix='Refresh setup --run preflight first. ' if step in ('build','provision') else ''

@@ -27,7 +27,8 @@ config_schema:
   host_alias: {type: str, default: "", description: "Owner-configured SSH alias for the VM host"}
   vm_name: {type: str, default: "ownmachine"}
   experimental_linux_background_input: {type: bool, default: false, description: "Experimental Omarchy separate-seat input for qualifying native Wayland targets; Chromium/Electron and unsupported targets refuse, without foreground fallback"}
-  guest_profile: {type: str, default: "macos", description: "macos or omarchy on Apple Silicon; Omarchy defaults to foreground input; background requires separate experimental opt-in"}
+  console_transport: {type: str, default: "password-vnc", description: "Spike-only private-unix for verified Windows relay; password-vnc for released Lume profiles"}
+  guest_profile: {type: str, default: "macos", description: "macos or omarchy on Apple Silicon; windows is an experimental Linux/KVM profile requiring a separately configured host; Linux background input requires experimental opt-in"}
   connect_timeout_seconds: {type: int, default: 15}
   action_timeout_seconds: {type: int, default: 30}
 provides_hooks:

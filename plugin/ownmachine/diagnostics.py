@@ -71,34 +71,42 @@ def diagnose(config, permission_mode="standard"):
         add('host','fail',code,'Check the configured SSH alias, network, verified host key, key authentication, and restricted relay installation. Do not disable host-key checking.')
         return result()
     add('host','pass','host_reachable')
-    if not remote.get('lume_installed'):
+    windows = config.guest_profile == 'windows'
+    if not windows and not remote.get('lume_installed'):
         add('vm','fail','lume_missing','Install the pinned Lume release on the Mac host and check the relay lume_path.')
         return result()
     if remote.get('vm_state')!='running':
         state=remote.get('vm_state')
         code='vm_'+state if state in {'stopped','absent','provisioning','unknown','not_probed'} else 'vm_unknown'
-        add('vm','fail',code,'Check the named VM with Lume on the host. Provision an absent VM explicitly; start an existing stopped VM with the operator lifecycle command.')
+        add('vm','fail',code,('Check the configured KVM domain and persistent security service on the Linux host. Sign in after starting the guest through the viewer.' if windows else 'Check the named VM with Lume on the host. Provision an absent VM explicitly; start an existing stopped VM with the operator lifecycle command.'))
         return result()
     add('vm','pass','vm_running')
     state=remote.get('driver_state')
+    if windows and not remote.get('guest_reachable'):
+        add('guest','fail','guest_unreachable','Check the pinned guest SSH endpoint and host firewall reply rules before changing desktop permissions. Then sign into the configured Windows standard account.')
+        return result()
     if state in {'not_configured','guest_unreachable','invalid_response','not_probed','vm_not_running'}:
         add('guest','fail','guest_not_ready','Check guest GUI login, the relay guest SSH configuration, verified guest key, and guest readiness helper. Guest addresses are resolved dynamically.')
         return result()
     add('guest','pass','guest_reachable')
     linux = remote.get('guest_os') == 'linux'
-    for key, label in ([] if linux else [('accessibility','Accessibility'),('screen_recording','Screen Recording')]):
+    for key, label in ([] if linux or windows else [('accessibility','Accessibility'),('screen_recording','Screen Recording')]):
         add(key,'pass' if remote.get(key) else 'fail',key+'_granted' if remote.get(key) else key+'_required',
             '' if remote.get(key) else 'Open the guided permission setup inside the guest and approve '+label+'. Follow any restart prompt, then rerun doctor.')
     if linux:
         for key in ('graphical_session', 'accessibility_bus', 'standard_mode'):
             add(key, 'pass' if remote.get(key) else 'fail', key + ('_ready' if remote.get(key) else '_required'),
                 '' if remote.get(key) else 'Log into the Linux guest graphical session and inspect the OwnMachine user service. Do not enable linger or bypass the driver authorization mode.')
+    elif windows:
+        for key in ('interactive_session','driver_running','standard_mode','standard_user'):
+            add(key,'pass' if remote.get(key) else 'fail',key+('_ready' if remote.get(key) else '_required'),
+                '' if remote.get(key) else 'Sign into the configured Windows standard account and inspect its interactive driver task. Do not elevate the driver or run it in Session 0.')
     else:
         add('capture_consent','pass' if remote.get('capture_consent_verified') else 'fail',
             'capture_consent_recorded' if remote.get('capture_consent_verified') else 'capture_consent_required',
             '' if remote.get('capture_consent_verified') else 'Complete the guided capture check in the guest and approve the macOS capture prompt. Doctor does not trigger or approve it.')
     if not remote.get('driver_ready'):
-        add('driver','fail','driver_not_ready','Check the pinned guest driver and graphical-session launcher. On macOS, finish the signed app permission guide; on Linux, inspect the OwnMachine user service.')
+        add('driver','fail','driver_not_ready','Check the pinned guest driver and graphical-session launcher. On macOS, finish the signed app permission guide; on Linux, inspect the OwnMachine user service; on Windows, sign into the standard account and inspect its interactive driver task.')
         return result()
     add('driver','pass','driver_ready')
     transport=MCPTransport(config)
