@@ -83,7 +83,7 @@ def execute(c,plan,step,apply=False):
     if step=='driver':
         result=w.guest(c,'status')
         if not all(result.get(k) is True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')):raise ValueError('guest_driver_validation_failed')
-        return dict(ok=True,stage='checks_passed')
+        return dict(ok=True,stage='verified')
     if step in ('viewer','viewer-check'):
         w.viewer(c,plan,apply and step=='viewer');return dict(ok=True,stage='verified')
     if step in ('firewall','relay','keys','permissions','verify'):
@@ -97,7 +97,7 @@ def execute(c,plan,step,apply=False):
         if step=='verify':
             if not w.media_ejected(c) or agent.get('bootstrap_hardened') is not True:raise ValueError('guest_hardening_required')
             w.viewer(c,plan,False);w.console(c)
-        return dict(ok=True,stage='checks_passed',vm_uuid=agent['vm_uuid'])
+        return dict(ok=True,stage='verified' if step in ('relay','keys') else 'checks_passed',vm_uuid=agent['vm_uuid'])
     return dict(ok=False,stage='blocked',code='windows_stage_not_integrated',next='See docs/windows-production-plan.md; preserve the saved plan and do not mark this stage complete manually.')
 
 

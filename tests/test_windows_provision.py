@@ -56,6 +56,13 @@ class FreshWindowsTests(unittest.TestCase):
             with patch.object(w,'guest') as guest,self.assertRaisesRegex(ValueError,'inspection'):w.retire({},state)
             guest.assert_not_called()
 
+    def test_mutating_stage_receipts_match_transport_contract(self):
+        with patch.object(stages,'probe',side_effect=lambda c,r,operation='status': {'vm_uuid':'test'} if operation=='status' else True):
+            for step in ('keys','relay'):
+                self.assertEqual(stages.execute({}, {},step,True)['stage'],'verified')
+        with patch.object(w,'guest',return_value={k:True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')}):
+            self.assertEqual(stages.execute({}, {},'driver',True)['stage'],'verified')
+
     def test_domain_has_only_private_console_no_host_share(self):
         c,p=self.config()
         with tempfile.TemporaryDirectory() as td:

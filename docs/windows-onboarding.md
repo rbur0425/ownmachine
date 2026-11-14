@@ -166,8 +166,8 @@ Then continue:
 
 ```sh
 hermes ownmachine setup --run firewall
-hermes ownmachine setup --run relay
-hermes ownmachine setup --run keys
+hermes ownmachine setup --run relay --apply
+hermes ownmachine setup --run keys --apply
 hermes ownmachine setup --run viewer --apply
 hermes ownmachine setup --run preflight
 hermes ownmachine setup --run provision --apply
@@ -181,7 +181,7 @@ artifact directory rather than erasing it.
 
 ```sh
 hermes ownmachine setup --run harden --apply
-hermes ownmachine setup --run driver
+hermes ownmachine setup --run driver --apply
 hermes ownmachine setup --run permissions
 hermes ownmachine setup --run verify
 hermes ownmachine setup --run verify --apply
