@@ -90,9 +90,10 @@ Use the viewer to reserve human control and return it to the agent. Agent input
 stays blocked while paused or reserved; returning control requires a fresh capture.
 After a guest restart, sign in again before expecting driver readiness.
 
-Live qualification of the new automatic setup-key retirement remains pending.
-Do not leave temporary access installed after testing; an implementation is not
-acceptance evidence. Earlier manual test-key revocation is recorded separately.
+Automatic guest and host setup-key retirement passed live verification after a
+host-side media-check correction. A pristine run with all fixes from the beginning
+is still being qualified; see the acceptance report. Do not leave temporary access
+installed after testing or mark uncertain retirement complete manually.
 
 ## Fresh-install implementation under test
 

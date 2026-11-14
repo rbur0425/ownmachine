@@ -30,8 +30,8 @@ Administrator changes remain trusted; this is not isolation from root.
 ## Hermes-driven setup
 
 Fresh provisioning and automatic retirement now have an implementation in PR #28.
-The live clean-install checklist below remains unticked until exercised. The
-installed-Hermes preflight checkpoint and pending media access are recorded in the
+Individual live stages are checked below; pristine end-to-end installation remains
+a separate qualification gate. Completed checks and remaining limits are recorded in the
 [acceptance report](windows-kvm-acceptance.md#fresh-provisioning-implementation-checkpoint).
 Follow the [fresh-install guide](windows-onboarding.md#fresh-install-implementation-under-test)
 for the administrator and runtime-key handoffs.
@@ -51,8 +51,9 @@ for the administrator and runtime-key handoffs.
 - [ ] Use doctor and saved progress to explain exact manual handoffs and reminder options.
 - [x] Verify both runtime roles, private console and computer_use capture, then retire setup keys.
 - [ ] Run two clean installations, including non-default paths/names and interruption/resume.
-      Two fresh fixtures exposed and qualified fixes; one-source, repair-free final
-      installation remains pending. Setup retirement passed after a reviewed host-source update.
+      Earlier fixtures exposed and qualified fixes. One final fixture now passed
+      repair-free installation, screenshot and automatic retirement from one fixed
+      source commit; a second clean run and broader interruption cases remain.
 
 ## Runtime acceptance
 
@@ -77,10 +78,12 @@ for the administrator and runtime-key handoffs.
 See [acceptance evidence](windows-kvm-acceptance.md) for completed tests and their
 limits. A checked implementation item is not a claim of live deployment acceptance.
 
-## Current administrator workflow
+## Existing-domain administrator workflow
 
-The production scripts adopt an already reviewed domain and dedicated accounts.
-They are not yet a clean Windows installer. Keep their JSON outside the repository.
+The scripts below adopt an already reviewed domain and dedicated accounts. For a
+fresh guest, use the separate build/registration/provisioning sequence in the
+[fresh-install guide](windows-onboarding.md#fresh-install-implementation-under-test).
+Keep operator JSON outside the repository.
 
 1. `scripts/install-kvm-security.py --config INSTALL.json` takes a `runtime` object
    and a `bridge`. The runtime fields are validated by `host/kvm_backend.py`:

@@ -1,6 +1,6 @@
 # Windows KVM development acceptance
 
-Windows is an experiment in this branch, not a released support claim. The Windows development setup choice now saves a plan and exposes read-only checks; fresh provisioning and final acceptance remain blocked until their integration is complete. Existing macOS and Omarchy behavior is preserved. Operator components are under [experiments/windows-kvm](../experiments/windows-kvm/README.md); no deployment addresses, keys, seed media or raw desktop captures belong in Git.
+Windows is an experiment in this branch, not a released support claim. The Windows development setup choice saves a plan and runs authenticated provisioning, hardening, verification and setup-key retirement. Final pristine-install qualification remains in progress; implementation alone is not a passing acceptance result. Existing macOS and Omarchy behavior is preserved. Operator components are under [experiments/windows-kvm](../experiments/windows-kvm/README.md); no deployment addresses, keys, seed media or raw desktop captures belong in Git.
 
 ## Tested baseline — 13 November 2026
 
@@ -283,3 +283,53 @@ which began a restart/update sequence. No forced power-off or memory
 overcommit was used. These are pending operational checks, not a clean-install
 completion claim. The prior pending-review viewer displayed its desktop again;
 after inspection, human reservation was explicitly acknowledged for shutdown.
+
+
+### Pristine installation and automatic retirement passed
+
+The final fixture completed from implementation commit `0b4395f` without changes
+to its deployed source, guest files, privileges or ownership during acceptance.
+The private viewer's initial connection missed the short DVD prompt; selecting
+the Windows DVD from the firmware menu recovered boot without changing media or
+disk configuration. Windows then installed and signed into its standard account.
+Normal RGB rendering was visually confirmed. The post-desktop OpenSSH component
+installation took roughly eleven minutes; a read-only report still showed
+`awaiting_first_signin` and Task Manager showed DISM servicing. This coarse progress
+message remains an onboarding polish gap, not a recorded bootstrap failure.
+
+A separate Hermes command recovered authenticated progress while the guest was
+installing. Refreshing preflight and resuming provision then passed; harden, driver
+and permissions passed sequentially. No installer or guest repair was applied.
+`verify --apply` checked a 1280×800 native screenshot and completed guest-then-host
+setup-key retirement. The completion receipt reports runtime verified, setup key
+rejected and no pending reminder cleanup. The guest retirement receipt records
+positive key rejection before private setup artifacts were removed. An independent
+SSH attempt with only the retired host identity was rejected. Independent host
+inspection confirmed both CDs empty, the Windows disk and viewer key preserved,
+and temporary seed media/keys absent. Installed Hermes doctor passed all 14 checks.
+
+Hermes plugin validation also passed with no warnings in the acceptance profile;
+it identifies the plugin as the explicitly installed catalog development ref
+`9d7c4cdd`. Only this plugin is enabled among the profile's user plugins. The host
+source and runtime configuration are separate from that install record. This
+qualifies one repair-free fresh guest, not two fresh installations, an empty
+Hermes home, physical-host reboot, or a completed model write/save task.
+
+
+### Final fixture model task: text entered, save refused
+
+Real Docker Hermes/Qwen3.8 ran a new task with explicit foreground instructions
+and per-action Allow once approvals. It discovered Notepad, encountered delayed
+launch discovery, captured the newly created empty document, entered the requested
+line and captured the result. The subsequent request explicitly contained
+`delivery_mode=foreground` and `keys=ctrl+s`, but its result reported the Windows
+XAML hotkey accelerator refusal. The model stopped, reported the file unsaved and
+left OwnMachine's pending-review gate intact. No manual save completed the task.
+The viewer independently confirmed review-required control afterward.
+
+The installed provider contains the Windows foreground modifier routing, and an
+isolated no-dispatch probe maps that request to `press_key` with modifiers; a
+no-input Hermes dispatcher probe also preserves foreground kwargs. The difference
+between those probes and the live result remains unresolved. Do not describe this
+as a passing write/save test or infer that repeating it is safe. The clean setup,
+screenshot and retirement results above remain valid independently of this task.
