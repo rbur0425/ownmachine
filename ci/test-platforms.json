@@ -2,7 +2,9 @@
   "hermes": [
     "test_native_provider.NativeProviderTests.test_abc_instantiates_and_permission_modes_fail_closed",
     "test_native_provider.NativeProviderTests.test_active_operation_still_excludes_second_backend",
+    "test_native_provider.NativeProviderTests.test_background_close_is_not_reclassified",
     "test_native_provider.NativeProviderTests.test_background_opt_in_rejects_nonboolean_and_wrong_profile",
+    "test_native_provider.NativeProviderTests.test_close_reconciliation_rejects_ambiguous_and_non_close_results",
     "test_native_provider.NativeProviderTests.test_cold_launch_explicit_raise_targets_new_window",
     "test_native_provider.NativeProviderTests.test_cold_launch_window_timeout_does_not_relaunch",
     "test_native_provider.NativeProviderTests.test_cold_launch_without_raise_stays_background",
@@ -15,6 +17,7 @@
     "test_native_provider.NativeProviderTests.test_idle_backend_does_not_lock_out_other_session",
     "test_native_provider.NativeProviderTests.test_idle_process_does_not_block_and_invalidates_old_capture",
     "test_native_provider.NativeProviderTests.test_invalid_capture_disarms_previous_target",
+    "test_native_provider.NativeProviderTests.test_last_window_close_verified_without_replay_or_transfer",
     "test_native_provider.NativeProviderTests.test_launch_requires_capture_before_dispatch",
     "test_native_provider.NativeProviderTests.test_linux_background_opt_in_preserves_request_without_focus_or_fallback",
     "test_native_provider.NativeProviderTests.test_linux_launch_uses_discovered_path",

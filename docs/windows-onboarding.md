@@ -24,9 +24,14 @@ If an updated installation behaves like an old one, stop and check installation
 isolation before retrying input. Do not patch Hermes core or clear a pending gate
 to work around this.
 
-The tested Windows driver can report foreground uncertainty when closing an app's
-last window, even if closure succeeded. Inspect the viewer before acknowledging
-that result, then rediscover windows rather than repeating the close operation.
+For last-window closure, use a freshly captured `Close` or `Close Tab` button
+with an advertised invoke action and explicit foreground delivery. OwnMachine
+reconciles the tested driver's exact post-click focus warning only when unfiltered
+window enumeration and an exact-HWND lookup both confirm the last target window
+is gone. It returns `window_closed_verified` and invalidates the old capture.
+Rediscover windows before further input. Other labels, shortcuts, pixel clicks,
+ambiguous results or failed verification retain the operator-review gate; inspect
+the viewer before acknowledging those results, and never repeat an uncertain close.
 See the [supervised save/reopen evidence](windows-kvm-acceptance.md#foreground-save-and-reopen-supervised-acceptance-passed).
 
 Run `hermes ownmachine setup` and choose `windows`, or save an explicit plan:

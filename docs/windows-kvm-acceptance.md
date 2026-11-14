@@ -380,3 +380,45 @@ disabled after use. This establishes supervised save/reopen on the fresh guest
 from a fresh Hermes installation, not an uninterrupted autonomous pass. Mixed
 profile provider loading and last-window foreground closure remain explicit
 compatibility limitations; release remains held.
+
+### Last-window fix: save/close/reopen without manual recovery
+
+Implementation `59b06a0e01e607f3a79c5210dd4260d808a1a2ce` adds narrow read-only
+closure reconciliation within the existing write transaction. Eligibility requires
+a fresh Windows Button token labelled `Close` or `Close Tab`, its advertised invoke
+action, and explicit foreground single-click delivery. Only the driver's exact
+post-click foreground error for that captured HWND is eligible. An unfiltered
+window list must contain neither that HWND nor another window of the target PID;
+the driver's separate exact-HWND lookup must then explicitly report that window
+missing. Successful verification invalidates all old targets/tokens and returns
+`window_closed_verified`. The original warning remains visible in metadata.
+There is no input replay, background fallback, control transfer or acknowledgement
+of an already-pending action. Unknown failures and failed verification retain the
+durable review marker. This reconciles a completed close; it does not suppress
+general foreground admission checks.
+
+The isolated Docker/Hermes installation installed that immutable commit through
+the public installer. Real Qwen3.8 completed one prompted task with normal Allow
+once approvals: preserved the previous file, typed a new 47-character line into
+an empty tab, saved `ownmachine-close-acceptance.txt`, closed the last Notepad
+window, relaunched Notepad to an empty document, and reopened the exact saved path.
+The close returned `verified: true` with
+`closure_verification: window_list_and_exact_hwnd_missing`. No manual desktop
+input, operator-review acknowledgement, prompt intervention or input retry was
+needed. The model corrected a read-only ambiguous-window capture and malformed
+tool-call JSON itself; these were not dispatched-input failures. The final shared
+control state remained agent-controlled with no pending operation.
+
+After the model exited, a separate fresh UIA read confirmed the reopened document
+was exactly `OwnMachine save close reopen acceptance passed.` (47 characters).
+Its UTF-8 text SHA-256 was
+`67d555bf300fddaa99f7333c2308a486e257e807da970b22f5ae68c4982bb624`;
+this hashes captured text, not raw disk bytes. All 463 local tests passed, including
+negative cases for minimized/still-present windows, reused HWNDs, another window
+in the process, malformed/error listings, failed exact lookups, transport loss,
+non-close controls, other platforms and background delivery. Installed Hermes
+plugin validation passed with no warnings. Private task evidence stays outside Git.
+
+This supersedes the preceding last-window manual-recovery limitation for the
+tested close-button path. Mixed-profile provider loading and the other release
+qualification gates remain open. No release is authorized.

@@ -64,7 +64,10 @@ for the administrator and runtime-key handoffs.
       An isolated Docker install saved and reopened the fresh guest's Notepad
       document; independent UIA and visual checks matched the exact text. Closing
       the last tab needed inspection/acknowledgement of a driver focus warning.
-- [ ] Qualify uninterrupted save/close/reopen and mixed-profile provider loading.
+- [x] Qualify save/last-window close/reopen without manual recovery.
+      The isolated Hermes rerun verified closure through read-only checks and
+      reopened the exact saved content; normal per-action approvals remained.
+- [ ] Qualify mixed-profile provider loading.
 - [ ] Exercise combined restart, lock/unlock, sign-out, driver restart and gateway restart.
 - [ ] Qualify input modes and prerelease-driver update policy; document unsupported actions.
 - [ ] Test Windows editions separately; keep claims within the tested matrix.
