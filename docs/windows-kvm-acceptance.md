@@ -179,7 +179,29 @@ the storage-location constraint.
 The viewer user service installed through Hermes and is active; its shared
 control directory has the intended owner and mode 0700. This is service-start
 evidence, not stream or guest-input acceptance. A narrowly scoped administrator
-correction to the stopped fixture's root-owned console path/integrity record is
-pending. This first fixture therefore requires a repair and cannot qualify the
+correction to the stopped fixture's root-owned console path/integrity record
+passed; the authenticated relay then started the guest. This first fixture therefore requires a repair and cannot qualify the
 repair-free clean-install requirement; a subsequent clean run must exercise the
 corrected registration path.
+
+
+### Fresh desktop and bootstrap failure (continued qualification)
+
+At `e5eab64`, both CI platforms and 457 local tests passed. Hermes accepted
+relay/key receipts after their result stage was aligned with the authenticated
+transport contract. The fresh guest installed and reached its standard-user
+Windows desktop; the private web console delivered mouse and keyboard input.
+Disconnecting the setup SSH client during the guest-readiness wait left the VM
+running. A subsequent authenticated progress import recovered the endpoint's
+`needs_attention` result without replaying provisioning. This does not test
+interruption during disk creation or administrator registration.
+
+The guest's bootstrap report then exposed a real PowerShell argument-binding
+failure: the generated firewall name's suffix became a separate positional
+argument. SSH never started, and hardening/verification/key retirement correctly
+remained incomplete. Dynamic firewall/task names now use parenthesized string
+concatenation. A native Windows PowerShell probe reproduced the original failure;
+`tests/windows/bootstrap-bindings.ps1` executed all five corrected command
+expressions against strict, non-mutating stubs successfully. Parser-only checks
+had missed this failure. A new clean installation must qualify the fix; this
+fixture is not a passing clean-install result.

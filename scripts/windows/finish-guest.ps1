@@ -42,7 +42,7 @@ Subsystem sftp sftp-server.exe
     & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t
     if ($LASTEXITCODE -ne 0) { throw 'Invalid SSH configuration' }
     Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue | Disable-NetFirewallRule
-    New-NetFirewallRule -Name $($cfg.task_prefix)SSH -DisplayName $($cfg.task_prefix)SSH -Direction Inbound -Protocol TCP -LocalPort 22 -RemoteAddress $cfg.host_address -Action Allow -Profile Any | Out-Null
+    New-NetFirewallRule -Name ($cfg.task_prefix+'SSH') -DisplayName ($cfg.task_prefix+'SSH') -Direction Inbound -Protocol TCP -LocalPort 22 -RemoteAddress $cfg.host_address -Action Allow -Profile Any | Out-Null
     Set-Service sshd -StartupType Automatic
     Start-Service sshd
     # Avoid upstream autostart's Highest setting. This task is explicitly limited.
@@ -50,7 +50,7 @@ Subsystem sftp sftp-server.exe
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $desktop.Name
     $principal = New-ScheduledTaskPrincipal -UserId $desktop.SID.Value -LogonType Interactive -RunLevel Limited
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-    Register-ScheduledTask -TaskName $($cfg.task_prefix)Driver -Action $action -Trigger $trigger -Principal $principal -Settings $settings | Out-Null
+    Register-ScheduledTask -TaskName ($cfg.task_prefix+'Driver') -Action $action -Trigger $trigger -Principal $principal -Settings $settings | Out-Null
     Disable-ScheduledTask -TaskName ($cfg.task_prefix+'Driver') | Out-Null
     # Do not start the driver until the harden stage verifies cleanup.
     # Supported browser first-run policy; no user browser profile copied.
@@ -59,7 +59,7 @@ Subsystem sftp sftp-server.exe
     New-ItemProperty $edge -Name HideFirstRunExperience -Value 1 -PropertyType DWord -Force | Out-Null
     New-ItemProperty $edge -Name BrowserSignin -Value 0 -PropertyType DWord -Force | Out-Null
     New-ItemProperty $edge -Name SyncDisabled -Value 1 -PropertyType DWord -Force | Out-Null
-    Disable-ScheduledTask -TaskName $($cfg.task_prefix)Bootstrap | Out-Null
+    Disable-ScheduledTask -TaskName ($cfg.task_prefix+'Bootstrap') | Out-Null
     [ordered]@{stage='configured';driver=$driver;desktop_sid=$desktop.SID.Value;ssh_password_auth=$false;driver_elevated=$false} | ConvertTo-Json | Set-Content (Join-Path $root 'bootstrap-status.json') -Encoding utf8
 } catch {
     [ordered]@{stage='failed';message=$_.Exception.Message} | ConvertTo-Json | Set-Content (Join-Path $root 'bootstrap-status.json') -Encoding utf8

@@ -35,7 +35,7 @@ try {
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $pending 'finish-guest.ps1') + '"')
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $cfg.desktop_user
     $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount
-    Register-ScheduledTask -TaskName $($cfg.task_prefix)Bootstrap -Action $action -Trigger $trigger -Principal $principal | Out-Null
+    Register-ScheduledTask -TaskName ($cfg.task_prefix+'Bootstrap') -Action $action -Trigger $trigger -Principal $principal | Out-Null
     [ordered]@{stage='awaiting_first_signin'} | ConvertTo-Json | Set-Content (Join-Path $root 'bootstrap-status.json') -Encoding utf8
 } catch {
     [ordered]@{stage='failed';message=$_.Exception.Message} | ConvertTo-Json | Set-Content (Join-Path $root 'bootstrap-status.json') -Encoding utf8
