@@ -72,6 +72,24 @@ for the administrator and runtime-key handoffs.
 - [ ] Qualify input modes and prerelease-driver update policy; document unsupported actions.
 - [ ] Test Windows editions separately; keep claims within the tested matrix.
 
+## Operator-review regression qualification
+
+- [x] Recreate only the approved qualification guest with the reviewed fixes.
+- [x] Verify stopped-driver health reports guest reachability separately.
+- [x] Verify a failed driver read reconnects on the next explicit read without
+      input replay or a control-state change.
+- [x] Verify default AC/DC display and standby settings are disabled, and the
+      standard driver returns without a visible console after cold-start/sign-in.
+- [x] Repeat real-model read-only capture through installed Hermes with only the
+      computer-use toolset, then guided screenshot verification and setup retirement.
+- [x] Capture after more than six minutes without input (view-only viewer connected).
+- [x] Check configured local time after a genuine guest shutdown/start.
+- [ ] Ensure correct time in the first installed session before that cold start.
+- [ ] Improve the long OpenSSH-install interval's bootstrap progress message.
+
+These are fresh-guest results on an existing host. They do not complete the broader
+session/recovery, upgrade, or physical-host reboot gates above.
+
 ## Release qualification — explicitly held
 
 - [ ] Green final-head CI, plugin validation, bundles and checksums.

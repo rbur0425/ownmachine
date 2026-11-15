@@ -440,7 +440,59 @@ noVNC keyboard patch is warranted from that evidence alone. Prompt disobedience
 and self-editing require restricting the acceptance profile's exposed tools,
 not relying on model instructions as an access boundary.
 
-Guest power, clock, hidden-launcher and stopped-driver changes still require live
-Windows upgrade/fresh-install qualification. Unit tests are not evidence that
-those guest changes have been deployed. Existing runtime keys, guests and shared
-Hermes gateway have not been changed by this follow-up. No release is authorized.
+At that checkpoint, the guest changes had not been deployed. The fresh-install
+results below supersede that pending status only for the checks explicitly listed.
+Existing-guest upgrade qualification and the remaining release gates stay open.
+
+
+### Fresh operator-review qualification — 15 November 2026
+
+Tested implementation: `e3ef27c2953d887bbd87de4eaa158972167a92ce`.
+With explicit operator approval, only the old qualification VM and its disk were
+replaced. Other domain identities and states were preserved. This was a clean
+Windows guest on an existing KVM host, not a pristine-host installation. Completed
+receipts and the stopped viewer unit belonging to the retired installation were
+archived before reusing its VM name; they were not overwritten or marked complete.
+
+The installed Hermes plugin drove preflight, build, firewall, relay, keys, viewer,
+provision, harden, driver, permissions and verification. The administrator performed
+the documented host registration, and the initial DVD boot needed console input.
+Windows bootstrap completed without guest repairs. OpenSSH capability installation
+kept the first-sign-in checkpoint visible for several minutes; progress reporting
+for that interval still needs improvement.
+
+Live results:
+
+- Before driver startup, guest health returned valid diagnostics: SSH/guest reachable,
+  driver not ready. A stopped driver was not misreported as an SSH/firewall failure.
+- The fresh guest's AC/DC display and standby timeouts were independently inspected
+  and all were zero. After hardening and again after cold-start/operator sign-in,
+  the standard interactive driver became ready without a visible console window.
+- In one installed-provider process, an actual invalid-window driver read failed,
+  disconnected its stream, and a subsequent explicit desktop capture opened a new
+  stream and succeeded. Shared control remained unchanged. This tests recovery
+  from a real driver error, not the precise display-sleep failure sequence.
+- After more than six minutes without desktop input, capture and the same-process
+  recovery probe still passed. The view-only live viewer remained connected; this
+  does not certify unattended behavior with every client disconnected.
+- Normal viewer shutdown reached `shut off`; viewer start cold-booted the guest.
+  Runtime readiness and capture returned after operator sign-in. Other VMs stayed
+  unchanged. This check did not repeat file-persistence or physical-host reboot
+  acceptance.
+- Real Qwen3.8 through installed Hermes, restricted to the `computer_use` toolset,
+  made two desktop captures (SOM and vision), sent no input, and correctly reported
+  Recycle Bin, Microsoft Edge and the taskbar clock. Independent viewer inspection
+  matched the desktop. This is a read-only model test; the earlier save/close/reopen
+  result remains separate evidence.
+- Guided verification accepted a real 1280×800 screenshot. Automatic retirement
+  completed with `setup_key_rejected=true`, `runtime_verified=true` and no pending
+  reminder cleanup. An overlapping model session made an earlier client capture
+  fail safely without retiring access; rerunning after that session exited passed.
+
+Clock limitation: the configured non-UTC display zone was correct, but the first
+installed session was five hours behind the host. After a complete shutdown/start,
+the guest displayed the correct local time. The cold-start UTC/registry pairing
+passed; correct time before that first cold start is **not qualified**. Do not use
+this evidence to claim seamless initial time synchronization or arbitrary Windows
+upgrade support. Private credentials, screenshots and deployment details remain
+outside Git. Release remains held.

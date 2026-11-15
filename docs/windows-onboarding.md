@@ -244,6 +244,11 @@ meaning never). This keeps the VM available while idle; it does not disable
 Windows locking or sign-in. `time_zone` is a Windows time-zone ID (default `UTC`,
 for example `Eastern Standard Time`). Windows validates that ID during setup.
 The virtual hardware clock uses UTC, paired with Windows `RealTimeIsUniversal`.
+Fresh-install qualification found that a non-UTC guest could display the wrong
+time in its first installed session. Save work, shut down fully through the viewer,
+start the VM and sign in, then compare the displayed time with a trusted clock.
+This cold-start check passed; initial time synchronization still needs qualification.
+Do not bypass certificate checks to work around an incorrect guest clock.
 
 These defaults apply to newly provisioned guests. Existing guests are not silently
 modified. A host administrator must coordinate a stopped-domain clock change with
