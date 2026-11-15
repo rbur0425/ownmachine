@@ -65,6 +65,9 @@ def diagnose(config, permission_mode="standard"):
         add('guest', 'fail', 'guest_profile_mismatch',
             'Match guest_profile in the saved plan, plugin settings and configured host relay. Do not bypass the guest OS check.')
         return result()
+    if remote.get('code') in {'live_firewall_drift','persistent_firewall_service_required','configuration_changed','security_file_changed','network_identity_mismatch','network_isolation_drift','autostart_must_be_disabled','libvirt_acl_required','live_security_verification_required'}:
+        add('security','fail',remote['code'],'Ask the host administrator to inspect the pinned OwnMachine security configuration and dedicated firewall service. Revalidate the intended policy before reconnecting; do not flush firewall rules or bypass verification.')
+        return result()
     if not remote.get('host_reachable') or remote.get('code'):
         code=remote.get('code')
         code=code if code in {'host_unreachable','ssh_connection_failed','invalid_host_response'} else 'host_unreachable'
@@ -82,6 +85,9 @@ def diagnose(config, permission_mode="standard"):
         return result()
     add('vm','pass','vm_running')
     state=remote.get('driver_state')
+    if windows and state == 'health_check_failed':
+        add('guest','fail','guest_health_check_failed','Guest SSH answered, but its readiness helper failed. Inspect the installed Windows health helper and configuration before changing SSH keys or firewall rules.')
+        return result()
     if windows and not remote.get('guest_reachable'):
         add('guest','fail','guest_unreachable','Check the pinned guest SSH endpoint and host firewall reply rules before changing desktop permissions. Then sign into the configured Windows standard account.')
         return result()
@@ -98,6 +104,7 @@ def diagnose(config, permission_mode="standard"):
             add(key, 'pass' if remote.get(key) else 'fail', key + ('_ready' if remote.get(key) else '_required'),
                 '' if remote.get(key) else 'Log into the Linux guest graphical session and inspect the OwnMachine user service. Do not enable linger or bypass the driver authorization mode.')
     elif windows:
+        add('display','warn','capture_not_verified','Driver readiness does not prove the Windows display is awake or unlocked. Verify a fresh computer_use screenshot; wake or unlock through the viewer if needed. Doctor sends no desktop input.')
         for key in ('interactive_session','driver_running','standard_mode','standard_user'):
             add(key,'pass' if remote.get(key) else 'fail',key+('_ready' if remote.get(key) else '_required'),
                 '' if remote.get(key) else 'Sign into the configured Windows standard account and inspect its interactive driver task. Do not elevate the driver or run it in Session 0.')

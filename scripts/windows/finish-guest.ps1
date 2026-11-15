@@ -8,6 +8,13 @@ try {
     # ACPI shutdown must be a cold stop, not Windows Fast Startup kernel resume.
     & powercfg.exe /hibernate off
     if ($LASTEXITCODE -ne 0) { throw 'Cannot disable hybrid shutdown' }
+    # Keep a virtual desktop capturable while idle, without disabling screen lock.
+    foreach ($powerSource in @('ac','dc')) {
+        & powercfg.exe /change ("monitor-timeout-" + $powerSource) $cfg.display_idle_minutes
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot configure display idle policy' }
+        & powercfg.exe /change ("standby-timeout-" + $powerSource) $cfg.sleep_idle_minutes
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot configure system idle policy' }
+    }
     $cap = Get-WindowsCapability -Online -Name 'OpenSSH.Server*'
     if ($cap.State -ne 'Installed') { Add-WindowsCapability -Online -Name $cap.Name | Out-Null }
     $sshDir = Join-Path $env:ProgramData 'ssh'
@@ -46,7 +53,8 @@ Subsystem sftp sftp-server.exe
     Set-Service sshd -StartupType Automatic
     Start-Service sshd
     # Avoid upstream autostart's Highest setting. This task is explicitly limited.
-    $action = New-ScheduledTaskAction -Execute $driver -Argument 'serve'
+    $launcher = Join-Path $root 'driver-launch.ps1'
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $launcher + '"')
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $desktop.Name
     $principal = New-ScheduledTaskPrincipal -UserId $desktop.SID.Value -LogonType Interactive -RunLevel Limited
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)

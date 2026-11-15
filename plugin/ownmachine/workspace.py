@@ -13,6 +13,13 @@ def status(config):
     except (OSError, subprocess.TimeoutExpired):
         return {'host_reachable': False, 'code': 'host_unreachable'}
     if result.returncode != 0:
+        if result.returncode != 255:
+            try:
+                error=json.loads(result.stdout)
+                code=error.get('code') if isinstance(error,dict) else None
+                if code in {'live_firewall_drift','persistent_firewall_service_required','configuration_changed','security_file_changed','network_identity_mismatch','network_isolation_drift','autostart_must_be_disabled','libvirt_acl_required','live_security_verification_required'}:
+                    return {'host_reachable':True,'code':code,'driver_ready':False}
+            except ValueError: pass
         return {'host_reachable': False, 'code': 'ssh_connection_failed'}
     try:
         data = json.loads(result.stdout)
@@ -21,7 +28,7 @@ def status(config):
         # driver diagnostics never flow into the model-facing result.
         states = {'not_configured', 'vm_not_running', 'guest_unreachable',
                   'invalid_response', 'permissions_required', 'capture_consent_required',
-                  'not_running', 'ready'}
+                  'not_running', 'health_check_failed', 'ready'}
         state = data.get('driver_state')
         state = state if isinstance(state, str) and state in states else 'not_probed'
         flags = {key: data.get(key) is True for key in

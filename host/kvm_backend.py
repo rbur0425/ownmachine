@@ -64,16 +64,21 @@ def dispatch(role):
     if op != 'stop': security_ready()
     tree,state=inspect()
     if op=='status':
-        data={}
+        data={};health_failed=False
         flags={key:False for key in ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')}
         if role=='agent' and state=='running':
             p=subprocess.run(guest_argv('status'),env=ENV,capture_output=True,text=True,timeout=15)
-            if p.returncode==0:
-                data=json.loads(p.stdout.lstrip('\ufeff'));flags={key:data.get(key) is True for key in flags}
+            if p.returncode != 255:
+                flags['guest_reachable']=True
+                try:
+                    data=json.loads(p.stdout.lstrip('\ufeff'))
+                    if p.returncode or not isinstance(data,dict): raise ValueError()
+                    flags={key:data.get(key) is True for key in flags}
+                except ValueError: health_failed=True
         if C.get('require_hardened'):
             flags['bootstrap_hardened']=data.get('bootstrap_hardened') is True
-        ready=all(flags.values())
-        print(json.dumps(dict(**flags,vm_name=C['vm_name'],vm_uuid=C['vm_uuid'],vm_state={'running':'running','shut off':'stopped'}.get(state,'unknown'),guest_os='windows',guest_profile='windows',backend='kvm',driver_ready=ready,driver_state='ready' if ready else 'not_running')))
+        ready=all(flags.values()) and not health_failed
+        print(json.dumps(dict(**flags,vm_name=C['vm_name'],vm_uuid=C['vm_uuid'],vm_state={'running':'running','shut off':'stopped'}.get(state,'unknown'),guest_os='windows',guest_profile='windows',backend='kvm',driver_ready=ready,driver_state='health_check_failed' if health_failed else 'ready' if ready else 'not_running')))
         return
     if op=='mcp':
         if state!='running':raise ValueError('vm_not_running')
@@ -178,8 +183,14 @@ def configure(path):
 def security_ready():
     # sudoers permits only this exact read-only check with this root-owned config.
     result=subprocess.run(['/usr/bin/sudo','-n','/usr/bin/python3',C['security_helper'],
-                           '--check',str(CONFIG)],env=ENV,check=True,capture_output=True,text=True,timeout=15)
-    data=json.loads(result.stdout)
+                           '--check',str(CONFIG)],env=ENV,check=False,capture_output=True,text=True,timeout=15)
+    try: data=json.loads(result.stdout)
+    except ValueError: raise ValueError('live_security_verification_required') from None
+    if result.returncode != 0:
+        code=data.get('code') if isinstance(data,dict) else None
+        if code in {'live_firewall_drift','persistent_firewall_service_required','configuration_changed','security_file_changed','network_identity_mismatch','network_isolation_drift','autostart_must_be_disabled','libvirt_acl_required'}:
+            raise ValueError(code)
+        raise ValueError('live_security_verification_required')
     if data != {'ok':True,'vm_uuid':C['vm_uuid']}:
         raise ValueError('live_security_verification_required')
 

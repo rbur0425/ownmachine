@@ -88,6 +88,7 @@ def main():
 
 if __name__=='__main__':
     try: main()
-    except Exception:
-        print(json.dumps({'ok':False,'code':'kvm_security_not_ready'}))
+    except Exception as exc:
+        code = str(exc) if isinstance(exc, ValueError) and str(exc) in {'live_firewall_drift','persistent_firewall_service_required','configuration_changed','security_file_changed','network_identity_mismatch','network_isolation_drift','autostart_must_be_disabled','libvirt_acl_required'} else 'kvm_security_not_ready'
+        print(json.dumps({'ok':False,'code':code}))
         raise SystemExit(2)

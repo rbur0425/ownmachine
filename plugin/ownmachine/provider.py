@@ -142,7 +142,14 @@ class OwnMachineBackend(ComputerUseBackend):
             self._connect()
             self._connected = True
         reply = self._call(name, args or {})
-        if reply.get('isError'): raise RuntimeError('driver_read_failed')
+        if reply.get('isError'):
+            # A failed capture can leave the daemon-side MCP session unusable
+            # after display sleep. Discard this stream, never replay the read.
+            # The next explicit read reconnects; durable input uncertainty stays.
+            self.transport.stop()
+            self._connected = False
+            self._clear()
+            raise RuntimeError('driver_read_failed: wake/unlock the guest display, then request a fresh capture; the failed stream was disconnected')
         return reply
 
     def _connect(self):

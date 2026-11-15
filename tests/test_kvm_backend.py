@@ -27,6 +27,22 @@ class KvmBackendTests(unittest.TestCase):
     def inspect(self,xml):
         with patch.object(kvm,'virsh',side_effect=[xml,'running']): return kvm.inspect()
 
+    def test_security_failure_preserves_only_known_codes(self):
+        import subprocess
+        self.config.update(security_helper='/root/check',vm_uuid='test-uuid')
+        for code,expected in [('live_firewall_drift','live_firewall_drift'),('private diagnostic','live_security_verification_required')]:
+            with patch.object(kvm.subprocess,'run',return_value=subprocess.CompletedProcess([],2,json.dumps({'ok':False,'code':code}))),self.assertRaisesRegex(ValueError,expected):
+                kvm.security_ready()
+
+    def test_failed_guest_helper_is_not_reported_as_ssh_unreachable(self):
+        import subprocess
+        self.config['agent_user']='agent'
+        with patch.object(kvm.pwd,'getpwuid') as user,patch.dict(kvm.os.environ,{'SSH_ORIGINAL_COMMAND':'ownmachine-host status --vm desktop'}),patch.object(kvm,'security_ready'),patch.object(kvm,'inspect',return_value=(None,'running')),patch.object(kvm,'guest_argv',return_value=['ssh']),patch.object(kvm.subprocess,'run',return_value=subprocess.CompletedProcess([],1,'')),patch('sys.stdout',new_callable=io.StringIO) as output:
+            user.return_value.pw_name='agent';kvm.dispatch('agent')
+            result=json.loads(output.getvalue())
+            self.assertTrue(result['guest_reachable']);self.assertFalse(result['driver_ready'])
+            self.assertEqual(result['driver_state'],'health_check_failed')
+
     def test_configured_private_console_accepted(self):
         self.assertEqual(self.inspect(self.xml())[1],'running')
 

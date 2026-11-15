@@ -27,6 +27,19 @@ class DiagnosticsTests(unittest.TestCase):
         self.transport.return_value.tools={k:{} for k in REQUIRED_TOOLS}
         self.addCleanup(patch.stopall)
     def codes(self,report): return {c['code'] for c in report['checks']}
+    def test_security_drift_is_not_misdiagnosed_as_ssh_failure(self):
+        self.remote.return_value={'host_reachable':True,'code':'live_firewall_drift'}
+        result=diagnose(self.config)
+        self.assertIn('live_firewall_drift',self.codes(result))
+        self.assertNotIn('host_unreachable',self.codes(result))
+        self.transport.assert_not_called()
+
+    def test_windows_health_helper_failure_is_distinct_from_unreachable_guest(self):
+        self.remote.return_value=dict(READY,driver_state='health_check_failed',driver_ready=False)
+        result=diagnose(replace(self.config,guest_profile='windows'))
+        self.assertIn('guest_health_check_failed',self.codes(result))
+        self.assertNotIn('guest_unreachable',self.codes(result))
+
     def test_ready_does_not_create_state_or_dispatch(self):
         report=diagnose(self.config)
         self.assertTrue(report['ok']);self.assertFalse(self.directory.exists())

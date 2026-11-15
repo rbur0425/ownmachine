@@ -8,6 +8,9 @@ $root = $cfg.install_root
 New-Item -ItemType Directory -Force $root | Out-Null
 & icacls.exe $root /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
 try {
+    # Match the domain's UTC RTC; display timezone is independently configurable.
+    New-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\TimeZoneInformation' -Name RealTimeIsUniversal -Value 1 -PropertyType DWord -Force | Out-Null
+    Set-TimeZone -Id $cfg.time_zone
     foreach ($name in @($cfg.desktop_user,$cfg.setup_user)) {
         if (Get-LocalUser -Name $name -ErrorAction SilentlyContinue) { throw 'Guest account already exists; refusing replay' }
         $value = if ($name -eq $cfg.desktop_user) { $cfg.desktop_password } else { $cfg.setup_password }
@@ -23,7 +26,7 @@ try {
     if (-not $driver -or (Get-AuthenticodeSignature $driver).Status -ne 'Valid') { throw 'Signed driver missing' }
     [Environment]::SetEnvironmentVariable('CUA_DRIVER_RS_TELEMETRY_ENABLED','0','Machine')
     [Environment]::SetEnvironmentVariable('CUA_DRIVER_PERMISSION_MODE','standard','Machine')
-    foreach ($file in @('guest-health.ps1','guest-agent-entry.ps1','setup-entry.ps1')) { Copy-Item (Join-Path $seed $file) (Join-Path $root $file) }
+    foreach ($file in @('guest-health.ps1','guest-agent-entry.ps1','setup-entry.ps1','driver-launch.ps1')) { Copy-Item (Join-Path $seed $file) (Join-Path $root $file) }
     Copy-Item (Join-Path $root 'guest-health.ps1') (Join-Path $root 'health.ps1')
     [ordered]@{user=$cfg.desktop_user; setup_user=$cfg.setup_user; driver=($driver -replace '\\','/'); task_prefix=$cfg.task_prefix; driver_sha256=(Get-FileHash $driver -Algorithm SHA256).Hash} | ConvertTo-Json | Set-Content (Join-Path $root 'health-config.json') -Encoding utf8
     $pending = Join-Path $root 'bootstrap'

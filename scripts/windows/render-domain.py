@@ -16,7 +16,7 @@ root=Path(c['storage_dir'])
 domain=f'''<domain type="kvm"><name>{name}</name><uuid>{ident}</uuid>
 <memory unit="MiB">{int(c['memory_gb'])*1024}</memory><vcpu>{int(c['cpu'])}</vcpu>
 <os firmware="efi"><type arch="x86_64" machine="q35">hvm</type><firmware><feature enabled="yes" name="enrolled-keys"/><feature enabled="yes" name="secure-boot"/></firmware><boot dev="cdrom"/><boot dev="hd"/></os>
-<features><acpi/><apic/><smm state="on"/></features><cpu mode="host-passthrough"/><clock offset="localtime"/>
+<features><acpi/><apic/><smm state="on"/></features><cpu mode="host-passthrough"/><clock offset="utc"/>
 <on_poweroff>destroy</on_poweroff><on_reboot>restart</on_reboot><on_crash>destroy</on_crash>
 <devices><emulator>/usr/bin/qemu-system-x86_64</emulator>
 <disk type="file" device="disk"><driver name="qemu" type="qcow2"/><source file={quoteattr(str(root/'windows.qcow2'))}/><target dev="sda" bus="sata"/></disk>

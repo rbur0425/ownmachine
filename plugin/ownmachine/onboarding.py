@@ -13,12 +13,32 @@ from .diagnostics import diagnose, render as render_doctor
 PREREQUISITE = ('CLI commands and the native provider require a dedicated Hermes profile with in-process loading. '
                 'In that profile, explicitly run: hermes config set plugins.isolation in_process. '
                 'This changes profile isolation; setup never changes it automatically.')
+def prerequisite():
+    try:
+        from hermes_cli.config import load_config_readonly
+        if load_config_readonly().get('plugins', {}).get('isolation') == 'in_process':
+            return ''
+    except (ImportError, OSError, ValueError, AttributeError):
+        pass
+    return PREREQUISITE
+
+
 def guide(ctx, profile=None):
     import re
     manifest = (Path(__file__).resolve().parents[1] / 'plugin.yaml').read_text()
     match = re.search(r'^version: ([0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.-]+)?)$', manifest, re.M)
     if not match: raise ValueError('invalid_plugin_version')
-    ref = ctx.get_config('setup_guide_ref', '') or 'v' + match.group(1)
+    ref = ctx.get_config('setup_guide_ref', '')
+    if not ref:
+        # Public install provenance, never a credential store. Development refs
+        # must link their own documentation instead of the last release's guide.
+        try:
+            record = json.loads((Path(__file__).resolve().parents[1] / '.hermes-catalog.json').read_text())
+            if record.get('repo') == 'https://github.com/rbur0425/ownmachine' and re.fullmatch(r'[a-f0-9]{40}', str(record.get('sha', ''))):
+                ref = record['sha']
+        except (OSError, ValueError, AttributeError):
+            pass
+    ref = ref or 'v' + match.group(1)
     if not isinstance(ref, str) or not re.fullmatch(r'(?:[a-f0-9]{40}|v[0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.-]+)?)', ref):
         raise ValueError('guide_requires_version_or_commit')
     page='windows-onboarding.md' if profile=='windows' else 'community-setup.md'
@@ -136,10 +156,10 @@ def setup(ctx, args):
         if not saved:raise InputError('Save a setup plan first with setup --save.')
         plan={k:saved.get(k,DEFAULTS[k]) for k in FIELDS};validate_plan(plan)
         if getattr(args,'later',False):
-            return dict(ok=True,stage='deferred',prerequisite=PREREQUISITE,
+            return dict(ok=True,stage='deferred',prerequisite=prerequisite(),
                         next='Remind you later? Choose remind later --mode tomorrow, remind later --mode next-visit, or remind off. A reminder preview requires confirmation; nothing was scheduled. Running work was not stopped.')
         from .setup_next import next_step
-        return dict(ok=True,prerequisite=PREREQUISITE,**next_step(ctx,plan))
+        return dict(ok=True,prerequisite=prerequisite(),**next_step(ctx,plan))
     if getattr(args, 'run', None):
         from .setup_transport import dispatch
         saved = ctx.get_config('setup_plan', {})
@@ -174,7 +194,7 @@ def setup(ctx, args):
             'Where should the desktop run: local, remote, or existing?',
             'For a configured host, what is its verified SSH alias?',
             'Which absolute control directory is shared by agent and viewer?'],
-            'prerequisite': PREREQUISITE, 'next': 'Run setup --target local|remote|existing; use --help in the terminal for options. No passwords or private keys in chat.'}
+            'prerequisite': prerequisite(), 'next': 'Run setup --target local|remote|existing; use --help in the terminal for options. No passwords or private keys in chat.'}
     validate_plan(plan)
     checks = preflight(plan)
     previous = onboarding_state.load(ctx) if args.save or args.connect else None
@@ -209,7 +229,7 @@ def setup(ctx, args):
                       'Start private viewer and verify human/agent handoff']),
             'next': ('Runtime connection saved. In this same Hermes profile explicitly set computer_use.backend ownmachine, computer_use.permission_mode standard and plugins.isolation in_process; review experimental_linux_background_input (default false). Restart existing sessions/gateway, then run ownmachine doctor. See docs/wizard-quickstart.md#configure-the-runtime-before-final-verification.' if args.connect else
                      'Plan saved; resume with the same setup command.' if args.save else 'Review this plan, then add --save to keep it.'),
-            'guide': guide(ctx,plan['guest_profile']), 'prerequisite': PREREQUISITE,
+            'guide': guide(ctx,plan['guest_profile']), 'prerequisite': prerequisite(),
             'scope': 'Planning/configuration only. No VM, account, firewall, key, service or permission was created or changed. Use --run with the approved setup endpoint for explicit remote execution.'}
 
 
@@ -276,7 +296,7 @@ def execute(ctx, args):
         return (json.dumps(report) if args.as_json else render_doctor(report)), (0 if report['ok'] else 1)
     return ('OwnMachine: /ownmachine setup | hermes ownmachine setup | hermes ownmachine doctor\n'
             'Setup resumes the saved plan. Use --save to persist it, or --target existing --connect to configure a prepared relay.\n'
-            'Use setup --run STAGE for the approved SSH endpoint; mutating stages require --apply and chat requires an allowed sender. Never paste passwords or private keys into chat.\n' + PREREQUISITE), 0
+            'Use setup --run STAGE for the approved SSH endpoint; mutating stages require --apply and chat requires an allowed sender. Never paste passwords or private keys into chat.\n' + prerequisite()), 0
 
 
 def interactive(ctx, args):
@@ -296,7 +316,7 @@ def interactive(ctx, args):
     if args.guest_profile=='omarchy':
         print('Experimental ARM64 Omarchy: Apple Silicon host; foreground control; exact-window browser input requires explicit native-module opt-in.')
     if args.guest_profile=='windows':
-        print('Windows x64 requires a Linux/KVM host and licensed or evaluation media. Fresh provisioning is not yet integrated; checks never pretend it is complete.')
+        print('Windows x64 requires a Linux/KVM host and licensed or evaluation media. Guided provisioning requires administrator registration and an initial DVD-boot handoff; follow saved progress.')
     args.target = ask('Where will the desktop run? local / remote / existing', saved.get('target', 'local'))
     args.host_alias = ask('Verified SSH alias (leave blank until configured)', saved.get('host_alias', ctx.get_config('host_alias', '')))
     args.control_dir = ask('Absolute shared control directory', saved.get('control_dir', ctx.get_config('control_dir', '')))

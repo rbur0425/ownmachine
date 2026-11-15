@@ -31,6 +31,15 @@ class FreshWindowsTests(unittest.TestCase):
             c,p=self.config();c['provision'][field]=value
             with self.subTest(field=field,value=value),self.assertRaises(ValueError):w.settings(c,p)
 
+    def test_power_and_time_zone_are_configurable_and_validated(self):
+        c,p=self.config();merged=w.settings(c,p)
+        self.assertEqual((merged['display_idle_minutes'],merged['sleep_idle_minutes'],merged['time_zone']),(0,0,'UTC'))
+        c['provision'].update(display_idle_minutes=30,sleep_idle_minutes=60,time_zone='Eastern Standard Time')
+        self.assertEqual(w.settings(c,p)['time_zone'],'Eastern Standard Time')
+        for key,value in [('display_idle_minutes',True),('sleep_idle_minutes',-1),('display_idle_minutes',1441),('time_zone','UTC;command')]:
+            invalid=copy.deepcopy(c);invalid['provision'][key]=value
+            with self.subTest(key=key,value=value),self.assertRaises(ValueError):w.settings(invalid,p)
+
     def test_existing_storage_is_never_overwritten(self):
         c,p=self.config()
         with tempfile.TemporaryDirectory() as td:
@@ -98,6 +107,7 @@ class FreshWindowsTests(unittest.TestCase):
             subprocess.run([sys.executable,str(ROOT/'scripts/windows/render-domain.py'),str(config),td],check=True,capture_output=True)
             import xml.etree.ElementTree as ET
             tree=ET.fromstring((Path(td)/'domain.xml').read_text())
+            self.assertEqual(tree.find('./clock').get('offset'),'utc')
             self.assertIsNone(tree.find('./devices/filesystem'))
             self.assertEqual(tree.find('./devices/graphics/listen').get('type'),'socket')
             self.assertEqual(tree.find('./devices/graphics').get('socket'),c['provision']['console_socket'])

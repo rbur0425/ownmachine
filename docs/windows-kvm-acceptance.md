@@ -424,3 +424,23 @@ plugin validation passed with no warnings. Private task evidence stays outside G
 This supersedes the preceding last-window manual-recovery limitation for the
 tested close-button path. Mixed-profile provider loading and the other release
 qualification gates remain open. No release is authorized.
+
+## Operator-review follow-up — 14 November 2026
+
+The operator's profile-origin guard is retained. Follow-up changes discard a
+failed read stream without replaying input, add bounded configurable idle and
+UTC-clock policies for fresh provisioning, launch the standard interactive driver
+without a closable console, distinguish health-helper failure from unreachable
+SSH, preserve allowlisted firewall-drift reasons, and link onboarding to the
+installed public commit. The in-process prerequisite is omitted when already set.
+
+The reported capital loss was Chrome DevTools whole-string automation. Explicit
+Shift key sequences worked; physical keyboard input was not shown to fail. No
+noVNC keyboard patch is warranted from that evidence alone. Prompt disobedience
+and self-editing require restricting the acceptance profile's exposed tools,
+not relying on model instructions as an access boundary.
+
+Guest power, clock, hidden-launcher and stopped-driver changes still require live
+Windows upgrade/fresh-install qualification. Unit tests are not evidence that
+those guest changes have been deployed. Existing runtime keys, guests and shared
+Hermes gateway have not been changed by this follow-up. No release is authorized.

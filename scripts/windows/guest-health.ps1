@@ -1,8 +1,13 @@
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $cfg = Get-Content (Join-Path $root 'health-config.json') -Raw | ConvertFrom-Json
-$lines = & $cfg.driver status 2>$null
-$ok = $LASTEXITCODE -eq 0
+$lines = @()
+$ok = $false
+# Native stderr/nonzero exit must not turn a stopped driver into an SSH failure.
+try {
+    $lines = & $cfg.driver status 2>$null
+    $ok = $LASTEXITCODE -eq 0
+} catch { $lines = @(); $ok = $false }
 $text = $lines -join "`n"
 $daemonPid = if ($text -match '(?m)^\s*pid:\s*(\d+)') { [int]$Matches[1] } else { 0 }
 $process = if ($daemonPid) { Get-Process -Id $daemonPid -ErrorAction SilentlyContinue } else { $null }

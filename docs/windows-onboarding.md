@@ -235,3 +235,42 @@ optional boolean `provision.viewer_swap_red_blue` only for a console server that
 actually needs that compatibility workaround; do not enable it for every Windows
 VM. Its default is `false`. The private-console transport and human-input gate
 are unchanged by this display-only setting.
+
+## Idle display, driver recovery and clock policy
+
+Fresh Windows provisioning accepts `display_idle_minutes` and
+`sleep_idle_minutes` in the provision configuration (integers 0–1440; default 0,
+meaning never). This keeps the VM available while idle; it does not disable
+Windows locking or sign-in. `time_zone` is a Windows time-zone ID (default `UTC`,
+for example `Eastern Standard Time`). Windows validates that ID during setup.
+The virtual hardware clock uses UTC, paired with Windows `RealTimeIsUniversal`.
+
+These defaults apply to newly provisioned guests. Existing guests are not silently
+modified. A host administrator must coordinate a stopped-domain clock change with
+the guest administrator's registry/time-zone update; changing only one side can
+shift the clock. Do not rerun bootstrap or restore retired setup keys to perform
+an upgrade. The hidden driver launcher also requires updating the guest's
+standard-user interactive scheduled task; it remains Limited, never SYSTEM.
+
+Doctor checks connectivity and driver readiness, not whether the screen is awake
+and unlocked. Check a fresh `computer_use` capture after login. A failed driver
+read now closes its MCP stream; the next explicitly requested capture reconnects.
+No input is replayed, and an uncertain prior input still requires operator review.
+If guest SSH answers but the health helper fails, inspect that helper. If the
+driver task stopped, restart the standard-user task; changing firewall rules or
+SSH keys is not a remedy for a stopped desktop driver.
+
+## Browser automation and acceptance tool access
+
+Whole-string Chrome DevTools typing into the live canvas has been observed to
+lose capitals. Explicit Shift/key-down/key-up sequences worked in the same
+session. This is an automation-path limitation, not evidence that physical typing
+is broken. For automated viewer tests, emit actual modifier/key events; for agent
+text entry, use the permission-gated `computer_use` text action. Do not bypass the
+human-control gate with injected guest commands.
+
+A prompt saying “use only computer_use” is not a tool-access restriction. Run
+acceptance in a dedicated Hermes profile/container with only the intended desktop
+tools exposed. Exclude terminal, file-writing and skill-management tools and
+inspect the recorded tool calls. One-shot prompting alone does not prevent skill
+writes if `skill_manage` is available. Keep the normal Hermes profile untouched.

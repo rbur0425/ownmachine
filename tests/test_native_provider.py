@@ -42,6 +42,26 @@ class NativeProviderTests(unittest.TestCase):
   self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
   self.fake=FakeTransport();self.config=Config(host_alias='test',control_dir=self.tmp.name)
   self.b=OwnMachineBackend(self.config,transport=self.fake);self.b.start();self.addCleanup(self.b.stop)
+ def test_failed_read_disconnects_without_replay_and_next_read_recovers(self):
+  from unittest.mock import patch
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  self.fake.fail=True;self.b.type_text('uncertain');self.fake.fail=False
+  original=self.fake.call
+  def failed(name,args):
+   if name=='get_window_state':
+    self.fake.calls.append((name,args));return {'isError':True}
+   return original(name,args)
+  with patch.object(self.fake,'call',side_effect=failed),patch.object(self.fake,'stop') as stop:
+   before=sum(n=='get_window_state' for n,a in self.fake.calls)
+   with self.assertRaisesRegex(RuntimeError,'driver_read_failed'):self.b.capture(app='Editor')
+   self.assertEqual(sum(n=='get_window_state' for n,a in self.fake.calls),before+1)
+   stop.assert_called_once();self.assertFalse(self.b._connected)
+  before=sum(n=='start_session' for n,a in self.fake.calls)
+  self.b.capture(app='Editor')
+  self.assertEqual(sum(n=='start_session' for n,a in self.fake.calls),before+1)
+  self.assertTrue(self.b.lease.status()['pending'])
+  self.assertEqual(self.b.type_text('do not replay').code,'transport_outcome_unknown')
+
  def test_abc_instantiates_and_permission_modes_fail_closed(self):
   for mode in ('bounded','unrestricted','unknown'):
    with self.assertRaises(ValueError):OwnMachineBackend(self.config,mode)

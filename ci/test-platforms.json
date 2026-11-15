@@ -12,6 +12,7 @@
     "test_native_provider.NativeProviderTests.test_driver_error_preserves_uncertainty",
     "test_native_provider.NativeProviderTests.test_driver_screenshot_frame_overrides_earlier_window_geometry",
     "test_native_provider.NativeProviderTests.test_failed_cold_launch_never_raises_and_keeps_review_gate",
+    "test_native_provider.NativeProviderTests.test_failed_read_disconnects_without_replay_and_next_read_recovers",
     "test_native_provider.NativeProviderTests.test_fresh_install_loads_through_real_hermes_category_loader",
     "test_native_provider.NativeProviderTests.test_frontmost_window_uses_larger_z_index",
     "test_native_provider.NativeProviderTests.test_idle_backend_does_not_lock_out_other_session",

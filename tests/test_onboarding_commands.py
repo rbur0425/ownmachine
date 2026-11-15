@@ -44,6 +44,25 @@ class OnboardingCommandsTests(unittest.TestCase):
         capture.__enter__()
         self.addCleanup(capture.__exit__, None, None, None)
 
+    def test_guide_uses_public_installed_commit_and_keeps_explicit_override(self):
+        import json
+        original=Path.read_text
+        def read(path,*args,**kwargs):
+            if path.name=='.hermes-catalog.json':
+                return json.dumps({'repo':'https://github.com/rbur0425/ownmachine','sha':'a'*40})
+            return original(path,*args,**kwargs)
+        with patch.object(Path,'read_text',read):
+            self.assertIn('/'+'a'*40+'/docs/windows-onboarding.md',o.guide(Context(),'windows'))
+            self.assertIn('/v2.0.0/',o.guide(Context({'setup_guide_ref':'v2.0.0'}),'windows'))
+
+    def test_isolation_hint_only_when_not_already_configured(self):
+        import types
+        module=types.ModuleType('hermes_cli.config');module.load_config_readonly=lambda:{'plugins':{'isolation':'in_process'}}
+        with patch.dict(sys.modules,{'hermes_cli.config':module}):
+            self.assertEqual(o.prerequisite(),'')
+            module.load_config_readonly=lambda:{}
+            self.assertEqual(o.prerequisite(),o.PREREQUISITE)
+
     def test_registration_is_side_effect_free_and_has_all_entrypoints(self):
         ctx = Context()
         with patch.object(o, 'diagnose', side_effect=AssertionError('network')), patch('builtins.input', side_effect=AssertionError('prompt')):

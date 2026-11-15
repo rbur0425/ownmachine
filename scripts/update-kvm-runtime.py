@@ -40,4 +40,11 @@ def main():
     print('Root-owned relay code updated with backups; no keys, VM, services or firewall rules changed.')
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    try: main()
+    except FileNotFoundError:
+        print('Runtime update refused: a config, source or installed runtime file is missing. Check --config and --source-dir on this host. No automatic retry was attempted.',file=sys.stderr)
+        raise SystemExit(1)
+    except (OSError,ValueError,SyntaxError):
+        print('Runtime update refused: inspect file ownership, permissions, valid Python source and any .update-new file from an interrupted update. Do not change keys or bypass the root-owned path checks.',file=sys.stderr)
+        raise SystemExit(1)
