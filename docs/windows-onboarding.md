@@ -61,7 +61,7 @@ An administrator must establish dedicated runtime accounts, a private per-VM
 network and console, object-scoped libvirt policy and the persistent firewall.
 Runtime credentials must not provide broad libvirt or sudo access. The production
 adoption scripts and their limits are documented in the
-[production plan](windows-production-plan.md#current-administrator-workflow).
+[production plan](windows-production-plan.md#existing-domain-administrator-workflow).
 Those adoption scripts remain available for reviewed guests. The separate fresh
 registration handoff below creates a new, stopped domain after artifact preparation.
 
@@ -244,11 +244,14 @@ meaning never). This keeps the VM available while idle; it does not disable
 Windows locking or sign-in. `time_zone` is a Windows time-zone ID (default `UTC`,
 for example `Eastern Standard Time`). Windows validates that ID during setup.
 The virtual hardware clock uses UTC, paired with Windows `RealTimeIsUniversal`.
-Fresh-install qualification found that a non-UTC guest could display the wrong
-time in its first installed session. Save work, shut down fully through the viewer,
-start the VM and sign in, then compare the displayed time with a trusted clock.
-This cold-start check passed; initial time synchronization still needs qualification.
-Do not bypass certificate checks to work around an incorrect guest clock.
+Setup now starts Windows Time automatically and performs a blocking resync before
+it reports bootstrap complete. `time_servers` is an optional list of 1–5 DNS names
+or IPv4 addresses (default `['time.windows.com']`); use reachable, trusted time
+servers appropriate to your network. The guest needs DNS and outbound UDP 123.
+No administrator password, provider credential or host clock is used to set time.
+The UTC RTC policy still applies on subsequent boots. New first-session behavior
+needs the clean-install acceptance below; earlier evidence only qualified time
+after a cold start. Never bypass certificate checks for an incorrect clock.
 
 These defaults apply to newly provisioned guests. Existing guests are not silently
 modified. A host administrator must coordinate a stopped-domain clock change with
@@ -279,3 +282,40 @@ acceptance in a dedicated Hermes profile/container with only the intended deskto
 tools exposed. Exclude terminal, file-writing and skill-management tools and
 inspect the recorded tool calls. One-shot prompting alone does not prevent skill
 writes if `skill_manage` is available. Keep the normal Hermes profile untouched.
+
+
+## First-install progress and recovery
+
+The standard-user desktop opens a normal **OwnMachine setup progress** window.
+It is read-only, is not always on top, and can be closed without stopping setup.
+It distinguishes power setup, OpenSSH installation, SSH configuration, driver
+configuration and time synchronization. Before OpenSSH is available, Hermes cannot
+read the exact guest checkpoint; use this window in the private viewer instead.
+To reopen it, run the installed `show-setup-progress.ps1` with Windows PowerShell
+under the configured guest installation root. Do not run bootstrap again.
+
+| What you see | What to do |
+| --- | --- |
+| Installing OpenSSH / SSH not yet reachable | Leave the guest running; Windows optional-feature installation can take several minutes. Handle any DVD/login prompt in the viewer. Do not rebuild the disk. |
+| Synchronizing clock | Wait for the bounded operation; bootstrap is not complete yet. |
+| Time synchronization needs attention | Check guest DNS, the configured time servers and outbound UDP 123. Run `hermes ownmachine setup --run provision --apply` again: this retries only synchronization. It does not reinstall Windows. |
+| Bootstrap failed | Have the guest administrator inspect the configured Bootstrap task history and optional-feature installation errors. Preserve the VM/logs; do not blindly replay the task. |
+| Bootstrap complete, driver unavailable | Run provision to import completion, then harden and driver stages. Sign into the standard guest account; inspect its Limited interactive Driver task if it stopped. |
+| Verify cannot capture | Finish permissions/readiness checks, unlock the guest, return human reservation to agent control, and wait for other computer-use sessions to exit before repeating verify. |
+
+After a handoff, run `hermes ownmachine setup --run progress`,
+`hermes ownmachine setup --next` and `hermes ownmachine doctor`. Saved progress
+contains only allowlisted reason codes; the plugin supplies the guidance locally.
+It does not import guest error messages or secrets into chat. Doctor does not
+create a VM, start bootstrap, change firewall rules, or grant desktop control.
+
+For a reminder, run `hermes ownmachine remind later --mode next-visit`, review its
+preview and confirm the displayed token. Nothing is scheduled without consent.
+`next-visit` appears on a later OwnMachine command; use the separate tomorrow mode
+only when its gateway/chat delivery prerequisites pass.
+
+See [the clean-install checklist](windows-clean-install-checklist.md) for the
+operator-run acceptance of these changes.
+
+Windows Time behavior follows Microsoft's [workgroup service guidance](https://learn.microsoft.com/en-us/troubleshoot/windows-client/active-directory/w32time-not-start-on-workgroup)
+and [time service commands](https://learn.microsoft.com/en-us/windows-server/networking/windows-time-service/Windows-Time-Service-Tools-and-Settings).

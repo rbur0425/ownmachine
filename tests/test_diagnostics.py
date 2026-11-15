@@ -40,6 +40,15 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertIn('guest_health_check_failed',self.codes(result))
         self.assertNotIn('guest_unreachable',self.codes(result))
 
+    def test_windows_pre_ssh_diagnosis_explains_bootstrap_and_reminder(self):
+        self.remote.return_value=dict(READY,guest_reachable=False,driver_state='guest_unreachable',driver_ready=False)
+        result=diagnose(replace(self.config,guest_profile='windows'))
+        text=render(result)
+        self.assertIn('OpenSSH may still be installing',text)
+        self.assertIn('setup --next',text)
+        self.assertIn('next-visit',text)
+        self.transport.assert_not_called()
+
     def test_ready_does_not_create_state_or_dispatch(self):
         report=diagnose(self.config)
         self.assertTrue(report['ok']);self.assertFalse(self.directory.exists())

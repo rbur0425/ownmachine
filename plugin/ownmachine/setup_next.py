@@ -27,6 +27,10 @@ def next_step(ctx,plan):
         if row.get('stage') in ('verified','checks_passed','observed'):continue
         if row.get('stage') in ('running','needs_inspection'):
             return dict(stage='needs_inspection',next='Inspect the private '+step+' checkpoint; do not replay an uncertain mutation.')
+        if plan.get('guest_profile')=='windows':
+            from .windows_guidance import REMEDIES, guidance
+            if row.get('code') in REMEDIES:
+                return dict(stage='await_'+step,next=guidance(row['code']))
         handoffs={
             'firewall':'The Mac administrator must install the reviewed firewall service. Then run setup --run firewall.',
             'permissions':'Open the guest permission guide with setup --run permissions --apply; approve the guest grants, then repeat the permission check.',
@@ -41,6 +45,7 @@ def next_step(ctx,plan):
             handoffs['driver']='Run setup --run driver --apply. Targeted Chromium input requires explicit enable_experimental_input in the operator configuration; capture readiness alone does not prove input works.'
             handoffs['permissions']='Log into the Linux graphical session, then run setup --run permissions. This checks the standard-mode driver and accessibility bus; no macOS TCC prompts apply.'
         if plan.get('guest_profile')=='windows':
+            handoffs['provision']='Run setup --run provision --apply. Open the private viewer for the DVD prompt and standard-user login; read the non-blocking OwnMachine setup progress window while OpenSSH installs. Do not recreate the VM. See docs/windows-onboarding.md#first-install-progress-and-recovery. For an optional reminder use remind later --mode next-visit and confirm its preview.'
             handoffs.update(viewer='Run setup --run viewer --apply to install the private viewer service under its configured owner before starting the guest.',build='Run setup --run build --apply after reviewing the verified Windows media and evaluation consent. Then have the administrator register the fresh stopped domain using docs/windows-onboarding.md.',firewall='The Linux administrator must install the reviewed persistent KVM security service. Then run setup --run firewall.',permissions='Sign into the Windows standard-user desktop, then run setup --run permissions. No macOS permissions or elevated driver are required.',verify='Pause control, then run setup --run verify. Use --apply to repeat screenshot verification and retire both guest and host setup keys.')
         if step in handoffs:return dict(stage='await_'+step,next=handoffs[step])
         suffix=' --apply' if step in ('build','provision','relay','keys','harden','driver') else ''

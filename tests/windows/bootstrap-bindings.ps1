@@ -25,6 +25,6 @@ foreach($source in @($PrepareSource,$FinishSource)) {
         }
     }
 }
-$expected = 'PortablePrefixBootstrap,PortablePrefixSSH,PortablePrefixDriver,PortablePrefixDriver,PortablePrefixBootstrap'
+$expected = 'PortablePrefixBootstrap,PortablePrefixSetupProgress,PortablePrefixSSH,PortablePrefixDriver,PortablePrefixDriver,PortablePrefixBootstrap'
 if(($script:names -join ',') -ne $expected){throw 'Unexpected bootstrap names or commands'}
-'Bootstrap parameter-binding regression passed (five real command expressions; no system changes).'
+'Bootstrap parameter-binding regression passed (six real command expressions; no system changes).'

@@ -3,10 +3,15 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $cfg = Get-Content (Join-Path $root 'health-config.json') -Raw | ConvertFrom-Json
 $operation = $env:SSH_ORIGINAL_COMMAND
-if ($operation -notin @('ownmachine-guest status','ownmachine-guest harden','ownmachine-guest retire')) { throw 'unsupported_setup_operation' }
+if ($operation -notin @('ownmachine-guest status','ownmachine-guest harden','ownmachine-guest retire','ownmachine-guest sync-time')) { throw 'unsupported_setup_operation' }
 $status = Get-Content (Join-Path $root 'bootstrap-status.json') -Raw | ConvertFrom-Json
 if ($operation -eq 'ownmachine-guest status') {
-    [ordered]@{configured=($status.stage -eq 'configured'); hardened=(Test-Path (Join-Path $root 'hardened.json')); secure_boot=(Confirm-SecureBootUEFI); tpm_ready=(Get-Tpm).TpmReady; driver_signature=((Get-AuthenticodeSignature $cfg.driver).Status -eq 'Valid'); driver_unchanged=((Get-FileHash $cfg.driver -Algorithm SHA256).Hash -eq $cfg.driver_sha256)} | ConvertTo-Json -Compress
+    [ordered]@{bootstrap_stage=$status.stage; configured=($status.stage -eq 'configured'); hardened=(Test-Path (Join-Path $root 'hardened.json')); secure_boot=(Confirm-SecureBootUEFI); tpm_ready=(Get-Tpm).TpmReady; driver_signature=((Get-AuthenticodeSignature $cfg.driver).Status -eq 'Valid'); driver_unchanged=((Get-FileHash $cfg.driver -Algorithm SHA256).Hash -eq $cfg.driver_sha256)} | ConvertTo-Json -Compress
+    exit 0
+}
+if ($operation -eq 'ownmachine-guest sync-time') {
+    if ($status.stage -ne 'awaiting_time_sync') { throw 'time_sync_retry_not_ready' }
+    & (Join-Path $root 'sync-time.ps1')
     exit 0
 }
 if ($status.stage -ne 'configured') { throw 'bootstrap_incomplete' }
@@ -17,6 +22,7 @@ if ($operation -eq 'ownmachine-guest harden') {
     Remove-ItemProperty $winlogon -Name DefaultPassword -ErrorAction SilentlyContinue
     Remove-ItemProperty $winlogon -Name AutoLogonCount -ErrorAction SilentlyContinue
     Unregister-ScheduledTask -TaskName ($cfg.task_prefix+'Bootstrap') -Confirm:$false -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName ($cfg.task_prefix+'SetupProgress') -Confirm:$false -ErrorAction SilentlyContinue
     $pending = Join-Path $root 'bootstrap'
     if (Test-Path $pending) { Remove-Item $pending -Recurse -Force }
     $answers = @('Panther\unattend.xml','Panther\Unattend\unattend.xml','System32\Sysprep\unattend.xml')

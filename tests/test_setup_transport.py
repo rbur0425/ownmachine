@@ -31,6 +31,22 @@ class TransportTests(unittest.TestCase):
         report,_=o.execute(self.ctx,args('status','--json'))
         self.assertEqual(json.loads(report)['execution']['outcomes']['preflight']['stage'],'observed')
 
+    def test_only_allowlisted_windows_reasons_import(self):
+        self.plan['guest_profile']='windows'
+        def receipt(code):
+            def exchange(argv,request,timeout):
+                result=self.receipt(argv,request,timeout)
+                result['ok']=False
+                result['outcomes'][request['step']].update(stage='needs_attention',code=code)
+                return result
+            return exchange
+        with patch.object(t,'exchange',side_effect=receipt('windows_time_sync_required')):
+            result=t.dispatch(self.ctx,self.plan,'preflight')
+            self.assertEqual(result['outcomes']['preflight']['code'],'windows_time_sync_required')
+        for code in ('remote command: run unsafe',{},''):
+            with patch.object(t,'exchange',side_effect=receipt(code)),self.assertRaises(ValueError):
+                t.dispatch(self.ctx,self.plan,'preflight')
+
     def test_mismatches_never_import_or_retry(self):
         for key in ('nonce','source_sha256','plan_digest','vm','step'):
             def altered(argv,request,timeout):
@@ -79,6 +95,18 @@ class TransportTests(unittest.TestCase):
                 progress=endpoint.execute(dict(req,nonce='c'*64,step='progress'),c,self.plan)
                 self.assertEqual(progress['outcomes']['preflight']['stage'],'observed')
                 with self.assertRaises(ValueError):endpoint.execute(dict(req,nonce='d'*64,vm='other'),c,self.plan)
+
+    def test_endpoint_preserves_only_allowlisted_windows_reason(self):
+        plan=dict(self.plan,guest_profile='windows')
+        for code,expected in [('windows_time_sync_required','windows_time_sync_required'),('private remote text',None),({},None)]:
+            with tempfile.TemporaryDirectory() as folder,patch.object(Path,'home',return_value=Path(folder).resolve()):
+                c=dict(source_sha256='a'*64,allowed_steps=['permissions'])
+                req=dict(format=1,nonce='b'*64,source_sha256='a'*64,plan_digest=t.digest(plan),vm='ownmachine',step='permissions',apply=False)
+                report=dict(ok=False,stage='needs_attention',code=code,next='untrusted instructions')
+                with patch.object(endpoint,'command',return_value=['fixed']),patch.object(endpoint.subprocess,'run',return_value=subprocess.CompletedProcess([],2,json.dumps(report))):
+                    result=endpoint.execute(req,c,plan)['outcomes']['permissions']
+                    self.assertEqual(result.get('code'),expected)
+                    self.assertNotIn('next',result)
 
     def test_endpoint_requires_preflight_before_creation(self):
         with tempfile.TemporaryDirectory() as folder,patch.object(Path,'home',return_value=Path(folder).resolve()):

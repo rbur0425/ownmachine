@@ -21,12 +21,12 @@ out.mkdir(mode=0o700,parents=True,exist_ok=False)
 desktop_user=c.get('guest_user','ownmachine'); setup_user=c.get('guest_setup_user','ownsetup')
 if desktop_user==setup_user or any(not re.fullmatch(r'[a-z][a-z0-9_-]{0,19}',n) for n in (desktop_user,setup_user)):raise SystemExit('Invalid or identical guest account names')
 guest=dict(install_root=c.get('guest_install_root','C:/ProgramData/OwnMachine'),task_prefix='OwnMachine-'+c['vm_name']+'-',desktop_user=desktop_user,setup_user=setup_user,desktop_password=secrets.token_urlsafe(18)+'aA1!',setup_password=secrets.token_urlsafe(24)+'aA1!',host_address=str(ipaddress.ip_network(c['subnet']).network_address+1),driver_sha256=a.driver_sha256)
-guest.update(display_idle_minutes=c.get('display_idle_minutes',0),sleep_idle_minutes=c.get('sleep_idle_minutes',0),time_zone=c.get('time_zone','UTC'))
+guest.update(display_idle_minutes=c.get('display_idle_minutes',0),sleep_idle_minutes=c.get('sleep_idle_minutes',0),time_zone=c.get('time_zone','UTC'),time_servers=c.get('time_servers',['time.windows.com']))
 (out/'guest.json').write_text(json.dumps(guest));(out/'guest.json').chmod(0o600)
 for name in ('guest.pub','guest-setup.pub','guest-host','guest-host.pub'):
     shutil.copy2(a.private_dir/name,out/name)
 shutil.copy2(a.driver_zip,out/'driver.zip')
-for script in ('prepare-guest.ps1','finish-guest.ps1','guest-health.ps1','guest-agent-entry.ps1','setup-entry.ps1','driver-launch.ps1'):
+for script in ('prepare-guest.ps1','finish-guest.ps1','guest-health.ps1','guest-agent-entry.ps1','setup-entry.ps1','driver-launch.ps1','bootstrap-progress.ps1','sync-time.ps1','show-setup-progress.ps1'):
     shutil.copy2(Path(__file__).with_name(script),out/script)
 command="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$d=(Get-Volume | Where-Object FileSystemLabel -eq 'OWNBOOT').DriveLetter; & (${d} + ':\\prepare-guest.ps1')\""
 xml=f'''<?xml version="1.0" encoding="utf-8"?>

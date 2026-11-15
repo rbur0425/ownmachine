@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT/'plugin'))
 from ownmachine.onboarding import DEFAULTS, FIELDS, validate_plan
 from ownmachine.onboarding_state import digest
 from ownmachine.setup_transport import STEPS, READ_ONLY
+from ownmachine.windows_guidance import REMEDIES
 
 
 def fingerprint():
@@ -179,6 +180,7 @@ def execute(request,c,plan):
             saved['outcomes'][step]=dict(stage='running',observed_at=int(time.time()))
             mac.write_state(path,saved)
             stage='needs_inspection'
+            code=None
             try:
                 # Child writes only a bounded final result on stdout, never logs.
                 with heartbeat(request):
@@ -192,9 +194,12 @@ def execute(request,c,plan):
                             stage='needs_attention'
                     elif isinstance(report,dict) and result.returncode==2 and report.get('stage') in {'needs_attention','blocked'}:
                         stage='needs_attention'
+                        if plan.get('guest_profile')=='windows' and isinstance(report.get('code'),str) and report['code'] in REMEDIES:
+                            code=report['code']
             except (OSError,ValueError,subprocess.SubprocessError):
                 pass
             saved['outcomes'][step]=dict(stage=stage,observed_at=int(time.time()))
+            if code:saved['outcomes'][step]['code']=code
             mac.write_state(path,saved)
         outcomes=saved['outcomes'] if step=='progress' else {step:saved['outcomes'][step]}
         ok=not any(v['stage'] in {'running','needs_attention','needs_inspection'} for v in outcomes.values())

@@ -40,6 +40,32 @@ class FreshWindowsTests(unittest.TestCase):
             invalid=copy.deepcopy(c);invalid['provision'][key]=value
             with self.subTest(key=key,value=value),self.assertRaises(ValueError):w.settings(invalid,p)
 
+    def test_time_servers_are_bounded_configuration_not_command_arguments(self):
+        c,p=self.config()
+        self.assertEqual(w.settings(c,p)['time_servers'],['time.windows.com'])
+        c['provision']['time_servers']=['ntp.example','192.0.2.8']
+        self.assertEqual(w.settings(c,p)['time_servers'],['ntp.example','192.0.2.8'])
+        for peers in ([], 'ntp.example', ['x']*6, ['bad" /unsafe'], [None], ['-flag'], ['x'*254]):
+            c['provision']['time_servers']=peers
+            with self.subTest(peers=peers),self.assertRaisesRegex(ValueError,'time_servers'):w.settings(c,p)
+
+    def test_clock_retry_does_not_reinstall_or_start_running_guest(self):
+        with patch.object(stages,'probe',return_value={'vm_state':'running'}),patch.object(w,'run') as run:
+            for success in (True,False):
+                with patch.object(w,'guest',side_effect=[{'configured':False,'bootstrap_stage':'awaiting_time_sync'},{'configured':success}]) as guest:
+                    result=stages.execute({}, {},'provision',True)
+                    self.assertEqual(result['ok'],success)
+                    self.assertEqual(guest.call_args_list[1].args[1],'sync-time')
+                    if not success:self.assertEqual(result['code'],'windows_time_sync_required')
+            run.assert_not_called()
+
+    def test_bootstrap_progress_does_not_replay_running_or_failed_steps(self):
+        with patch.object(stages,'probe',return_value={'vm_state':'running'}):
+            for phase,code in [('installing_openssh','windows_bootstrap_in_progress'),('synchronizing_clock','windows_bootstrap_in_progress'),('failed','windows_bootstrap_failed')]:
+                with patch.object(w,'guest',return_value={'configured':False,'bootstrap_stage':phase}) as guest:
+                    self.assertEqual(stages.execute({}, {},'provision',True)['code'],code)
+                    guest.assert_called_once_with({},'status')
+
     def test_existing_storage_is_never_overwritten(self):
         c,p=self.config()
         with tempfile.TemporaryDirectory() as td:

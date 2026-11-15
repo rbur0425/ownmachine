@@ -11,6 +11,7 @@ try {
     # Match the domain's UTC RTC; display timezone is independently configurable.
     New-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\TimeZoneInformation' -Name RealTimeIsUniversal -Value 1 -PropertyType DWord -Force | Out-Null
     Set-TimeZone -Id $cfg.time_zone
+    [ordered]@{time_zone=$cfg.time_zone;time_servers=$cfg.time_servers} | ConvertTo-Json | Set-Content (Join-Path $root 'time-config.json') -Encoding utf8
     foreach ($name in @($cfg.desktop_user,$cfg.setup_user)) {
         if (Get-LocalUser -Name $name -ErrorAction SilentlyContinue) { throw 'Guest account already exists; refusing replay' }
         $value = if ($name -eq $cfg.desktop_user) { $cfg.desktop_password } else { $cfg.setup_password }
@@ -26,7 +27,7 @@ try {
     if (-not $driver -or (Get-AuthenticodeSignature $driver).Status -ne 'Valid') { throw 'Signed driver missing' }
     [Environment]::SetEnvironmentVariable('CUA_DRIVER_RS_TELEMETRY_ENABLED','0','Machine')
     [Environment]::SetEnvironmentVariable('CUA_DRIVER_PERMISSION_MODE','standard','Machine')
-    foreach ($file in @('guest-health.ps1','guest-agent-entry.ps1','setup-entry.ps1','driver-launch.ps1')) { Copy-Item (Join-Path $seed $file) (Join-Path $root $file) }
+    foreach ($file in @('guest-health.ps1','guest-agent-entry.ps1','setup-entry.ps1','driver-launch.ps1','bootstrap-progress.ps1','sync-time.ps1','show-setup-progress.ps1')) { Copy-Item (Join-Path $seed $file) (Join-Path $root $file) }
     Copy-Item (Join-Path $root 'guest-health.ps1') (Join-Path $root 'health.ps1')
     [ordered]@{user=$cfg.desktop_user; setup_user=$cfg.setup_user; driver=($driver -replace '\\','/'); task_prefix=$cfg.task_prefix; driver_sha256=(Get-FileHash $driver -Algorithm SHA256).Hash} | ConvertTo-Json | Set-Content (Join-Path $root 'health-config.json') -Encoding utf8
     $pending = Join-Path $root 'bootstrap'
@@ -39,6 +40,9 @@ try {
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $cfg.desktop_user
     $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount
     Register-ScheduledTask -TaskName ($cfg.task_prefix+'Bootstrap') -Action $action -Trigger $trigger -Principal $principal | Out-Null
+    $progressAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + (Join-Path $root 'show-setup-progress.ps1') + '"')
+    $progressPrincipal = New-ScheduledTaskPrincipal -UserId (Get-LocalUser $cfg.desktop_user).SID.Value -LogonType Interactive -RunLevel Limited
+    Register-ScheduledTask -TaskName ($cfg.task_prefix+'SetupProgress') -Action $progressAction -Trigger $trigger -Principal $progressPrincipal | Out-Null
     [ordered]@{stage='awaiting_first_signin'} | ConvertTo-Json | Set-Content (Join-Path $root 'bootstrap-status.json') -Encoding utf8
 } catch {
     [ordered]@{stage='failed';message=$_.Exception.Message} | ConvertTo-Json | Set-Content (Join-Path $root 'bootstrap-status.json') -Encoding utf8

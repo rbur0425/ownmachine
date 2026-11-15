@@ -4,7 +4,9 @@ $seed = $PSScriptRoot
 $cfg = Get-Content (Join-Path $seed 'guest.json') -Raw | ConvertFrom-Json
 $root = Split-Path $seed
 $driver = (Get-ChildItem (Join-Path $root 'driver') -Recurse -Filter cua-driver.exe | Select-Object -First 1).FullName
+. (Join-Path $root 'bootstrap-progress.ps1')
 try {
+    Write-BootstrapProgress 'configuring_power'
     # ACPI shutdown must be a cold stop, not Windows Fast Startup kernel resume.
     & powercfg.exe /hibernate off
     if ($LASTEXITCODE -ne 0) { throw 'Cannot disable hybrid shutdown' }
@@ -15,8 +17,10 @@ try {
         & powercfg.exe /change ("standby-timeout-" + $powerSource) $cfg.sleep_idle_minutes
         if ($LASTEXITCODE -ne 0) { throw 'Cannot configure system idle policy' }
     }
+    Write-BootstrapProgress 'installing_openssh'
     $cap = Get-WindowsCapability -Online -Name 'OpenSSH.Server*'
     if ($cap.State -ne 'Installed') { Add-WindowsCapability -Online -Name $cap.Name | Out-Null }
+    Write-BootstrapProgress 'configuring_ssh'
     $sshDir = Join-Path $env:ProgramData 'ssh'
     New-Item -ItemType Directory -Force $sshDir | Out-Null
     Copy-Item (Join-Path $seed 'guest-host') (Join-Path $sshDir 'ssh_host_ed25519_key')
@@ -52,6 +56,7 @@ Subsystem sftp sftp-server.exe
     New-NetFirewallRule -Name ($cfg.task_prefix+'SSH') -DisplayName ($cfg.task_prefix+'SSH') -Direction Inbound -Protocol TCP -LocalPort 22 -RemoteAddress $cfg.host_address -Action Allow -Profile Any | Out-Null
     Set-Service sshd -StartupType Automatic
     Start-Service sshd
+    Write-BootstrapProgress 'configuring_driver'
     # Avoid upstream autostart's Highest setting. This task is explicitly limited.
     $launcher = Join-Path $root 'driver-launch.ps1'
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $launcher + '"')
@@ -68,8 +73,10 @@ Subsystem sftp sftp-server.exe
     New-ItemProperty $edge -Name BrowserSignin -Value 0 -PropertyType DWord -Force | Out-Null
     New-ItemProperty $edge -Name SyncDisabled -Value 1 -PropertyType DWord -Force | Out-Null
     Disable-ScheduledTask -TaskName ($cfg.task_prefix+'Bootstrap') | Out-Null
-    [ordered]@{stage='configured';driver=$driver;desktop_sid=$desktop.SID.Value;ssh_password_auth=$false;driver_elevated=$false} | ConvertTo-Json | Set-Content (Join-Path $root 'bootstrap-status.json') -Encoding utf8
+    Write-BootstrapProgress 'clock_sync_pending'
+    & (Join-Path $root 'sync-time.ps1') | Out-Null
 } catch {
-    [ordered]@{stage='failed';message=$_.Exception.Message} | ConvertTo-Json | Set-Content (Join-Path $root 'bootstrap-status.json') -Encoding utf8
+    Write-BootstrapProgress 'failed'
+    # Raw exceptions remain local to the privileged task, never in shared progress.
     throw
 }

@@ -83,6 +83,20 @@ class OnboardingCommandsTests(unittest.TestCase):
         self.assertEqual(ctx.state.values,{})
         with self.assertRaises(o.InputError):o.setup(ctx,args('setup','--later','--apply'))
 
+    def test_windows_saved_reason_directs_handoff_without_remote_execution(self):
+        from ownmachine.setup_next import next_step
+        plan=dict(o.DEFAULTS,target='remote',guest_profile='windows')
+        ctx=Context({'setup_host_alias':'setup-only','setup_source_sha256':'a'*64})
+        outcomes={step:{'stage':'verified'} for step in ('preflight','build','firewall','relay','keys','viewer')}
+        outcomes['provision']={'stage':'needs_attention','code':'windows_time_sync_required'}
+        with patch('ownmachine.setup_transport.summary',return_value={'outcomes':outcomes}):
+            result=next_step(ctx,plan)
+        self.assertIn('UDP 123',result['next'])
+        self.assertIn('provision --apply',result['next'])
+        self.assertIn('next-visit',result['next'])
+        self.assertIn('#first-install-progress-and-recovery',result['next'])
+        self.assertEqual(ctx.state.values,{})
+
     def test_noninteractive_never_prompts_or_saves(self):
         ctx = Context(); o.register_commands(ctx)
         with patch('sys.stdin.isatty', return_value=False), patch('builtins.input', side_effect=AssertionError('prompt')):

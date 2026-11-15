@@ -496,3 +496,21 @@ passed; correct time before that first cold start is **not qualified**. Do not u
 this evidence to claim seamless initial time synchronization or arbitrary Windows
 upgrade support. Private credentials, screenshots and deployment details remain
 outside Git. Release remains held.
+
+### First-session clock and onboarding follow-up — pending operator clean install
+
+The next implementation adds a blocking Windows Time resync before bootstrap can
+become `configured`, configurable NTP servers, and a narrow time-only retry through
+the temporary setup key. Failed synchronization prevents hardening. The standard
+user sees a normal read-only progress window while OpenSSH is being installed;
+closing it does not cancel bootstrap. After SSH is ready, allowlisted reason codes
+survive authenticated progress import and select local guidance/documentation and
+opt-in reminder instructions. No arbitrary remote error text becomes chat guidance.
+
+Regression checks exercise sync failure/successful retry, refusal to replay completed
+bootstrap, malformed NTP configuration, atomic progress checkpoints, PowerShell
+parsing/argument binding, and authenticated reason-code filtering. PowerShell OS
+operations are stubbed: these checks are **not** proof of actual first-install NTP
+synchronization, GUI appearance, or a second clean Windows install. The operator
+will run the [clean-install checklist](windows-clean-install-checklist.md). Existing
+guests were not upgraded and no VM was deleted for this change. Release remains held.

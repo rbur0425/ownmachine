@@ -89,7 +89,7 @@ def diagnose(config, permission_mode="standard"):
         add('guest','fail','guest_health_check_failed','Guest SSH answered, but its readiness helper failed. Inspect the installed Windows health helper and configuration before changing SSH keys or firewall rules.')
         return result()
     if windows and not remote.get('guest_reachable'):
-        add('guest','fail','guest_unreachable','Check the pinned guest SSH endpoint and host firewall reply rules before changing desktop permissions. Then sign into the configured Windows standard account.')
+        add('guest','fail','guest_unreachable','During a fresh install, open the private viewer and read OwnMachine setup progress: OpenSSH may still be installing. Use setup --run progress and setup --next; do not recreate the VM. After bootstrap, check the pinned guest SSH endpoint and host firewall reply rules. See docs/windows-onboarding.md#first-install-progress-and-recovery. Optional: remind later --mode next-visit requires confirmation.')
         return result()
     if state in {'not_configured','guest_unreachable','invalid_response','not_probed','vm_not_running'}:
         add('guest','fail','guest_not_ready','Check guest GUI login, the relay guest SSH configuration, verified guest key, and guest readiness helper. Guest addresses are resolved dynamically.')
@@ -107,7 +107,7 @@ def diagnose(config, permission_mode="standard"):
         add('display','warn','capture_not_verified','Driver readiness does not prove the Windows display is awake or unlocked. Verify a fresh computer_use screenshot; wake or unlock through the viewer if needed. Doctor sends no desktop input.')
         for key in ('interactive_session','driver_running','standard_mode','standard_user'):
             add(key,'pass' if remote.get(key) else 'fail',key+('_ready' if remote.get(key) else '_required'),
-                '' if remote.get(key) else 'Sign into the configured Windows standard account and inspect its interactive driver task. Do not elevate the driver or run it in Session 0.')
+                '' if remote.get(key) else 'Finish setup --run harden --apply before starting the driver. Sign into the configured Windows standard account, inspect its Limited interactive Driver task, then rerun setup --run permissions and doctor. Do not elevate the driver or run it in Session 0. See docs/windows-onboarding.md#first-install-progress-and-recovery.')
     else:
         add('capture_consent','pass' if remote.get('capture_consent_verified') else 'fail',
             'capture_consent_recorded' if remote.get('capture_consent_verified') else 'capture_consent_required',

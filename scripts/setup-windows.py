@@ -74,7 +74,13 @@ def execute(c,plan,step,apply=False):
             w.run(['ssh','-F',c['ssh_config'],'-T',c['viewer_alias'],'ownmachine-host start --vm '+c['vm_name']])
         try:result=w.guest(c,'status')
         except (ValueError,subprocess.SubprocessError):return dict(ok=False,stage='needs_attention',code='windows_installation_in_progress',next='Use the private viewer for any installation prompt. Resume provision after setup; do not recreate the disk.')
-        return dict(ok=result.get('configured') is True,stage='verified' if result.get('configured') is True else 'needs_attention')
+        phase=result.get('bootstrap_stage')
+        if phase=='awaiting_time_sync':
+            result=w.guest(c,'sync-time')
+            if result.get('configured') is not True:
+                return dict(ok=False,stage='needs_attention',code='windows_time_sync_required')
+        if result.get('configured') is True:return dict(ok=True,stage='verified')
+        return dict(ok=False,stage='needs_attention',code='windows_bootstrap_failed' if phase=='failed' else 'windows_bootstrap_in_progress')
     if step=='harden':
         if w.guest(c,'status').get('configured') is not True:raise ValueError('bootstrap_must_finish_before_hardening')
         w.eject(c);result=w.guest(c,'harden')
@@ -91,7 +97,10 @@ def execute(c,plan,step,apply=False):
         if agent.get('vm_uuid')!=viewer.get('vm_uuid'):raise ValueError('runtime_roles_disagree')
         if not probe(c,'agent','vnc') or not probe(c,'viewer','mcp'):raise ValueError('runtime_roles_not_restricted')
         if step in ('permissions','verify') and agent.get('driver_ready') is not True:
-            return dict(ok=False,stage='needs_attention',code='standard_interactive_guest_login_required')
+            code=('windows_hardening_required' if agent.get('bootstrap_hardened') is not True else
+                  'windows_driver_start_required' if agent.get('guest_reachable') is True else
+                  'standard_interactive_guest_login_required')
+            return dict(ok=False,stage='needs_attention',code=code)
         # Final acceptance must additionally prove viewer connectivity, before the
         # client capture and setup-key retirement can be authorized.
         if step=='verify':

@@ -85,7 +85,9 @@ for the administrator and runtime-key handoffs.
 - [x] Capture after more than six minutes without input (view-only viewer connected).
 - [x] Check configured local time after a genuine guest shutdown/start.
 - [ ] Ensure correct time in the first installed session before that cold start.
-- [ ] Improve the long OpenSSH-install interval's bootstrap progress message.
+- [x] Implement distinct OpenSSH/clock checkpoints and a read-only guest progress window.
+- [x] Carry allowlisted recovery reasons into authenticated progress and next-step guidance.
+      New first-install clock/progress behavior still needs operator clean-install acceptance.
 
 These are fresh-guest results on an existing host. They do not complete the broader
 session/recovery, upgrade, or physical-host reboot gates above.

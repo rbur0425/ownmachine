@@ -34,11 +34,13 @@ def settings(c,plan):
               'driver_zip','accept_evaluation_terms','operator_user','agent_user','viewer_user','qemu_user','console_group',
               'console_socket','host_address','host_known_hosts','runtime_prefix','guest_user','guest_setup_user','guest_install_root',
               'viewer_python','viewer_control_dir','access_dir','viewer_port'}
-    if not isinstance(p,dict) or (not required<=set(p) or set(p)-required-{'host_ssh_port','ssh_service','viewer_swap_red_blue','display_idle_minutes','sleep_idle_minutes','time_zone'}):raise ValueError('explicit_windows_provisioning_configuration_required')
+    if not isinstance(p,dict) or (not required<=set(p) or set(p)-required-{'host_ssh_port','ssh_service','viewer_swap_red_blue','display_idle_minutes','sleep_idle_minutes','time_zone','time_servers'}):raise ValueError('explicit_windows_provisioning_configuration_required')
     if p['accept_evaluation_terms'] is not True:raise ValueError('evaluation_terms_consent_required')
     for name in ('display_idle_minutes','sleep_idle_minutes'):
         if type(p.get(name,0)) is not int or not 0<=p.get(name,0)<=1440:raise ValueError('invalid_guest_idle_minutes')
     if not isinstance(p.get('time_zone','UTC'),str) or not re.fullmatch(r'[A-Za-z0-9 ()_+.-]{1,80}',p.get('time_zone','UTC')):raise ValueError('invalid_guest_time_zone')
+    peers=p.get('time_servers',['time.windows.com'])
+    if not isinstance(peers,list) or not 1<=len(peers)<=5 or any(not isinstance(x,str) or len(x)>253 or not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?',x) for x in peers):raise ValueError('invalid_time_servers')
     for name in ('operator_user','agent_user','viewer_user','qemu_user','console_group','guest_user','guest_setup_user'):
         if not isinstance(p[name],str) or not re.fullmatch('[a-z][a-z0-9_-]{0,19}',p[name]):raise ValueError('invalid_account')
     if len({p[k] for k in ('operator_user','agent_user','viewer_user','qemu_user')})!=4 or p['guest_user']==p['guest_setup_user']:raise ValueError('separate_accounts_required')
@@ -62,7 +64,7 @@ def settings(c,plan):
     if not re.fullmatch('[A-Za-z][A-Za-z0-9_-]{0,63}',plan['vm_name']):raise ValueError('invalid_vm_name')
     for name in ('storage_dir',):
         if not re.fullmatch(r'/[A-Za-z0-9_./-]+',plan[name]) or '..' in Path(plan[name]).parts:raise ValueError('safe_absolute_path_required')
-    return {'display_idle_minutes':0,'sleep_idle_minutes':0,'time_zone':'UTC',**p,**plan}
+    return {'display_idle_minutes':0,'sleep_idle_minutes':0,'time_zone':'UTC','time_servers':['time.windows.com'],**p,**plan}
 
 
 def write(path,obj):
