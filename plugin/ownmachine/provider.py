@@ -57,10 +57,14 @@ class OwnMachineProvider(ComputerUseProvider):
     display_name = 'OwnMachine (private desktop VM)'
 
     def is_available(self):
+        from .origin import mismatch
+        if mismatch(): return False
         try: return bool(configured().control_dir and shutil.which('ssh'))
         except (ValueError, TypeError): return False
 
     def create_backend(self, *, permission_mode):
+        from .origin import require_active_install
+        require_active_install()
         return OwnMachineBackend(configured(), permission_mode)
 
     def doctor(self):
