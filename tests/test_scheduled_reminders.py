@@ -1,10 +1,7 @@
 import json
-from pathlib import Path
-from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import test_reminders as fixtures
-from test_onboarding_commands import args
 from ownmachine import reminders as r, scheduled_reminders as s, reminder_scheduler as gateway
 
 

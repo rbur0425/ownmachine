@@ -13,7 +13,6 @@ import platform
 import re
 import shutil
 import subprocess
-import sys
 import time
 from setup_support import private_read, module
 

@@ -181,7 +181,6 @@ class ViewerTests(unittest.TestCase):
 
     def test_stream_snapshot_distinguishes_live_held_input(self):
         from stream import InputGate
-        from types import SimpleNamespace
         self.service.lease.transfer('human')
         gate=InputGate(self.service.lease,self.service.lease.status()['generation'],lambda data:None)
         class Connection:

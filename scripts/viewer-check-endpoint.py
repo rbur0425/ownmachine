@@ -8,7 +8,6 @@ import argparse
 import json
 import os
 from pathlib import Path
-import shlex
 import subprocess
 import sys
 from setup_support import ROOT, private_read

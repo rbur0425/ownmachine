@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import re
 import subprocess
-import sys
 from setup_support import mac, install_exact, private_read
 
 

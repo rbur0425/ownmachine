@@ -2,7 +2,7 @@ name: ownmachine
 # Load operator commands before a computer-use provider is selected.
 # The native provider remains available through Hermes category discovery.
 kind: standalone
-version: 1.1.0
+version: 1.1.1
 manifest_version: 2
 api_version: 1
 description: Give Hermes its own macOS, Omarchy or Windows VM to test apps, scrape websites and automate desktop work with private SSH access and human control.

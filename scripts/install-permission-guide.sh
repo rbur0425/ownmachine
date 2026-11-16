@@ -5,7 +5,10 @@ set -euo pipefail
 [ "$(uname -s)" = Darwin ] && [ "$(id -u)" -ne 0 ] || { echo 'Run as the macOS guest desktop user' >&2; exit 1; }
 [ -x "$HOME/.local/bin/cua-driver" ] || { echo 'Install the signed guest driver first' >&2; exit 1; }
 startup_attempts=${OWNMACHINE_PERMISSION_STARTUP_ATTEMPTS:-15}
-[[ "$startup_attempts" =~ ^[1-9][0-9]?$ ]] && (( startup_attempts <= 60 )) || { echo 'Startup attempts must be 1–60' >&2; exit 1; }
+if ! [[ "$startup_attempts" =~ ^[1-9][0-9]?$ ]] || (( startup_attempts > 60 )); then
+  echo 'Startup attempts must be 1–60' >&2
+  exit 1
+fi
 umask 077
 support="$HOME/.local/lib/ownmachine"
 state="$HOME/.local/state/ownmachine/permissions"

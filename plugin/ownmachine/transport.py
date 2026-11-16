@@ -31,6 +31,8 @@ class MCPTransport:
             try:
                 self.process = subprocess.Popen(self.argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                     stderr=subprocess.DEVNULL, env=env, start_new_session=True, bufsize=0)
+                if self.process.stdin is None or self.process.stdout is None:
+                    raise TransportError("transport_pipe_unavailable")
                 os.set_blocking(self.process.stdin.fileno(), False)
                 os.set_blocking(self.process.stdout.fileno(), False)
                 reply = self.request('initialize', {'protocolVersion': '2024-11-05',
@@ -60,6 +62,8 @@ class MCPTransport:
                 raise TransportError('transport_timeout')
 
     def _send(self, message, deadline):
+        if self.process is None or self.process.stdin is None:
+            raise TransportError("transport_not_started")
         data = json.dumps(message, separators=(',', ':')).encode()+b'\n'
         if len(data) > self.MAX_FRAME: raise TransportError('request_too_large')
         offset = 0
@@ -72,6 +76,8 @@ class MCPTransport:
         if time.monotonic() >= deadline:
             raise TransportError('transport_timeout')
         while b'\n' not in self.buffer:
+            if self.process is None or self.process.stdout is None:
+                raise TransportError("transport_not_started")
             if len(self.buffer) > self.MAX_FRAME: raise TransportError('response_too_large')
             self._wait(self.process.stdout, selectors.EVENT_READ, deadline)
             try: chunk = os.read(self.process.stdout.fileno(), 65536)

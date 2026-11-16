@@ -24,13 +24,13 @@ OwnMachine does not make a cloud model local.
 
 **[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.1/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
 
-> **v1.1.0 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
+> **v1.1.1 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
 > official Nous Research product. Setup includes administrator firewall installation
 > and manual macOS permission grants. The existing plugin is listed in the Hermes community catalog; catalog installs use its reviewed commit pin.
 
 > **Omarchy foreground support:** Omarchy foreground desktop support on Apple Silicon has passed fresh installation and real-model acceptance. macOS remains the default. Background Omarchy control remains experimental; see the [tested scope and final evidence](docs/omarchy-final-acceptance.md).
 
-See [v1.1.0 release notes](docs/release-1.1.0.md) for Windows installation, maintenance and qualification limits. [Platform artwork](docs/media/releases/1.1.0/README.md) is available for the release announcement.
+See [v1.1.1 analysis and security updates](docs/release-1.1.1.md) and [v1.1.0 release notes](docs/release-1.1.0.md) for Windows installation, maintenance and qualification limits. [Platform artwork](docs/media/releases/1.1.0/README.md) is available for the release announcement.
 
 ## A verified desktop task
 
@@ -204,3 +204,10 @@ their own terms. Earlier valid license grants are not revoked. See
 OwnMachine builds on Hermes, Lume, CuaDriver and noVNC. Third-party components
 retain their own licenses and notices; this license does not replace them.
 See [viewer dependency provenance](viewer/VENDOR.md).
+
+## Code quality and security checks
+
+Pull requests run Python correctness/security checks, shell and workflow analysis,
+focused type checks, OwnMachine security regression rules, and a runtime dependency
+audit. The dependency audit also runs weekly once this workflow reaches the default
+branch. See [analysis policy and initial findings](docs/static-analysis.md).
