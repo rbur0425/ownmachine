@@ -24,7 +24,7 @@ OwnMachine does not make a cloud model local.
 
 **[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.1/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
 
-> **Free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
+> **v1.1.0 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
 > official Nous Research product. Setup includes administrator firewall installation
 > and manual macOS permission grants. The existing plugin is listed in the Hermes community catalog; catalog installs use its reviewed commit pin.
 
