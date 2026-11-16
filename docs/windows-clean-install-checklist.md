@@ -1,7 +1,7 @@
 # Operator-run Windows clean-install acceptance
 
-Use the exact reviewed PR commit for **both** the installed plugin and host source.
-This is a development acceptance test, not released Windows support. First-session clock sync and progress messages passed operator acceptance at
+Use the exact reviewed release or PR commit for **both** the installed plugin and host source.
+This checklist covers the Windows Enterprise Evaluation x86-64 / Linux KVM support scope. First-session clock sync and progress messages passed operator acceptance at
 `01f60ae`. Operator acceptance at `1f1493d` also passed automatic progress-window
 closure and the revised save/close/explicit-file-open task below. Keep this checklist
 for regression runs; broader recovery and release gates remain separate.

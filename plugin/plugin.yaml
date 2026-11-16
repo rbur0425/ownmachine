@@ -5,7 +5,7 @@ kind: standalone
 version: 1.0.1
 manifest_version: 2
 api_version: 1
-description: Native Hermes computer use for a persistent private macOS, Omarchy or Windows VM
+description: Give Hermes its own macOS, Omarchy or Windows VM to test apps, scrape websites and automate desktop work—with private SSH access and human control.
 license: PolyForm-Noncommercial-1.0.0
 requires_hermes: ">=0.23.1"
 python_dependencies:
