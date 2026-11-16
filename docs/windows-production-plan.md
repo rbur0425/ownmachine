@@ -50,10 +50,12 @@ for the administrator and runtime-key handoffs.
 - [x] Install both runtime roles and the separately owned private viewer.
 - [ ] Use doctor and saved progress to explain exact manual handoffs and reminder options.
 - [x] Verify both runtime roles, private console and computer_use capture, then retire setup keys.
-- [ ] Run two clean installations, including non-default paths/names and interruption/resume.
-      Operator acceptance at `01f60ae` adds a distinct clean guest, new paths/identities,
-      and client disconnect/resume with unchanged state. Broader mid-stage interruption
-      cases remain; do not equate a between-stage client restart with crash recovery.
+- [x] Run repeated clean installations with non-default paths/names and distinct identities.
+      Operator reports at `01f60ae` and `1f1493d` record successful installation,
+      clock synchronization, verification and automatic setup-key retirement.
+- [x] Verify client disconnect/resume preserves the saved plan and completed stages.
+- [ ] Exercise broader mid-stage interruption/recovery cases; a between-stage client
+      restart does not prove recovery from a host crash or interrupted mutation.
 
 ## Runtime acceptance
 
@@ -61,9 +63,9 @@ for the administrator and runtime-key handoffs.
 - [x] Genuine guest cold boot preserves a saved file; driver recovers after operator sign-in.
 - [x] Run installed-Hermes doctor and a real-model read/capture task through the production relay.
 - [x] Repeat a supervised write/save task from a fresh Hermes installation.
-      An isolated Docker install saved and reopened the fresh guest's Notepad
-      document; independent UIA and visual checks matched the exact text. Closing
-      the last tab needed inspection/acknowledgement of a driver focus warning.
+      The latest operator run at `1f1493d` used foreground Ctrl+S/Ctrl+O and
+      explicitly reopened through File → Open, with no manual recovery reported.
+      The operator independently confirmed the exact 43-byte saved document.
 - [x] Qualify save/last-window close/reopen without manual recovery.
       The isolated Hermes rerun verified closure through read-only checks and
       reopened the exact saved content; normal per-action approvals remained.
@@ -89,9 +91,12 @@ for the administrator and runtime-key handoffs.
       Operator acceptance at `01f60ae` passed without manual time changes.
 - [x] Implement distinct OpenSSH/clock checkpoints and a read-only guest progress window.
 - [x] Carry allowlisted recovery reasons into authenticated progress and next-step guidance.
-      Operator acceptance confirmed phase messages; automatic window closure now
-      has a regression fix and still needs a follow-up desktop check.
+- [x] Visually confirm automatic progress-window closure after bootstrap.
+      Operator acceptance at `1f1493d` observed closure in the same 15-second
+      sampling interval as clock synchronization; the prior close warning did not recur.
 - [x] Capture after six minutes with all desktop clients disconnected (operator verified).
+      At `1f1493d`, doctor was READY and the first fresh-process capture succeeded
+      after 6m46s; the displayed local time was correct.
 
 These are fresh-guest results on an existing host. They do not complete the broader
 session/recovery, upgrade, or physical-host reboot gates above.

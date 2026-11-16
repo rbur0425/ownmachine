@@ -553,3 +553,30 @@ Regression tests execute the actual progress callback with a stub window, includ
 waiting, failure, configured and hardened states. Live GUI closure and an
 uninterrupted rerun of the revised model task remain pending. Private paths,
 credentials and screenshots are omitted. No merge or release is authorized.
+
+
+### Operator-reported follow-up pass — `1f1493d`, November 15, 2026
+
+The operator reports that installation, the DVD prompt, first-session clock sync,
+progress messages, disconnect/resume and final verification all passed again.
+Verification returned `setup_key_rejected: true` and `runtime_verified: true`.
+The progress window closed automatically in the same 15-second frame interval as
+the clock correction. The prior false foreground warning on closing Notepad did
+not recur.
+
+The real-model task used explicit foreground Ctrl+S and Ctrl+O, reopened the saved
+file through File → Open, and finished within its turn limit. No manual recovery
+or continuation was reported in this run. Independent operator inspection found
+the local Documents file was 43 bytes and matched the expected text exactly.
+This supersedes the preceding run's manual-recovery and session-restore-only
+reopen limitations for the revised task; it does not certify every app/input mode.
+
+All clients were disconnected from 21:00:18 to 21:07:04 EST (6m46s). Doctor then
+reported READY, and a fresh Hermes process captured the desktop on the first try.
+The screenshot clock read 9:07 PM on November 15, matching the expected local time.
+
+These are operator-supplied live results, not a separate rerun by this agent.
+The automatic-close and revised desktop-task follow-up checks are now passed.
+Mid-stage interruption, broader session recovery, Linux host reboot, maintenance
+policy and final release qualification remain separate gates. No merge or release
+is authorized by this report.

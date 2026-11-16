@@ -2,8 +2,9 @@
 
 Use the exact reviewed PR commit for **both** the installed plugin and host source.
 This is a development acceptance test, not released Windows support. First-session clock sync and progress messages passed operator acceptance at
-`01f60ae`. Automatic progress-window closure and the revised model task below
-need a follow-up check.
+`01f60ae`. Operator acceptance at `1f1493d` also passed automatic progress-window
+closure and the revised save/close/explicit-file-open task below. Keep this checklist
+for regression runs; broader recovery and release gates remain separate.
 
 ## 1. Isolate the test
 
