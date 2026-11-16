@@ -514,3 +514,42 @@ operations are stubbed: these checks are **not** proof of actual first-install N
 synchronization, GUI appearance, or a second clean Windows install. The operator
 will run the [clean-install checklist](windows-clean-install-checklist.md). Existing
 guests were not upgraded and no VM was deleted for this change. Release remains held.
+
+
+### Operator-reported second clean install — `01f60ae`
+
+The operator reports a separate fresh Hermes container with only computer_use
+available and a byte-identical plugin, new VM/network/runtime identities and no
+changes to existing guests or services. Build/administrator registration and all
+runtime pairing stages passed on the first attempt. Killing/reopening the test
+Hermes chat preserved the plan, completed stages, domain identity and disk, with
+the same next-step guidance. This verifies client disconnect/resume, not an
+interrupted host mutation or physical-host reboot.
+
+Windows reached the desktop in about nine minutes. The progress window correctly
+showed OpenSSH installation. The first desktop clock was five hours behind while
+bootstrap was incomplete; it became correct when bootstrap completed, before any
+restart or manual adjustment. The operator's samples were 60 seconds apart, so
+the brief synchronization phase itself was not visually captured. This is a live
+first-session clock pass, supplied by the operator rather than independently
+rerun by this agent. Hardening, driver, permissions and doctor passed; final
+verification retired setup access, confirmed key rejection and preserved runtime
+access. With the viewer, tunnel and chat disconnected for 6m44s, a fresh Hermes
+process captured the desktop on its first attempt.
+
+The model saved the correct 43-byte document, independently checked by the operator
+character for character. This was **not an uninterrupted save/close/reopen pass**:
+the default Ctrl+S route required review/acknowledgement; closing Notepad completed
+but produced another foreground review while the still-open setup progress window
+became foreground. The model also exhausted a 30-step budget and required a
+continuation prompt. Relaunch restored Notepad's session rather than explicitly
+opening the saved disk file, so reopen remains unproven for this run.
+
+Follow-up changes close the progress window automatically at configured/hardened
+checkpoints, add foreground-shortcut advice to Windows capture notes, document
+review acknowledgement, and require an explicit File → Open path in the task with
+an adequate iteration budget. Review gates and input routing defaults are unchanged.
+Regression tests execute the actual progress callback with a stub window, including
+waiting, failure, configured and hardened states. Live GUI closure and an
+uninterrupted rerun of the revised model task remain pending. Private paths,
+credentials and screenshots are omitted. No merge or release is authorized.

@@ -1,8 +1,9 @@
 # Operator-run Windows clean-install acceptance
 
 Use the exact reviewed PR commit for **both** the installed plugin and host source.
-This is a development acceptance test, not released Windows support. The first
-clock-sync and progress-window results still need real Windows confirmation.
+This is a development acceptance test, not released Windows support. First-session clock sync and progress messages passed operator acceptance at
+`01f60ae`. Automatic progress-window closure and the revised model task below
+need a follow-up check.
 
 ## 1. Isolate the test
 
@@ -81,7 +82,9 @@ hermes ownmachine setup --run provision --apply
 Open the private viewer, reserve human control and handle the initial DVD boot
 prompt. Let subsequent boots use the installed disk. At the standard desktop,
 observe the normal progress window: OpenSSH must not be labelled “awaiting first
-sign-in” while it installs. Closing that window must not cancel setup.
+sign-in” while it installs. Closing that window must not cancel setup. It should close itself when bootstrap
+finishes (within its 1.5-second polling interval), and must not cover the later
+desktop task.
 
 **Before restarting Windows**, compare its date/time with a trusted clock; allow
 one minute for reading differences. It must become correct during clock
@@ -118,13 +121,30 @@ A refusal is not permission to delete state, restore retired keys or bypass a ga
 
 ## 7. Run the desktop task and report results
 
-Ask Hermes, using only computer-use tools:
+Allow enough tool iterations for UI discovery and verification: for a CLI run use
+`--max-turns 80` (and an adequate wall-clock budget), with `--toolsets computer_use`.
+A larger budget does not authorize retries after an uncertain action or prove
+success. Record any continuation prompt as operator intervention.
 
-> Open Notepad. Type “OwnMachine clean Windows acceptance passed.” Save it in
-> Documents as ownmachine-clean-test.txt. Close Notepad, reopen that exact file,
-> and show its contents. Do not use a terminal, scripts or filesystem tools.
+Ask Hermes:
 
-Approve the normal driver prompts. Independently view the reopened file and
+> Use only computer_use. Open Notepad and type “OwnMachine clean Windows acceptance
+> passed.” Save it in Documents as ownmachine-clean-test.txt. For app shortcuts
+> such as Ctrl+S and Ctrl+O, explicitly choose delivery_mode=foreground against
+> the freshly captured exact window/dialog. Do not use the default/background
+> accelerator path for these shortcuts. Verify the save dialog's full filename
+> before submitting. Close Notepad using its freshly captured Close/Close Tab
+> control with explicit foreground delivery. Relaunch it, then explicitly use
+> File → Open (or foreground Ctrl+O) to open the exact saved path, even if a tab
+> was restored automatically. Capture and show the reopened contents. A restored
+> tab alone does not count as reopening the file. Use no terminal, scripts or
+> filesystem tools. Stop on any operator-review gate; do not replay uncertain
+> input or switch delivery modes to bypass a refusal.
+
+Approve the normal driver prompts. If a review gate occurs, inspect the guest
+and use the viewer’s Return to agent confirmation to acknowledge the uncertain
+action. A direct transfer without acknowledgement is intentionally refused with
+HTTP 409. Record this as manual recovery, not an uninterrupted pass. Independently view the reopened file and
 compare every character. Record whether manual recovery was needed. Then leave
 all desktop clients disconnected for at least six minutes and try a fresh capture.
 

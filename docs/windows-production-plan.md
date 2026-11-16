@@ -51,9 +51,9 @@ for the administrator and runtime-key handoffs.
 - [ ] Use doctor and saved progress to explain exact manual handoffs and reminder options.
 - [x] Verify both runtime roles, private console and computer_use capture, then retire setup keys.
 - [ ] Run two clean installations, including non-default paths/names and interruption/resume.
-      Earlier fixtures exposed and qualified fixes. One final fixture now passed
-      repair-free installation, screenshot and automatic retirement from one fixed
-      source commit; a second clean run and broader interruption cases remain.
+      Operator acceptance at `01f60ae` adds a distinct clean guest, new paths/identities,
+      and client disconnect/resume with unchanged state. Broader mid-stage interruption
+      cases remain; do not equate a between-stage client restart with crash recovery.
 
 ## Runtime acceptance
 
@@ -84,10 +84,13 @@ for the administrator and runtime-key handoffs.
       computer-use toolset, then guided screenshot verification and setup retirement.
 - [x] Capture after more than six minutes without input (view-only viewer connected).
 - [x] Check configured local time after a genuine guest shutdown/start.
-- [ ] Ensure correct time in the first installed session before that cold start.
+- [x] Ensure correct time in the first installed session before that cold start.
+      Operator acceptance at `01f60ae` passed without manual time changes.
 - [x] Implement distinct OpenSSH/clock checkpoints and a read-only guest progress window.
 - [x] Carry allowlisted recovery reasons into authenticated progress and next-step guidance.
-      New first-install clock/progress behavior still needs operator clean-install acceptance.
+      Operator acceptance confirmed phase messages; automatic window closure now
+      has a regression fix and still needs a follow-up desktop check.
+- [x] Capture after six minutes with all desktop clients disconnected (operator verified).
 
 These are fresh-guest results on an existing host. They do not complete the broader
 session/recovery, upgrade, or physical-host reboot gates above.

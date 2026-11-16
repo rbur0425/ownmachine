@@ -249,9 +249,8 @@ it reports bootstrap complete. `time_servers` is an optional list of 1–5 DNS n
 or IPv4 addresses (default `['time.windows.com']`); use reachable, trusted time
 servers appropriate to your network. The guest needs DNS and outbound UDP 123.
 No administrator password, provider credential or host clock is used to set time.
-The UTC RTC policy still applies on subsequent boots. New first-session behavior
-needs the clean-install acceptance below; earlier evidence only qualified time
-after a cold start. Never bypass certificate checks for an incorrect clock.
+The UTC RTC policy still applies on subsequent boots. Operator clean-install acceptance at `01f60ae` confirmed correct first-session
+time before any restart or manual clock adjustment. Never bypass certificate checks for an incorrect clock.
 
 These defaults apply to newly provisioned guests. Existing guests are not silently
 modified. A host administrator must coordinate a stopped-domain clock change with
@@ -288,6 +287,8 @@ writes if `skill_manage` is available. Keep the normal Hermes profile untouched.
 
 The standard-user desktop opens a normal **OwnMachine setup progress** window.
 It is read-only, is not always on top, and can be closed without stopping setup.
+It closes automatically when bootstrap becomes configured, or when it detects
+hardening, on its next 1.5-second poll.
 It distinguishes power setup, OpenSSH installation, SSH configuration, driver
 configuration and time synchronization. Before OpenSSH is available, Hermes cannot
 read the exact guest checkpoint; use this window in the private viewer instead.
@@ -319,3 +320,14 @@ operator-run acceptance of these changes.
 
 Windows Time behavior follows Microsoft's [workgroup service guidance](https://learn.microsoft.com/en-us/troubleshoot/windows-client/active-directory/w32time-not-start-on-workgroup)
 and [time service commands](https://learn.microsoft.com/en-us/windows-server/networking/windows-time-service/Windows-Time-Service-Tools-and-Settings).
+
+
+During Windows desktop tasks, explicitly request foreground delivery for modern
+Notepad app shortcuts such as Ctrl+S/Ctrl+O, using the freshly captured exact
+window or dialog. This is not an automatic fallback: stop on a review gate. If an
+uncertain action is pending, inspect the desktop and use the viewer's **Return to
+agent** confirmation to acknowledge it. A direct transfer request without that
+acknowledgement correctly returns HTTP 409. Never acknowledge blindly or retry an
+uncertain close. Modern Notepad can restore unsaved/session tabs; verification of
+a saved file must explicitly open its exact path through File → Open or File
+Explorer, rather than relying on a restored tab.

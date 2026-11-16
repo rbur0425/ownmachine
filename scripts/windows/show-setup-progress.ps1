@@ -30,7 +30,9 @@ $timer = New-Object Windows.Forms.Timer
 $timer.Interval = 1500
 $timer.Add_Tick({
     try {
+        if (Test-Path (Join-Path $root 'hardened.json')) { $form.Close(); return }
         $state = Get-Content (Join-Path $root 'bootstrap-status.json') -Raw | ConvertFrom-Json
+        if ($state.stage -eq 'configured') { $form.Close(); return }
         $message = $messages[$state.stage]
         if (-not $message) { $message = 'Waiting for a recognized setup checkpoint.' }
         $text.Text = "OwnMachine Windows setup`r`n`r`n$message`r`n`r`nThis window is read-only. Closing it does not stop setup. See the Windows onboarding guide, First-install progress and recovery."

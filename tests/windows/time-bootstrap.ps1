@@ -55,6 +55,7 @@ try {
         [void][Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)
         if($errors.Count){throw "Parse failed: $($file.Name)"}
     }
+    & (Join-Path $SourceRoot 'tests/windows/progress-window.ps1') -SourceRoot $SourceRoot
     & (Join-Path $SourceRoot 'tests/windows/bootstrap-bindings.ps1') -PrepareSource (Get-Content (Join-Path $SourceRoot 'scripts/windows/prepare-guest.ps1') -Raw) -FinishSource (Get-Content (Join-Path $SourceRoot 'scripts/windows/finish-guest.ps1') -Raw)
     'Clock failure/retry, no replay, peer validation, checkpoint and script parser tests passed. OS effects were stubbed.'
 } finally { Remove-Item $fixture -Recurse -Force }
