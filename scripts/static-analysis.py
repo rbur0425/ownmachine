@@ -20,7 +20,7 @@ def main():
     shell = [p for p in files if p.endswith('.sh') and not p.startswith('viewer/vendor/')]
     commands = {
         'ruff': ['ruff', 'check', '--output-format', 'json', '.'],
-        'bandit': ['bandit', '-r', 'plugin', 'host', 'viewer', 'scripts', 'experiments', '-x', 'viewer/vendor',
+        'bandit': ['bandit', '-q', '-r', 'plugin', 'host', 'viewer', 'scripts', 'experiments', '-x', 'viewer/vendor',
                    '--severity-level', 'high', '-f', 'json'],
         'shellcheck': ['shellcheck', '--format=json', *shell],
         'actionlint': ['actionlint', '-color=false'],
@@ -42,7 +42,7 @@ def main():
     # Informational medium/low-severity inventory is retained, never hidden by the gate.
     with (output / 'bandit-all.json').open('w') as out, (output / 'bandit-all.stderr').open('w') as err:
         try:
-            result = subprocess.run(['bandit', '-r', 'plugin', 'host', 'viewer', 'scripts', 'experiments',
+            result = subprocess.run(['bandit', '-q', '-r', 'plugin', 'host', 'viewer', 'scripts', 'experiments',
                                      '-x', 'viewer/vendor', '-f', 'json'], cwd=ROOT, stdout=out, stderr=err,
                                     timeout=300, check=False)
             if result.returncode not in (0, 1):
