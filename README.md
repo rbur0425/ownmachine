@@ -2,26 +2,35 @@
 
 ### Give your AI agent its own desktop.
 
-**A persistent desktop for Hermes—with private SSH access and a browser viewer that keeps you in control.**
+**Give Hermes a Mac, Omarchy or Windows VM to test apps, scrape websites and get work done while your personal desktop stays yours.**
 
 You want an agent that can use desktop apps. You don't want to hand it your
 personal desktop, give up your mouse while it works, or spend a weekend wiring
 together a VM, remote desktop, screen capture and automation scripts.
 
-OwnMachine gives Hermes a separate macOS or ARM64 Omarchy virtual machine: its own apps, files
+OwnMachine gives Hermes a separate macOS, ARM64 Omarchy or Windows 11 Enterprise Evaluation virtual machine: its own apps, files
 and working environment. You decide what goes into that workspace. Watch it in
 your browser, pause the agent, take over with your mouse and keyboard, then hand
 control back when you're ready.
+
+Your workspace runs on infrastructure you control, with a private SSH connection
+between Hermes and the VM host. Apps and saved files persist between sessions.
+Screenshots and app text used by the agent follow your configured model provider;
+OwnMachine does not make a cloud model local.
+
+![OwnMachine desktops: Windows on Linux KVM, macOS and Omarchy on Apple Silicon — promotional illustration](docs/media/releases/1.1.0/platforms.webp)
 
 [![OwnMachine 15-second animated teaser](docs/media/ownmachine-teaser.gif)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.1/docs/media/ownmachine-teaser.mp4)
 
 **[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.1/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
 
-> **v1.0.1 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
+> **Free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
 > official Nous Research product. Setup includes administrator firewall installation
-> and manual macOS permission grants. It is not yet listed in the Hermes catalog.
+> and manual macOS permission grants. The existing plugin is listed in the Hermes community catalog; catalog installs use its reviewed commit pin.
 
 > **Omarchy foreground support:** Omarchy foreground desktop support on Apple Silicon has passed fresh installation and real-model acceptance. macOS remains the default. Background Omarchy control remains experimental; see the [tested scope and final evidence](docs/omarchy-final-acceptance.md).
+
+See [v1.1.0 release notes](docs/release-1.1.0.md) for Windows installation, maintenance and qualification limits. [Platform artwork](docs/media/releases/1.1.0/README.md) is available for the release announcement.
 
 ## A verified desktop task
 
@@ -38,7 +47,7 @@ This demonstrates one keyboard/accessibility task, not a general benchmark.
 
 Desktop work doesn't always have an API. Sometimes the task is inside a native
 app, a file dialog or a workflow spanning several applications. OwnMachine brings
-Hermes's native `computer_use` tool into a dedicated macOS guest so those actions
+Hermes's native `computer_use` tool into a dedicated guest desktop so those actions
 happen in the agent's workspace, rather than on your everyday desktop.
 
 - **Keep personal work separate.** Put only the files, apps and accounts the agent
@@ -58,19 +67,20 @@ happen in the agent's workspace, rather than on your everyday desktop.
 
 ## Private connections, explicit access
 
-Hermes connects to your Mac host through **SSH with a dedicated restricted key**.
+Hermes connects to your VM host through **SSH with a dedicated restricted key**.
 The host relay allows only OwnMachine's supported operations for the configured
 VM and rejects arbitrary shell commands. A separate verified SSH connection
 reaches the guest's computer-use driver. Browser desktop traffic is relayed over
-SSH, with the host firewall blocking direct network access to the VNC port.
+SSH. Lume hosts require firewall protection for the VNC listener; Windows/KVM
+uses a private Unix console socket instead of a TCP VNC listener.
 
 ```text
-Hermes + OwnMachine ── restricted SSH ──▶ Mac host ── guest SSH / MCP ──▶ macOS VM
+Hermes + OwnMachine ── restricted SSH ──▶ VM host ── guest SSH / MCP ──▶ Guest desktop
 Private browser viewer ── SSH-backed VNC relay ────────────────────────▶ same VM
                           shared human / agent control gate
 ```
 
-This is an outbound connection from the Hermes runtime to the Mac's normal SSH
+This is an outbound connection from the Hermes runtime to the VM host's normal SSH
 endpoint, **not a required reverse SSH tunnel**. When the viewer runs remotely,
 you reach its loopback-only web interface through a separate SSH port forward.
 The viewer uses a private access link; restarting it rotates that credential.
@@ -88,6 +98,7 @@ compromised host or malicious software. Read the [security model](SECURITY.md).
 | --- | --- |
 | macOS desktop | A Lume VM on a compatible Apple Silicon Mac. Local laptop and dedicated Mac-host installations have been tested. |
 | Omarchy desktop | ARM64 guest on Apple Silicon with patched Lume; tested foreground Chromium and Mousepad control. The native input module requires explicit opt-in and a matching Hyprland ABI. |
+| Windows desktop | Windows 11 Enterprise Evaluation x86-64 on Linux KVM/libvirt. See the [tested input/platform scope](docs/windows-support-matrix.md) and [Windows setup](docs/windows-onboarding.md). Home/Pro and physical-host reboot recovery are not qualified. |
 | Hermes | On the same Mac or another machine with private SSH access to the host. A separate Linux Docker runtime has been tested. |
 | Browser viewer | On a configured runtime host, reached locally or over SSH forwarding. Human input requires a reservation. |
 | Cloud Mac | Potentially suitable if it supports Lume's virtualization requirements and private SSH connectivity. Cloud-hosted Macs have not been acceptance-tested. |
@@ -161,9 +172,9 @@ See [persistent installation and startup](docs/permanent-installation.md),
 
 ## Roadmap
 
-1. ~~Implement an Omarchy image.~~ Completed for the tested ARM64 foreground configuration in the **v1.0.1** ([scope and evidence](docs/omarchy-final-acceptance.md)).
+1. ~~Implement an Omarchy image.~~ Completed for the tested ARM64 foreground configuration in **v1.0.0** ([scope and evidence](docs/omarchy-final-acceptance.md)).
 2. Implement an Ubuntu image.
-3. Implement a Windows VM.
+3. ~~Implement a Windows VM.~~ Implemented for Windows 11 Enterprise Evaluation on Linux KVM ([scope and limits](docs/windows-support-matrix.md)); Home/Pro remain follow-up work.
 4. Test various cloud providers and record tutorials and setup guides for each.
 5. Broaden Omarchy application compatibility; background control remains experimental.
 

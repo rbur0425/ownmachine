@@ -107,6 +107,11 @@ def finish(ctx, plan, apply=False):
 
 
 def failure_guidance(ctx, args, error):
+    if getattr(args, 'run', None) != 'verify' and getattr(args, 'run', None) and str(error) == 'setup_outcome_uncertain_use_progress_do_not_replay':
+        return ('The setup connection ended without a verified completion receipt. The host may still be working. '
+                'Run setup --run progress using the same profile, setup alias and source pin before retrying. '
+                'If progress needs inspection, check the host stage checkpoint and its local log; do not repeat '
+                'provisioning, recreate the VM or restore a retired key to work around an uncertain outcome.')
     if getattr(args, 'run', None) != 'verify':
         return None
     record = ctx.state.get(KEY, default={}) or {}

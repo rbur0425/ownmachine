@@ -126,8 +126,11 @@ def dispatch(ctx, plan, step, apply=False, *, capture=None):
             raise ValueError('invalid_setup_receipt')
         allowed = set(STEPS) if step == 'progress' else {step}
         for name, outcome in receipt['outcomes'].items():
-            if name not in allowed or not isinstance(outcome, dict) or set(outcome) != {'stage', 'observed_at'}:
+            from .windows_guidance import REMEDIES
+            if name not in allowed or not isinstance(outcome, dict) or set(outcome) not in ({'stage', 'observed_at'},{'stage', 'observed_at','code'}):
                 raise ValueError('invalid_setup_outcome')
+            if 'code' in outcome and (plan.get('guest_profile')!='windows' or outcome.get('stage')!='needs_attention' or not isinstance(outcome['code'],str) or outcome['code'] not in REMEDIES):
+                raise ValueError('invalid_setup_reason')
             if outcome['stage'] not in {'verified','checks_passed','observed','needs_attention','needs_inspection','running'} or type(outcome['observed_at']) is not int or not 0 <= outcome['observed_at'] <= time.time()+60:
                 raise ValueError('invalid_setup_outcome')
         if step != 'progress' and set(receipt['outcomes']) != {step}:

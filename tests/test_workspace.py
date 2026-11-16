@@ -11,6 +11,14 @@ from ownmachine.workspace import status
 
 class WorkspaceTests(unittest.TestCase):
     @patch('ownmachine.workspace.subprocess.run')
+    def test_nonzero_host_security_status_preserves_only_safe_reasons(self, run):
+        for code,rc,expected in [('live_firewall_drift',2,'live_firewall_drift'),('sensitive details',2,'ssh_connection_failed'),('live_firewall_drift',255,'ssh_connection_failed')]:
+            run.return_value=subprocess.CompletedProcess([],rc,json.dumps({'code':code}),'')
+            result=status(Config(host_alias='example-host',guest_profile='windows'))
+            self.assertEqual(result['code'],expected)
+            self.assertEqual(result['host_reachable'],expected=='live_firewall_drift')
+
+    @patch('ownmachine.workspace.subprocess.run')
     def test_linux_reports_linux_gates_and_rejects_profile_mismatch(self, run):
         data=dict(guest_os='linux',guest_profile='omarchy',vm_state='running',
                   driver_ready=True,driver_state='ready',guest_reachable=True,

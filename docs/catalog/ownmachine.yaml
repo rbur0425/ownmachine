@@ -15,6 +15,8 @@ version: "0.7.0"
 docs_url: https://github.com/rbur0425/ownmachine#readme
 readme: true
 platforms: [linux, macos] # Hermes runtime; guest host still requires Apple Silicon macOS.
+# Banner artwork is separately pinned; keep the reviewed runtime SHA unchanged.
+image: https://raw.githubusercontent.com/rbur0425/ownmachine/0a8d3ff5c87f320cbaa0340a77b75dbd49709218/docs/media/catalog/promotions/privacy-choice.png
 screenshots:
   - https://raw.githubusercontent.com/rbur0425/ownmachine/0d410d32190ccf9b96428c482e3ccb5af8408e06/docs/media/catalog/human-control.png
   - https://raw.githubusercontent.com/rbur0425/ownmachine/0d410d32190ccf9b96428c482e3ccb5af8408e06/docs/media/catalog/agent-control.png

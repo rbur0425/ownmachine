@@ -57,10 +57,14 @@ class OwnMachineProvider(ComputerUseProvider):
     display_name = 'OwnMachine (private desktop VM)'
 
     def is_available(self):
+        from .origin import mismatch
+        if mismatch(): return False
         try: return bool(configured().control_dir and shutil.which('ssh'))
         except (ValueError, TypeError): return False
 
     def create_backend(self, *, permission_mode):
+        from .origin import require_active_install
+        require_active_install()
         return OwnMachineBackend(configured(), permission_mode)
 
     def doctor(self):
@@ -95,6 +99,8 @@ class OwnMachineBackend(ComputerUseBackend):
         self.tokens = {}
         self.element_actions = {}
         self.element_roles = {}
+        self.close_tokens = set()
+        self.combo_edit_tokens = set()
         self.target = None
         self.has_pixels = False
         self.capture_id = None
@@ -136,7 +142,14 @@ class OwnMachineBackend(ComputerUseBackend):
             self._connect()
             self._connected = True
         reply = self._call(name, args or {})
-        if reply.get('isError'): raise RuntimeError('driver_read_failed')
+        if reply.get('isError'):
+            # A failed capture can leave the daemon-side MCP session unusable
+            # after display sleep. Discard this stream, never replay the read.
+            # The next explicit read reconnects; durable input uncertainty stays.
+            self.transport.stop()
+            self._connected = False
+            self._clear()
+            raise RuntimeError('driver_read_failed: wake/unlock the guest display, then request a fresh capture; the failed stream was disconnected')
         return reply
 
     def _connect(self):
@@ -177,6 +190,18 @@ class OwnMachineBackend(ComputerUseBackend):
             matches = [w for w in windows if (pid is None or w.get('pid')==pid)
                        and (window_id is None or w.get('window_id')==window_id)
                        and (not app or app.lower() in {str(w.get('app_name','')).lower(), str(w.get('bundle_id','')).lower()})]
+            if not matches and app and self.config.guest_profile == 'windows':
+                # Windows discovery names (e.g. a localized app display name)
+                # need not equal executable window names. Resolve only a unique
+                # discovered running process; never guess from a title or path.
+                apps = [a for a in self.list_apps() if app.casefold() in {
+                    str(a.get('name', '')).casefold(), str(a.get('bundle_id', '')).casefold()}]
+                pids = {a['pid'] for a in apps if type(a.get('pid')) is int and a['pid'] > 0}
+                if len(pids) != 1:
+                    raise ValueError('windows_app_target_not_unique')
+                matches = [w for w in windows if w.get('pid') in pids
+                           and (pid is None or w.get('pid') == pid)
+                           and (window_id is None or w.get('window_id') == window_id)]
             w = select_window(matches)
             target = {'pid': w['pid'], 'window_id': w['window_id']}
             reply = self._read('get_window_state', {**target, 'tree_format':'elements',
@@ -192,9 +217,25 @@ class OwnMachineBackend(ComputerUseBackend):
         if raw and (not 0 < width <= 8192 or not 0 < height <= 8192 or width*height > 32000000):
             raise ValueError('capture_dimensions_invalid')
         elements = []
+        rows = {row.get('element_index'): row for row in data.get('elements', [])
+                if type(row.get('element_index')) is int}
+        combo_edit_tokens = set()
         for row in data.get('elements', []):
             index, token = row.get('element_index'), row.get('element_token')
             if type(index) is not int or not isinstance(token,str) or not re.fullmatch(r's[0-9a-f]{8}:[0-9]+',token): continue
+            attributes = {k:row[k] for k in ('actions','value','enabled','focused') if k in row}
+            if self.config.guest_profile == 'windows' and row.get('role') == 'Edit':
+                parent, seen = row.get('parent_index'), {index}
+                while type(parent) is int and parent in rows and parent not in seen:
+                    seen.add(parent)
+                    if rows[parent].get('role') == 'ComboBox':
+                        # CuaDriver routes native combo child edits to option selection,
+                        # not free text. Never dispatch that misleading capability.
+                        combo_edit_tokens.add(token)
+                        if isinstance(attributes.get('actions'), list):
+                            attributes['actions'] = [a for a in attributes['actions'] if a != 'set_value']
+                        break
+                    parent = rows[parent].get('parent_index')
             frame = row.get('frame') or {}
             # AX frames are global points; expose only proven screenshot-local
             # bounds. AX-only captures deliberately have unknown pixel bounds.
@@ -214,21 +255,30 @@ class OwnMachineBackend(ComputerUseBackend):
             else: bounds=(0,0,0,0)
             elements.append(UIElement(index=index+1, role=row.get('role',''), label=row.get('label') or row.get('value') or '',
                 bounds=bounds, app=app or '', pid=(target or {}).get('pid',0), window_id=(target or {}).get('window_id',0),
-                element_token=token, attributes={k:row[k] for k in ('actions','value','enabled','focused') if k in row}))
+                element_token=token, attributes=attributes))
         if before != self.lease.status()['generation']: raise LeaseError('stale_capture')
         self.generation = before
         self.has_pixels = bool(raw)
         self.capture_id = data.get("capture_id") if raw else None
         self.pixel_size = (width, height)
         self.target = target or {'scope':'desktop'}
+        self.combo_edit_tokens = combo_edit_tokens
         self.tokens = {e.index:e.element_token for e in elements}
         self.element_actions = {e.index:e.attributes['actions'] for e in elements if isinstance(e.attributes.get('actions'),list)}
         self.element_roles = {e.index:e.role for e in elements}
+        self.close_tokens = {e.element_token for e in elements
+            if e.role == 'Button' and e.label in {'Close', 'Close Tab'}
+            and 'invoke' in e.attributes.get('actions', [])}
         self._last_target = target
         self._last_app = app or data.get('app_name')
         output_mode = mode
         note = 'Pixel coordinates are local to this exact screenshot. Take a fresh capture after every pixel click; its capture binding is single-use. Element clicks invoke AXPress, not mouse focus. For a field without AXPress, use set_value or a fresh screenshot-grounded pixel click. Popup set_value selects only an existing menu option: inspect the open menu first, never guess a destination. File-location popups can list ancestors rather than destinations; use the dialog navigation controls or keyboard shortcuts for other folders. Any operator_review_required result overrides generic retry advice; stop until the operator inspects and acknowledges it. Each new capture replaces earlier tokens.\n'
         note += '\n'.join(f'#{e.index} actions: '+', '.join(str(a) for a in e.attributes['actions']) for e in elements if 'actions' in e.attributes)
+        if combo_edit_tokens:
+            note += '\nWindows editable ComboBox child fields (including file names) do not support set_value through this driver. To enter new text, capture the exact dialog, confirm the edit has keyboard focus, and request explicitly foreground type/key input; verify the full value before submitting. Never infer focus from an element index. This does not authorize a background-to-foreground fallback or override an operator/control gate.\n'
+        if self.config.guest_profile == 'windows':
+            note = note.replace('Element clicks invoke AXPress, not mouse focus. For a field without AXPress,', 'Element clicks use UI Automation invocation, not mouse focus. For a field without an invoke action,')
+            note += '\nWindows: launch apps using list_apps then focus_app with the exact discovered name or identity; do not guess Start/taskbar coordinates. Use list_windows and capture with explicit pid/window_id to select the app or its newly opened dialog. App display names can differ from executable window names. Desktop/shell foreground activation may be refused; never bypass that refusal. Element actions use Windows UI Automation, not AXPress; only use advertised actions. A fresh capture is required after launch or dialog changes. For app shortcuts such as Ctrl+S and Ctrl+O in modern Notepad, explicitly choose delivery_mode=foreground on the freshly captured exact app/dialog; the default/background accelerator path is not reliable for these shortcuts. This is an initial mode choice, not permission to fall back after a refusal: stop on operator_review_required and never replay uncertain input. To verify a saved file, explicitly open its exact path through File > Open or File Explorer; a restored Notepad tab is not file-reopen evidence.\n'
         if self.config.guest_profile == 'omarchy':
             note += '\nLinux text/entry elements: use set_value to edit their contents; do not use element click to focus them. Foreground compositor input requires the explicitly enabled ABI-matched Hyprland module. Prefer keyboard shortcuts over opening menus: a foreground grab can refuse further compositor input. Experimental background requests never authorize foreground fallback; operator/control-gate refusals override generic escalation advice.\n'
         if mode == 'som' and raw:
@@ -254,7 +304,38 @@ class OwnMachineBackend(ComputerUseBackend):
             elements=elements, app=app or data.get('app_name',''), window_title=data.get('window_title',''),
             ax_max_elements=200, note=note)
 
-    def _write(self, name, args):
+    def _verified_closed_target(self, reply, data, target):
+        """Read-only reconciliation of the pinned driver's post-click focus check.
+
+        Never treats a general input refusal, timeout or missing list field as
+        closure. Verifies disappearance from the driver's desktop-window contract,
+        not process exit or native handle destruction (close-to-tray is possible).
+        No retry, mode switch or control transfer is performed.
+        """
+        if data.get('code') != 'tool_invocation_failed': return False
+        message = data.get('summary') or data.get('message') or '\n'.join(
+            p.get('text', '') for p in reply.get('content', []) if p.get('type') == 'text')
+        hwnd, pid = target['window_id'], target['pid']
+        pattern = (rf'foreground_unavailable: exact target HWND 0x{hwnd:x} or a verified same-process '
+                   r'post-action window was not foreground after the click \(actual foreground HWND 0x[0-9a-f]+\)')
+        if not re.fullmatch(pattern, message): return False
+        listing = self._call('list_windows', {})
+        windows = structured(listing).get('windows')
+        if listing.get('isError') or not isinstance(windows, list): return False
+        if any(not isinstance(w, dict) or type(w.get('window_id')) is not int
+               or type(w.get('pid')) is not int for w in windows): return False
+        if any(w['window_id'] == hwnd or w['pid'] == pid for w in windows): return False
+        # Corroborate enumeration with the driver's exact-HWND listed-window lookup;
+        # wrong-owner and capture errors fail. Both APIs expose desktop windows,
+        # so Missing is not a claim that the underlying process has terminated.
+        probe = self._call('get_window_state', {**target, 'tree_format': 'elements',
+                                               'include_screenshot': False})
+        expected = (f'No window with window_id {hwnd} exists. '
+                    f'Call `list_windows({{"pid": {pid}}})` for candidates.')
+        texts = [p.get('text') for p in probe.get('content', []) if p.get('type') == 'text']
+        return probe.get('isError') is True and texts == [expected]
+
+    def _write(self, name, args, *, closing_target=None):
         try:
             if self.generation is None:
                 return ActionResult(False, name, code='capture_required', message='Capture the desktop or intended window before launch, focus or input.')
@@ -264,9 +345,24 @@ class OwnMachineBackend(ComputerUseBackend):
             if name not in self.transport.tools or (schema.get('additionalProperties') is False and set(args)-set(props)):
                 raise ValueError('unsupported_action')
             with self.lease.write(self.generation):
+                if name == 'set_value' and args.get('element_token') in self.combo_edit_tokens:
+                    return ActionResult(False, name, code='windows_combo_edit_requires_keyboard',
+                        message='No input was dispatched. This editable ComboBox child cannot accept free text through driver set_value. Take a fresh exact-dialog capture and confirm keyboard focus before explicitly requesting foreground typing; inspect the value before submission. No automatic input-mode fallback is authorized.',
+                        meta={'dispatched': False})
                 reply = self._call(name,args)
                 data = structured(reply)
                 if reply.get('isError') is True or data.get('ok') is False:
+                    closed = False
+                    if closing_target:
+                        try: closed = self._verified_closed_target(reply, data, closing_target)
+                        except (ValueError, RuntimeError, TransportError): pass
+                    if closed:
+                        self._clear()
+                        return ActionResult(True, name, code='window_closed_verified', verified=True,
+                            message='The captured close control removed the last target window. Independent window listing and exact-HWND lookup confirmed closure after the driver post-click focus warning. Capture fresh state before further input.',
+                            delivery_mode=args.get('delivery_mode'),
+                            meta={'closure_verification': 'window_list_and_exact_hwnd_missing',
+                                  'driver_warning': 'post_click_foreground_target_gone'})
                     raise LeaseError('driver_action_failed_review_required')
                 if data.get('code') in {'transport_outcome_unknown','timeout_outcome_unknown'}:
                     raise TransportError('transport_outcome_unknown')
@@ -326,7 +422,16 @@ class OwnMachineBackend(ComputerUseBackend):
             for key in ('pid','window_id'):
                 if key not in props: payload.pop(key,None)
         if delivery_mode: payload['delivery_mode'] = delivery_mode
-        return self._write(name,payload)
+        closing_target = None
+        if (self.config.guest_profile == 'windows' and name == 'click'
+                and delivery_mode == 'foreground' and args.get('element_token') in self.close_tokens
+                and type(self.target.get('pid')) is int and type(self.target.get('window_id')) is int):
+            closing_target = dict(self.target)
+        result = self._write(name,payload,closing_target=closing_target)
+        result.meta = {**result.meta, 'input_route': {
+            'guest_profile': self.config.guest_profile,
+            'requested_delivery_mode': delivery_mode, 'driver_tool': name}}
+        return result
 
     def _element(self, element):
         if element is None: return {}
@@ -343,8 +448,9 @@ class OwnMachineBackend(ComputerUseBackend):
             if (element is not None and self.config.guest_profile == 'omarchy'
                     and self.element_roles.get(element) in {'text','entry','password text'}):
                 return ActionResult(False,name,code='element_press_unsupported',message='Linux text elements are not activation targets. No input was dispatched. Use set_value for text or a fresh screenshot-grounded foreground pixel click to focus.',meta={'dispatched':False})
-            if element is not None and name == 'click' and 'AXPress' not in self.element_actions.get(element, ['AXPress']):
-                return ActionResult(False, name, code='element_press_unsupported', message='This element does not advertise AXPress. No input was dispatched. Use an appropriate value action or a fresh screenshot-grounded pixel click.', meta={'dispatched':False})
+            press_action = 'invoke' if self.config.guest_profile == 'windows' else 'AXPress'
+            if element is not None and name == 'click' and press_action not in self.element_actions.get(element, [press_action]):
+                return ActionResult(False, name, code='element_press_unsupported', message='This element does not advertise an invoke action. No input was dispatched. Use an appropriate value action or a fresh screenshot-grounded pixel click.', meta={'dispatched':False})
             if element is None and (x is None or y is None): raise ValueError('coordinates_required')
             if element is None:
                 name = 'click'
@@ -359,6 +465,17 @@ class OwnMachineBackend(ComputerUseBackend):
     @serialized
     def key(self,keys,*,delivery_mode=None,bring_to_front=False):
         parts = keys.split('+')
+        if self.config.guest_profile == 'windows' and delivery_mode == 'foreground' and len(parts) > 1:
+            # Windows hotkey takes a XAML accelerator-only branch even for
+            # explicit foreground delivery. press_key supports modifiers and
+            # the same exact-HWND SendInput admission; never change delivery
+            # mode or retry a refused action automatically.
+            if 'modifiers' not in self.transport.tools.get('press_key', {}).get('properties', {}):
+                return ActionResult(False,'press_key',code='windows_modifier_keys_unsupported',meta={'dispatched':False})
+            modifiers = {'ctrl','control','shift','alt','win','windows','meta','cmd','command'}
+            if not parts[-1] or any(p.lower() not in modifiers for p in parts[:-1]):
+                return ActionResult(False,'press_key',code='unsupported_key_combination',meta={'dispatched':False})
+            return self._input('press_key', {'key':parts[-1], 'modifiers':parts[:-1]}, delivery_mode, bring_to_front)
         return self._input('hotkey' if len(parts)>1 else 'press_key',
             {'keys':parts} if len(parts)>1 else {'key':keys},delivery_mode,bring_to_front)
 
@@ -390,13 +507,18 @@ class OwnMachineBackend(ComputerUseBackend):
             if not pid:
                 bundle_id = matches[0].get('bundle_id')
                 launch = {'bundle_id':bundle_id}
-                if self.config.guest_profile == 'omarchy':
-                    # Linux desktop discovery provides a launch_path; the
-                    # macOS bundle_id argument alone cannot launch Linux apps.
+                if self.config.guest_profile in {'omarchy', 'windows'}:
+                    # Round-trip the discovered launch identity. Windows UWP
+                    # bundle_id is a package family, not the complete AUMID.
                     path = matches[0].get('launch_path')
                     if not isinstance(path,str) or not path or any(ord(c)<32 for c in path):
-                        return ActionResult(False,'focus_app',code='linux_launch_identity_missing')
+                        return ActionResult(False,'focus_app',code='linux_launch_identity_missing' if self.config.guest_profile == 'omarchy' else 'windows_launch_identity_missing')
                     launch = {'launch_path':path}
+                    if self.config.guest_profile == 'windows' and path.startswith('shell:appsFolder\\'):
+                        aumid = path.split('\\', 1)[1]
+                        if '!' not in aumid:
+                            return ActionResult(False,'focus_app',code='windows_launch_identity_missing')
+                        launch = {'aumid':aumid}
                 result = self._write('launch_app', launch)
                 if not result.ok or not raise_window: return result
                 # Launch is background-only. Honor an explicitly requested raise,

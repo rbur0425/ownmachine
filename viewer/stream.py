@@ -21,6 +21,19 @@ from ownmachine.lease import Lease, LeaseError
 class StreamError(RuntimeError): pass
 
 
+def upstream_auth(metadata, config, offered):
+    """No implicit downgrade: socket authentication requires explicit configuration."""
+    if getattr(config, 'console_transport', 'password-vnc') == 'private-unix':
+        if getattr(config, 'guest_profile', None) != 'windows' or metadata != {'transport':'private-unix','authentication':'none'} or 1 not in offered:
+            raise StreamError('private_console_attestation_required')
+        return 1, None
+    password = metadata.get('password')
+    if not isinstance(password,str) or not 1<=len(password)<=256:
+        raise StreamError('invalid_metadata')
+    if 2 not in offered: raise StreamError('vnc_authentication_required')
+    return 2, password
+
+
 def exact_socket(sock,n):
     data=bytearray()
     while len(data)<n:
@@ -82,19 +95,21 @@ class Upstream:
             while not metadata.endswith(b'\n'):
                 if len(metadata)>4096:raise StreamError('invalid_metadata')
                 metadata.extend(self.read(1,deadline))
-            password=json.loads(metadata)['password']
-            if not isinstance(password,str) or not 1<=len(password)<=256:raise StreamError('invalid_metadata')
+            metadata=json.loads(metadata)
             version=self.read(12,deadline)
             if not version.startswith(b'RFB 003.'):raise StreamError('unsupported_rfb_version')
             self.send(b'RFB 003.008\n')
             count=self.read(1,deadline)[0]
-            if count==0 or 2 not in self.read(count,deadline):raise StreamError('vnc_authentication_required')
-            self.send(b'\x02')
-            challenge=self.read(16,deadline)
-            key=password.encode('latin-1')[:8].ljust(8,b'\x00')
-            key=bytes(int(f'{value:08b}'[::-1],2) for value in key)
-            self.send(DES.new(key,DES.MODE_ECB).encrypt(challenge))
-            del password,key,metadata
+            if count==0:raise StreamError('vnc_authentication_required')
+            security,password=upstream_auth(metadata,config,self.read(count,deadline))
+            self.send(bytes([security]))
+            if security==2:
+                challenge=self.read(16,deadline)
+                key=password.encode('latin-1')[:8].ljust(8,b'\x00')
+                key=bytes(int(f'{value:08b}'[::-1],2) for value in key)
+                self.send(DES.new(key,DES.MODE_ECB).encrypt(challenge))
+                del key
+            del password,metadata
             if self.read(4,deadline)!=b'\x00'*4:raise StreamError('vnc_authentication_failed')
             self.send(b'\x01') # Always shared: never disconnect another trusted viewer.
             header=self.read(24,deadline);length=struct.unpack('>I',header[20:24])[0]

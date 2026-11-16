@@ -31,3 +31,14 @@ jobs:
         run: node tests/viewer-pointer.mjs
       - name: Tests and reproducible package checks
         run: python scripts/ci-check.py
+
+  windows-bootstrap:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Windows PowerShell bootstrap regression (stubbed OS operations)
+        shell: powershell
+        run: ./tests/windows/time-bootstrap.ps1

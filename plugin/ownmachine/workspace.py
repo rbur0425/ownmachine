@@ -13,6 +13,13 @@ def status(config):
     except (OSError, subprocess.TimeoutExpired):
         return {'host_reachable': False, 'code': 'host_unreachable'}
     if result.returncode != 0:
+        if result.returncode != 255:
+            try:
+                error=json.loads(result.stdout)
+                code=error.get('code') if isinstance(error,dict) else None
+                if code in {'live_firewall_drift','persistent_firewall_service_required','configuration_changed','security_file_changed','network_identity_mismatch','network_isolation_drift','autostart_must_be_disabled','libvirt_acl_required','live_security_verification_required'}:
+                    return {'host_reachable':True,'code':code,'driver_ready':False}
+            except ValueError: pass
         return {'host_reachable': False, 'code': 'ssh_connection_failed'}
     try:
         data = json.loads(result.stdout)
@@ -21,7 +28,7 @@ def status(config):
         # driver diagnostics never flow into the model-facing result.
         states = {'not_configured', 'vm_not_running', 'guest_unreachable',
                   'invalid_response', 'permissions_required', 'capture_consent_required',
-                  'not_running', 'ready'}
+                  'not_running', 'health_check_failed', 'ready'}
         state = data.get('driver_state')
         state = state if isinstance(state, str) and state in states else 'not_probed'
         flags = {key: data.get(key) is True for key in
@@ -35,6 +42,18 @@ def status(config):
                     'driver_state': 'vm_not_running', 'viewer_state': 'not_probed',
                     'controller': 'not_initialized'}
         linux = data.get('guest_os') == 'linux' and data.get('guest_profile') == 'omarchy'
+        windows = data.get('guest_os') == 'windows' and data.get('guest_profile') == 'windows'
+        if windows != (config.guest_profile == 'windows'):
+            return {'host_reachable': True, 'driver_ready': False, 'code': 'guest_profile_mismatch'}
+        if windows:
+            gates = {key: data.get(key) is True for key in
+                     ('guest_reachable', 'interactive_session', 'driver_running', 'standard_mode', 'standard_user')}
+            ready = (all(gates.values()) and state == 'ready' and
+                     data.get('vm_state') == 'running' and data.get('driver_ready') is True)
+            return {**gates, 'host_reachable': True, 'guest_os': 'windows', 'guest_profile': 'windows',
+                    'vm_state': 'running' if data.get('vm_state') == 'running' else 'unknown',
+                    'driver_ready': ready, 'driver_state': 'invalid_response' if state == 'ready' and not ready else state,
+                    'viewer_state': 'not_probed', 'controller': 'not_initialized'}
         if linux != (config.guest_profile == 'omarchy'):
             return {'host_reachable': True, 'driver_ready': False, 'code': 'guest_profile_mismatch'}
         linux_flags = {key: data.get(key) is True for key in

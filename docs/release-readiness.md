@@ -1,8 +1,8 @@
 # Release readiness
 
-PR 15 adds the tested Omarchy foreground configuration; macOS remains the default.
-The v1.0.0 candidate release is **on hold** pending explicit approval. A pushed review
-branch or passing CI is not a published release or catalog admission.
+The v1.1.0 release adds Windows 11 Enterprise Evaluation on Linux KVM alongside
+macOS and ARM64 Omarchy on Apple Silicon. Release publication requires explicit
+approval and final-commit validation. A prepared branch is not a published release.
 
 ## Before promotion
 
@@ -12,11 +12,12 @@ branch or passing CI is not a published release or catalog admission.
 - Review the [acceptance overview](acceptance.md) and its limitations. Fresh
   installation and model task results have different scopes from historical host
   reboot tests. No new reboot is implied by documentation changes.
-- Follow [release upgrade notes](release-1.0.0.md): rebuild patched Lume, save work,
-  shut down, never resume old saved state, cold-start through the relay and verify.
+- Follow [v1.1.0 release notes](release-1.1.0.md) and platform-specific maintenance
+  instructions. Existing Lume security requirements remain in force; Windows
+  relay updates do not migrate configuration or update the guest driver.
 - Keep source, dependency provenance, license, screenshots and catalog pins
   consistent. [Catalog preparation](catalog/README.md) remains separate from
-  upstream approval. Do not claim an accepted listing without that approval.
+  upstream approval. The plugin is already listed, but a new release pin still needs review.
 - Use Gitflow: feature PR into `develop`, release PR into `main`, validate/tag and
   attach artifacts, then synchronize back to `develop`. Do not publish early.
 
@@ -31,3 +32,7 @@ may require a reviewed module rebuild. VM backup/restore is outside the MVP.
 
 See the [evaluator guide](evaluator-quickstart.md), [security requirements](../SECURITY.md)
 and [submission handoff](submission-handoff.md) for the relevant procedures.
+
+Windows support is bounded by the [platform/input matrix](windows-support-matrix.md).
+Physical Linux-host reboot qualification was explicitly skipped. Home/Pro and
+arbitrary configuration migrations remain outside this release.
