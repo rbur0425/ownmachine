@@ -6,7 +6,7 @@ claims to its old runtime pin. This document does not change the live marketplac
 
 ## Short description
 
-Give Hermes its own Mac, Omarchy or Windows VM to test apps, scrape websites and automate desktop work—with private SSH access and you in control.
+Give Hermes its own Mac, Omarchy or Windows VM to test apps, scrape websites and automate desktop work with private SSH access and you in control.
 
 ## About
 

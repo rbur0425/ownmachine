@@ -2,7 +2,7 @@
 
 ### Give your AI agent its own desktop.
 
-**Give Hermes a Mac, Omarchy or Windows VM to test apps, scrape websites and get work done—while your personal desktop stays yours.**
+**Give Hermes a Mac, Omarchy or Windows VM to test apps, scrape websites and get work done while your personal desktop stays yours.**
 
 You want an agent that can use desktop apps. You don't want to hand it your
 personal desktop, give up your mouse while it works, or spend a weekend wiring
