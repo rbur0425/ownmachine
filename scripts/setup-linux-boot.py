@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import subprocess
 import time
-from setup_support import ROOT, mac, module, private_read
+from setup_support import mac, module, private_read
 
 services = module('boot_services', 'scripts/setup-services.py')
 STAGES = ('linux-boot-installer', 'linux-boot-system', 'linux-start-desktop')

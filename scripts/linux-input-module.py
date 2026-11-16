@@ -14,7 +14,6 @@ import re
 import shutil
 import stat
 import subprocess
-import sys
 
 PIN='ef1e84d6c880ab8aee7587c3d0057a288e764b69'
 

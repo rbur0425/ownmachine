@@ -6,7 +6,6 @@ changes no SSH key, restarts no libvirt service, and never flushes global rules.
 """
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path

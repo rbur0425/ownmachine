@@ -1,6 +1,5 @@
 """Consent-bound one-shot scheduling using public Hermes interfaces."""
 import datetime as dt
-import json
 import os
 import secrets
 import sys

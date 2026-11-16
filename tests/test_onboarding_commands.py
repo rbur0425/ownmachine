@@ -213,7 +213,7 @@ class OnboardingCommandsTests(unittest.TestCase):
         self.assertEqual(ctx.settings, {})
 
 try:
-    import hermes_cli
+    import hermes_cli  # noqa: F401 -- Import verifies the optional Hermes runtime is available.
     HERMES_AVAILABLE = True
 except ImportError:
     HERMES_AVAILABLE = False

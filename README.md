@@ -204,3 +204,10 @@ their own terms. Earlier valid license grants are not revoked. See
 OwnMachine builds on Hermes, Lume, CuaDriver and noVNC. Third-party components
 retain their own licenses and notices; this license does not replace them.
 See [viewer dependency provenance](viewer/VENDOR.md).
+
+## Code quality and security checks
+
+Pull requests run Python correctness/security checks, shell and workflow analysis,
+focused type checks, OwnMachine security regression rules, and a runtime dependency
+audit. The dependency audit also runs weekly once this workflow reaches the default
+branch. See [analysis policy and initial findings](docs/static-analysis.md).

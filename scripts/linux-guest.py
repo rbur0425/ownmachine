@@ -170,7 +170,7 @@ def install(version, sha256, artifact=None):
             shutil.copyfile(artifact, archive)
         else:
             url = f'https://github.com/trycua/cua/releases/download/cua-driver-rs-v{version}/cua-driver-rs-{version}-linux-arm64-binary.tar.gz'
-            with urllib.request.urlopen(url, timeout=60) as response, archive.open('wb') as out:
+            with urllib.request.urlopen(url, timeout=60) as response, archive.open('wb') as out:  # nosec B310 -- HTTPS URL is built from a pinned upstream source; content SHA-256 is verified before use.
                 shutil.copyfileobj(response, out)
         with archive.open('rb') as stream:
             actual = hashlib.file_digest(stream, 'sha256').hexdigest()

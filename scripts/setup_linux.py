@@ -55,7 +55,7 @@ def verify_hardening(service,c):
 /usr/bin/nft list table inet ownmachine >/dev/null
 '''
     root_call(service,c,script)
-    result=service.call(service.guest_argv(c)+['sudo -k; if sudo -n /usr/bin/true >/dev/null 2>&1; then exit 1; fi; test -x "$HOME/.local/lib/ownmachine/vm-shutdown.sh"'])
+    service.call(service.guest_argv(c)+['sudo -k; if sudo -n /usr/bin/true >/dev/null 2>&1; then exit 1; fi; test -x "$HOME/.local/lib/ownmachine/vm-shutdown.sh"'])
 
 
 def driver(service,c):
