@@ -1,14 +1,14 @@
-# Windows onboarding — development branch
+# Windows onboarding
 
-Windows is under qualification in PR #28. Saved plans, authenticated execution
-and progress import now include a fresh provisioning implementation, described
-below. Repeated clean guest installations and live session recovery have passed;
-release packaging and the explicitly limited support claim are still pending. Do not mark stages complete
-manually or run a macOS installer for Windows.
+OwnMachine supports Windows 11 Enterprise Evaluation x86-64 on Linux KVM/libvirt.
+Saved plans, authenticated execution and progress import guide a fresh install.
+See the [support matrix](windows-support-matrix.md) for tested operations and
+limits, including unqualified physical-host reboot recovery. Do not mark stages
+complete manually or run a macOS installer for Windows.
 
 ## Start in Hermes
 
-Use a dedicated Hermes profile. Install the reviewed OwnMachine development commit
+Use a dedicated Hermes profile. Install the reviewed OwnMachine release
 and explicitly configure `plugins.isolation in_process`. For development docs, set
 OwnMachine's `setup_guide_ref` to that reviewed immutable commit; released versions
 use versioned documentation. No model credentials or unrelated authentication files
@@ -129,12 +129,12 @@ host-side media-check correction. Repeated clean runs have passed verification a
 see the acceptance report for exact revisions and test scope. Do not leave temporary access
 installed after testing or mark uncertain retirement complete manually.
 
-## Fresh-install implementation under test
+<a id="fresh-install-implementation-under-test"></a>
 
-PR #28 contains the fresh provisioning path. Clean guest installations and fresh
-host registration under umask 077 have passed; see the exact revisions and scope
-in the acceptance report. **This is a release candidate, not a published Windows
-release.**
+## Fresh installation
+
+Clean guest installations and fresh host registration under umask 077 have passed;
+see the exact revisions and scope in the [acceptance report](windows-kvm-acceptance.md).
 
 The operator services JSON has a `provision` object in addition to the six
 connection fields above. Keep this file private on the host. Configure:

@@ -1,6 +1,6 @@
 # Windows support and input matrix
 
-This is the Windows release-candidate scope in PR #28. It is not a promise that
+This is the Windows support scope for OwnMachine v1.1.0. It is not a promise that
 every Windows edition, application or input route works.
 
 ## Platform scope
@@ -25,7 +25,7 @@ or activate Windows. Home/Pro are a separate follow-up.
 unattended operation in every app. The model must stop at a refusal or uncertain
 outcome, even if another input mode might work.
 
-| Operation | Release-candidate status | Required behavior / limit |
+| Operation | Qualification status | Required behavior / limit |
 | --- | --- | --- |
 | Desktop/window screenshots and window discovery | Qualified, including fresh-process and same-process recovery | Capture again after dialog/window changes, handoff or another writer. Doctor READY is not screenshot evidence. |
 | Discovered application launch/focus | Qualified for tested apps | Use discovered identities and explicit window IDs; do not guess shell coordinates or bypass foreground activation refusal. |

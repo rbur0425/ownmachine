@@ -4,17 +4,18 @@ Start with the [evaluator quickstart](../docs/evaluator-quickstart.md) for the c
 
 **Give your AI agent its own desktop.**
 
-OwnMachine connects Hermes to a persistent, separate macOS or ARM64 Omarchy VM through restricted
+OwnMachine connects Hermes to a persistent, separate macOS, ARM64 Omarchy or Windows 11 Enterprise Evaluation VM through restricted
 SSH and MCP. The agent works in its own guest desktop; a separately installed
 private browser viewer lets you watch, pause it, reserve the workspace for human
 mouse/keyboard input, and return control. Your personal host desktop is not the
 computer-use target.
 
-This is OwnMachine v1.0.1; this version is not an approved Hermes catalog listing. It requires Hermes
-0.23.1 or later (release testing on 0.23.1; current-upstream validation
-is recorded in the catalog readiness report), OpenSSH, and a compatible Apple Silicon Mac
-running the Lume guest. Hermes may run on another machine; a Linux Docker runtime
-has been tested. Cloud Mac hosting has not been acceptance-tested.
+OwnMachine requires Hermes 0.23.1 or later and OpenSSH. macOS and ARM64 Omarchy
+use an Apple Silicon Mac with patched Lume; Windows 11 Enterprise Evaluation
+x86-64 uses Linux KVM/libvirt. Hermes can run on a separate machine, including
+Linux Docker. See the [Windows scope and input matrix](../docs/windows-support-matrix.md)
+and [v1.1.0 notes](../docs/release-1.1.0.md). Cloud hosts and Windows Home/Pro are
+not qualified. Catalog installs use the reviewed upstream commit pin.
 
 ## Guided setup commands
 
@@ -25,7 +26,7 @@ Start with `/ownmachine setup` in Hermes chat. Hermes default plugin-host mode
 skips plugin CLI commands and cannot load the native provider. In a dedicated
 OwnMachine profile, explicitly run `hermes config set plugins.isolation in_process`
 before using `hermes ownmachine setup` or `hermes ownmachine doctor` in a terminal.
-This is a profile isolation choice, not something setup silently changes. The terminal wizard asks for a local Mac, remote Mac or existing relay,
+This is a profile isolation choice, not something setup silently changes. The terminal wizard asks for the guest profile, a local or remote host, or an existing relay,
 then previews non-secret settings. It saves only when you choose to. Chat and
 noninteractive sessions never wait for stdin.
 
@@ -56,8 +57,8 @@ isolation/toolsets: follow the dedicated-profile setup below and start a new
 session after configuration changes. `hermes ownmachine doctor --json` and
 `/ownmachine doctor` report bounded read-only readiness.
 
-**macOS remains the default; v1.0.1 also supports Omarchy foreground desktop control on Apple Silicon.** See the [final acceptance and scope](../docs/omarchy-final-acceptance.md). Background input remains experimental. The terminal
-wizard offers those two profiles. Use `--guest-profile omarchy` for an explicit
+**macOS remains the default; OwnMachine also supports Omarchy foreground desktop control on Apple Silicon.** See the [final acceptance and scope](../docs/omarchy-final-acceptance.md). Background input remains experimental. The terminal
+wizard also offers Windows on a Linux KVM host; follow the [Windows guide](../docs/windows-onboarding.md) for its distinct administrator and guest-login handoffs. Use `--guest-profile omarchy` for an explicit
 noninteractive choice. Read the [Omarchy evaluator steps](../docs/evaluator-quickstart.md)
 before provisioning: operator trust/bootstrap and firewall approval remain, while
 Hermes drives installation and boot transitions. Targeted foreground input
@@ -144,18 +145,18 @@ verification](../docs/security-isolation.md).
 Hardened VNC requires the pinned local Lume build with protected-file password
 input (Xcode/Swift required); the upstream binary exposes argv passwords to other
 local accounts. No forked binary is bundled. The v0.8.0 preview includes
-this hardening. Fresh dedicated Hermes profiles
+this hardening; current macOS/Omarchy installations still require it. Fresh dedicated Hermes profiles
 disable terminal, file and code-execution toolsets.
 
 **Plugin runtime:** the provider launches an OpenSSH subprocess and maintains a
-stdio MCP session through the configured Mac relay to the guest driver. The relay
+stdio MCP session through the configured host relay to the guest driver. The relay
 accepts only supported operations for its configured VM. This is not a required
 reverse SSH tunnel. OpenSSH uses the runtime account's SSH configuration, verified
 known-hosts file and restricted key or SSH agent; OwnMachine does not parse private
 keys or read Hermes/vendor credential stores. This operator-managed authentication
 is disclosed under the catalog credential policy. On 2026-11-11 the owner
 confirmed that this design and the PolyForm license are acceptable for submission.
-That confirmation and the passing scanner are not catalog admission.
+The plugin is now catalog-listed; each catalog update still requires review of its pinned commit.
 No secret is declared in `requires_env` or `config_schema`; if future functionality
 needs one, it must use the applicable Hermes secret-scope or credentialed-request
 API, not direct environment or credential-file reads. Runtime and setup SSH children inherit only PATH, HOME, SSH_AUTH_SOCK and LANG.
@@ -234,8 +235,8 @@ OwnMachine is source-available, not open source. Third-party components retain
 their own terms. Earlier valid license grants are not revoked. See
 [licensing details](../docs/licensing.md).
 
-The owner has confirmed license and SSH eligibility for submission. OwnMachine
-has not been submitted to or admitted by the Hermes catalog.
+OwnMachine is listed in the Hermes community catalog. Its reviewed pin may lag a
+new GitHub release; a release does not update the catalog automatically.
 
 Remote terminal/chat execution, guided fresh-guest hardening and channel-bound progress: see [setup transport](../docs/setup-transport.md). The setup command derives its live guide URL from the installed plugin version; development operators may pin a full commit through setup_guide_ref.
 
