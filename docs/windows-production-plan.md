@@ -16,10 +16,11 @@ GPU passthrough or arbitrary hypervisors.
 - [x] Recheck actual agent/viewer boundaries, guest network isolation and private viewer input.
 - [x] Test firewall drift refusal and restoration with an additional restrictive rule.
 - [x] Test dedicated firewall service restart and restoration.
-- [ ] Test physical-host reboot recovery.
-- [ ] Review existing policy conflicts and qualify host upgrade/rollback end to end;
-      the supported procedure is now documented in [Windows maintenance](windows-maintenance.md).
-      No global firewall flushes.
+- Deferred by operator: **physical Linux-host reboot acceptance was skipped**.
+  Keep this limitation in the support matrix; service restart is not reboot proof.
+- [x] Qualify compatible live relay-code upgrade/rollback with existing policies,
+      fresh Hermes captures and repeated role checks; no global firewall flushes.
+      Configuration/schema migrations remain unsupported without a separate procedure.
 
 A runtime key may invoke only its exact root-owned security probe through sudo;
 it cannot apply policy, choose another config, run commands or install files.
@@ -32,8 +33,7 @@ Administrator changes remain trusted; this is not isolation from root.
 ## Hermes-driven setup
 
 Fresh provisioning and automatic retirement now have an implementation in PR #28.
-Individual live stages are checked below; pristine end-to-end installation remains
-a separate qualification gate. Completed checks and remaining limits are recorded in the
+Repeated clean installations have passed; individual live stages are checked below. Completed checks and remaining limits are recorded in the
 [acceptance report](windows-kvm-acceptance.md#fresh-provisioning-implementation-checkpoint).
 Follow the [fresh-install guide](windows-onboarding.md#fresh-install-implementation-under-test)
 for the administrator and runtime-key handoffs.
@@ -50,8 +50,11 @@ for the administrator and runtime-key handoffs.
 - [x] Install standard guest account, pinned driver and narrowly restricted guest SSH.
 - [x] Remove answer-file secrets, one-time login, setup tasks and bootstrap media.
 - [x] Install both runtime roles and the separately owned private viewer.
-- [ ] Use doctor and saved progress to explain exact manual handoffs and reminder options.
+- [x] Review doctor/progress guidance and document stage-specific manual handoffs
+      and opt-in reminders in the [support/onboarding matrix](windows-support-matrix.md).
 - [x] Verify both runtime roles, private console and computer_use capture, then retire setup keys.
+- [x] Complete fresh administrator registration under umask 077 without repairs;
+      verify new runtime roles and actual guest-key read boundaries.
 - [x] Run repeated clean installations with non-default paths/names and distinct identities.
       Operator reports at `01f60ae` and `1f1493d` record successful installation,
       clock synchronization, verification and automatic setup-key retirement.
@@ -77,11 +80,12 @@ for the administrator and runtime-key handoffs.
       separate processes with a shared VM control directory capture successfully.
 - [x] Exercise lock/unlock, sign-out/in, driver restart and gateway restart with
       same-process capture recovery and stale-target refusal. Guest cold-start
-      persistence is separately recorded above; physical-host reboot remains open.
-- [ ] Finish the input-mode qualification matrix.
+      persistence is separately recorded above; physical-host reboot was explicitly skipped.
+- [x] Publish the [input qualification matrix](windows-support-matrix.md):
+      tested routes are distinguished from unqualified background/pixel operations.
 - [x] Document the pinned-driver update policy and unsupported in-place updates
       after setup retirement; use a separate fresh guest and requalify each new pin.
-- [ ] Keep initial support claims limited to the tested Enterprise Evaluation matrix.
+- [x] Keep initial support claims limited to the tested Enterprise Evaluation matrix.
       Home/Pro installation and qualification are deferred until after PR #28.
 
 ## Operator-review regression qualification
@@ -108,7 +112,8 @@ for the administrator and runtime-key handoffs.
       after 6m46s; the displayed local time was correct.
 
 These are fresh-guest results on an existing host. They do not complete the broader
-host-crash recovery, end-to-end upgrade, or physical-host reboot gates above.
+host-crash recovery or arbitrary version/configuration migration. The compatible
+relay-code upgrade/rollback test is recorded below; physical-host reboot was skipped.
 
 ## Release qualification — explicitly held
 

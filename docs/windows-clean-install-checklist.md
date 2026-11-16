@@ -53,6 +53,10 @@ sudo python3 REVIEWED_SOURCE/scripts/register-windows-host.py \
   --services-file PRIVATE_SERVICES_JSON --plan-file PRIVATE_PLAN_JSON
 ```
 
+For restrictive-permissions qualification, set `umask 077` in the administrator
+process that runs registration (not only in the shell launching sudo). Verify the
+reported umask and record the result; do not relax it to work around a failure.
+
 Do not run an old one-time recreation script. If registration fails, preserve the
 output and inspect before retrying. Pair the new runtime agent key and configure
 `host_alias`, `vm_name`, and the Hermes-side `control_dir`; mount that same control

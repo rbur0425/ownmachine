@@ -641,3 +641,46 @@ tests, with 478 passing and 10 expected macOS-only skips. Hermes plugin validati
 passed, including security scanning and the no-core-override check; the existing
 in-process hook disclosure remains. The accepted guest ended in agent control
 with no pending input outcome and doctor READY. Other VM states/IDs were unchanged.
+
+### Full restrictive-umask registration and live maintenance — November 15, 2026
+
+Built fresh installation artifacts from `3a3c3bc`, then ran the actual administrator
+registration entrypoint under `umask 077`, using a new domain UUID, network,
+subnet, runtime users/group, console directory and runtime prefix. Registration
+succeeded on its first attempt, left the domain stopped, and needed no permission
+repair or umask relaxation. Firewall, relay and key stages passed through the new
+forced-command SSH identities. Actual account-level file opens confirmed the
+agent could read its 0440 guest key and the viewer could not; runtime traversal
+was 0755 and the private console directory was 0750. Existing VM states were
+preserved. This completes fresh **host registration** qualification; the new
+guest was not booted or used to claim another Windows installation pass. Earlier
+clean Windows installations remain the guest-provisioning evidence.
+
+On the existing accepted guest, reserved human control and stopped only its viewer
+while exercising real root-owned relay replacements. The reviewed compatible
+baseline was `4713252`; the current runtime was from `3a3c3bc`. The difference is
+health/error reporting, not a change to domain identities, SSH credentials,
+firewall policy or input permissions. Tested baseline → current → baseline
+rollback → current restoration, using the supported updater under umask 077.
+A new installed-Hermes backend process captured a valid 1280×800 PNG at every
+point, with no pending input outcome. This is a live compatible relay-code
+upgrade/rollback across PR revisions, not a configuration/schema migration or an
+in-place driver upgrade.
+
+All 18 production account/domain/network/console/key boundary checks passed both
+before and after the cycle. Final runtime bytes matched the reviewed current
+source, runtime file modes were 0644, and all six old/current module backups were
+0600 with matching content-hash suffixes. Restarted the configured viewer;
+private console handshake, authenticated browser streaming and guest desktop
+rendering passed. Viewer mouse input opened a separate Notepad tab, and explicit
+Shift key-down/up typing preserved mixed-case text and punctuation. Cleared and
+closed only that scratch tab, preserving the previously saved document. Returned
+control to the agent and requested a fresh capture. The accepted guest's driver remained ready. No host reboot,
+libvirt restart, unrelated VM change, or setup-key restoration was performed.
+
+The operator explicitly **skipped physical Linux-host reboot acceptance**. It is
+now a disclosed qualification limit, not a passed test or a pending request to
+restart the host. The [support/input matrix](windows-support-matrix.md) separates
+the qualified foreground/UIA workflow from unqualified background, broad pixel
+input, clipboard and privileged-desktop claims, and maps onboarding checkpoints
+to manual handoffs, doctor/progress checks and opt-in reminders.

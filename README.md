@@ -88,6 +88,7 @@ compromised host or malicious software. Read the [security model](SECURITY.md).
 | --- | --- |
 | macOS desktop | A Lume VM on a compatible Apple Silicon Mac. Local laptop and dedicated Mac-host installations have been tested. |
 | Omarchy desktop | ARM64 guest on Apple Silicon with patched Lume; tested foreground Chromium and Mousepad control. The native input module requires explicit opt-in and a matching Hyprland ABI. |
+| Windows desktop (PR #28 candidate) | Windows 11 Enterprise Evaluation x86-64 on Linux KVM/libvirt. See the [tested input/platform scope](docs/windows-support-matrix.md) and [Windows setup](docs/windows-onboarding.md). Home/Pro and physical-host reboot recovery are not qualified. |
 | Hermes | On the same Mac or another machine with private SSH access to the host. A separate Linux Docker runtime has been tested. |
 | Browser viewer | On a configured runtime host, reached locally or over SSH forwarding. Human input requires a reservation. |
 | Cloud Mac | Potentially suitable if it supports Lume's virtualization requirements and private SSH connectivity. Cloud-hosted Macs have not been acceptance-tested. |
@@ -163,7 +164,7 @@ See [persistent installation and startup](docs/permanent-installation.md),
 
 1. ~~Implement an Omarchy image.~~ Completed for the tested ARM64 foreground configuration in the **v1.0.1** ([scope and evidence](docs/omarchy-final-acceptance.md)).
 2. Implement an Ubuntu image.
-3. Implement a Windows VM.
+3. Windows VM release candidate: implementation and clean-install acceptance are in PR #28; finalize release qualification.
 4. Test various cloud providers and record tutorials and setup guides for each.
 5. Broaden Omarchy application compatibility; background control remains experimental.
 

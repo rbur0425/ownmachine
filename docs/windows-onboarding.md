@@ -2,8 +2,8 @@
 
 Windows is under qualification in PR #28. Saved plans, authenticated execution
 and progress import now include a fresh provisioning implementation, described
-below. One repair-free guest installation has passed; broader release qualification
-is still pending. Do not mark stages complete
+below. Repeated clean guest installations and live session recovery have passed;
+release packaging and the explicitly limited support claim are still pending. Do not mark stages complete
 manually or run a macOS installer for Windows.
 
 ## Start in Hermes
@@ -125,15 +125,16 @@ stays blocked while paused or reserved; returning control requires a fresh captu
 After a guest restart, sign in again before expecting driver readiness.
 
 Automatic guest and host setup-key retirement passed live verification after a
-host-side media-check correction. A pristine run with all fixes from the beginning
-is still being qualified; see the acceptance report. Do not leave temporary access
+host-side media-check correction. Repeated clean runs have passed verification and retirement;
+see the acceptance report for exact revisions and test scope. Do not leave temporary access
 installed after testing or mark uncertain retirement complete manually.
 
 ## Fresh-install implementation under test
 
-PR #28 now contains a fresh provisioning path. **Its clean-install acceptance is
-still in progress; this is not a released Windows support claim.** The earlier
-adoption evidence does not qualify this path.
+PR #28 contains the fresh provisioning path. Clean guest installations and fresh
+host registration under umask 077 have passed; see the exact revisions and scope
+in the acceptance report. **This is a release candidate, not a published Windows
+release.**
 
 The operator services JSON has a `provision` object in addition to the six
 connection fields above. Keep this file private on the host. Configure:
@@ -357,3 +358,6 @@ Driver readiness is polled for up to 30 additional seconds by default; configure
 Polling is read-only and never substitutes for hardening or interactive sign-in.
 See [Windows maintenance](windows-maintenance.md) for session recovery,
 interrupted setup, compatible relay updates, rollback and the pinned-driver policy.
+
+See the [Windows support/input and handoff matrix](windows-support-matrix.md) for
+tested operations, unsupported claims and stage-specific operator responsibilities.

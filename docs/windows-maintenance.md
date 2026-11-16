@@ -101,4 +101,7 @@ configuration/runtime pair is the rollback path. Never restore broad setup acces
 or grant agent administration just to replace the driver.
 
 See [acceptance evidence](windows-kvm-acceptance.md) for what was actually tested.
-A Linux physical-host reboot remains a separate release gate.
+Physical Linux-host reboot acceptance was explicitly skipped by the operator;
+service-restart evidence must not be presented as a host-reboot pass. After any
+real host reboot, verify security readiness, role boundaries, private viewer and a
+fresh Hermes capture before resuming desktop tasks.
