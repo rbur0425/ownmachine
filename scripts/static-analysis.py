@@ -21,10 +21,10 @@ def main():
     commands = {
         'ruff': ['ruff', 'check', '--output-format', 'json', '.'],
         'bandit': ['bandit', '-r', 'plugin', 'host', 'viewer', 'scripts', 'experiments', '-x', 'viewer/vendor',
-                   '--severity-level', 'medium', '-f', 'json'],
+                   '--severity-level', 'high', '-f', 'json'],
         'shellcheck': ['shellcheck', '--format=json', *shell],
         'actionlint': ['actionlint', '-color=false'],
-        'zizmor': ['zizmor', '--offline', '--format', 'json', '.github/workflows'],
+        'zizmor': ['zizmor', '--offline', '--min-severity', 'high', '--format', 'json', '.github/workflows'],
         'mypy': ['mypy', '--config-file', 'mypy.ini'],
         'ownmachine': [sys.executable, 'scripts/security-rules.py'],
     }
@@ -39,7 +39,7 @@ def main():
         except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
             (output / (name + '.stderr')).write_text(str(exc))
             results[name] = 2
-    # Informational low-severity inventory is retained, never hidden by the gate.
+    # Informational medium/low-severity inventory is retained, never hidden by the gate.
     with (output / 'bandit-all.json').open('w') as out, (output / 'bandit-all.stderr').open('w') as err:
         try:
             result = subprocess.run(['bandit', '-r', 'plugin', 'host', 'viewer', 'scripts', 'experiments',
@@ -50,6 +50,21 @@ def main():
         except (OSError, subprocess.TimeoutExpired) as exc:
             err.write(str(exc))
             results['bandit-inventory'] = 2
+    try:
+        if json.loads((output / 'bandit-all.json').read_text()).get('errors'):
+            results['bandit-inventory'] = 2
+    except (OSError, ValueError):
+        results['bandit-inventory'] = 2
+    with (output / 'zizmor-all.json').open('w') as out, (output / 'zizmor-all.stderr').open('w') as err:
+        try:
+            result = subprocess.run(['zizmor', '--offline', '--no-exit-codes', '--format', 'json',
+                                     '.github/workflows'], cwd=ROOT, stdout=out, stderr=err,
+                                    timeout=300, check=False)
+            if result.returncode:
+                results['zizmor-inventory'] = result.returncode
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            err.write(str(exc))
+            results['zizmor-inventory'] = 2
     report = {'ok': all(code == 0 for code in results.values()), 'exit_codes': results}
     (output / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report))

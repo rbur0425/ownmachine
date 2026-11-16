@@ -28,10 +28,10 @@ to VMs, read Hermes credentials or alter an installed plugin.
 | Check | Scope | Gate |
 | --- | --- | --- |
 | Ruff | Repository Python, excluding vendored noVNC | F and E9 correctness findings fail |
-| Bandit | Plugin, host, viewer, scripts and experiments; no vendored code or test fixtures | Medium/high findings fail; all low findings are retained in a separate report |
+| Bandit | Plugin, host, viewer, scripts and experiments; no vendored code or test fixtures | High findings fail; medium/low findings are retained for case-by-case review |
 | ShellCheck | All tracked shell scripts except vendored code | Every reported level fails |
 | actionlint | GitHub workflows | All findings fail |
-| zizmor | GitHub workflows, offline analysis | All default findings fail |
+| zizmor | GitHub workflows, offline analysis | High findings fail; full default inventory is retained |
 | mypy | Config, MCP transport and setup transport | All findings in the initial scope fail |
 | OwnMachine AST rules | First-party production Python and experiments | Unreviewed findings and stale exceptions fail |
 | pip-audit | Resolved plugin manifest dependencies plus viewer requirements and transitives | Known vulnerabilities or audit errors fail |
@@ -76,14 +76,17 @@ Initial scan of the v1.1.0 code, before analyzer infrastructure changes:
 | Analyzer | Initial results | Disposition |
 | --- | --- | --- |
 | Ruff | 32 unused imports, 1 unused assignment | Removed unused code; retained one optional-Hermes availability import with a specific explanation |
-| Bandit | 206: 194 low, 9 medium, 3 high | Reviewed medium/high sites as described below; low findings remain visible |
+| Bandit | 206: 194 low, 9 medium, 3 high | Resolved or narrowly excepted high sites; medium/low remain visible |
 | ShellCheck | 2 informational warnings | Explicit conditional for startup attempts; documented host-provided `/etc/os-release` source |
 | actionlint | 0 | Clean |
 | zizmor | 1 low-confidence/high-severity cache warning | Disabled implicit setup-node package-manager caching |
 | mypy | 14 errors in 3 files | Separate string/integer loop variables, explicit missing-pipe checks and safe cleanup; preserved deadline behavior |
 | Dependency audit | 0 known vulnerabilities | Resolved Pillow 13.0.0, websockets 15.0.1, PyCryptodome 3.23.0 |
 
-Bandit exceptions are per-line and per-rule, with rationale adjacent to the code:
+Critical/high findings are the security-blocking priority. Medium/low findings are
+changed only when review establishes a necessary fix. Bandit has no separate
+critical category; high is its highest severity. Two high exceptions are per-line
+and per-rule, with rationale adjacent to the code. Other observations remain reported:
 
 - Seven XML parses consume local libvirt-generated XML from fixed `virsh` commands,
   rather than guest or network-supplied XML. No new XML dependency was added.
@@ -99,7 +102,7 @@ Low-severity inventory includes subprocess imports/execution, PATH-based executa
 resolution, XML imports, boolean password-status keys and two intentional exception
 handlers during cancelled chat setup. These are review prompts, not 194 confirmed
 vulnerabilities. They are **not** all proved safe or silently baselined: review remains
-necessary, and new medium/high findings block CI. There is no global `nosec` exclusion.
+necessary, and new high findings block CI. There is no global `nosec` exclusion.
 
 Dependency results are a point-in-time check of the resolved set, not a claim that
 every version permitted by a range is vulnerability-free. Hermes core dependencies,

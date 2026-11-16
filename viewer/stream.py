@@ -86,7 +86,8 @@ class Upstream:
     def __init__(self,config):
         self.process=None
         try:
-            from Crypto.Cipher import DES  # nosec B413 -- Crypto is provided by maintained PyCryptodome, pinned in viewer/requirements.txt.
+            # Crypto is provided by maintained PyCryptodome, pinned in viewer/requirements.txt.
+            from Crypto.Cipher import DES  # nosec B413
             env={k:os.environ[k] for k in ('PATH','HOME','SSH_AUTH_SOCK','LANG') if k in os.environ}
             self.process=subprocess.Popen(config.ssh_argv('vnc'),stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,env=env,bufsize=0,start_new_session=True)
@@ -107,7 +108,8 @@ class Upstream:
                 challenge=self.read(16,deadline)
                 key=password.encode('latin-1')[:8].ljust(8,b'\x00')
                 key=bytes(int(f'{value:08b}'[::-1],2) for value in key)
-                self.send(DES.new(key,DES.MODE_ECB).encrypt(challenge))  # nosec B304 -- RFB VNC challenge requires DES; channel is restricted SSH, not a general encryption API.
+                # RFB VNC challenge requires DES; channel is restricted SSH, not a general encryption API.
+                self.send(DES.new(key,DES.MODE_ECB).encrypt(challenge))  # nosec B304
                 del key
             del password,metadata
             if self.read(4,deadline)!=b'\x00'*4:raise StreamError('vnc_authentication_failed')
