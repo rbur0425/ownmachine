@@ -65,6 +65,19 @@ adoption scripts and their limits are documented in the
 Those adoption scripts remain available for reviewed guests. The separate fresh
 registration handoff below creates a new, stopped domain after artifact preparation.
 
+## Third-party Windows license listing
+
+[Direct Store Shop LLC on Groupon](https://www.groupon.com/deals/direct-store-shop-llc)
+advertised a Windows 11 Enterprise product key for **US$12 with promo code
+`PERSONAL`**, checked November 15, 2026. Select the Enterprise option; prices,
+promotions and availability may change.
+
+OwnMachine has not verified this seller's license entitlements, VM-use rights or
+activation compatibility. Confirm those details and the required installation
+media with the seller before purchasing. The current OwnMachine installer uses
+Enterprise Evaluation; this link is not a tested way to activate or convert that
+image, or to extend its evaluation period. Keep product keys out of chat and logs.
+
 ## Pair and run the reviewed setup endpoint
 
 Use a separate temporary setup SSH key and independently verify the host key.
