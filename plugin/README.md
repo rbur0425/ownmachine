@@ -2,7 +2,13 @@
 
 Start with the [evaluator quickstart](../docs/evaluator-quickstart.md) for the complete ordered setup and permission checks.
 
-**Give your AI agent its own desktop.**
+**Give Hermes its own Mac, Omarchy or Windows desktop.**
+
+Test apps, scrape websites and automate repetitive work in a dedicated VM while
+your personal desktop stays yours. Keep your workspace on infrastructure you
+control, connect over private SSH, and take over from your browser whenever you
+need to. Apps and saved files persist between sessions. Screenshots and app text
+used by Hermes follow your configured model provider.
 
 OwnMachine connects Hermes to a persistent, separate macOS, ARM64 Omarchy or Windows 11 Enterprise Evaluation VM through restricted
 SSH and MCP. The agent works in its own guest desktop; a separately installed
