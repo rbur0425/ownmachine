@@ -17,7 +17,9 @@ GPU passthrough or arbitrary hypervisors.
 - [x] Test firewall drift refusal and restoration with an additional restrictive rule.
 - [x] Test dedicated firewall service restart and restoration.
 - [ ] Test physical-host reboot recovery.
-- [ ] Review existing policy conflicts, rollback and upgrade behavior; no global firewall flushes.
+- [ ] Review existing policy conflicts and qualify host upgrade/rollback end to end;
+      the supported procedure is now documented in [Windows maintenance](windows-maintenance.md).
+      No global firewall flushes.
 
 A runtime key may invoke only its exact root-owned security probe through sudo;
 it cannot apply policy, choose another config, run commands or install files.
@@ -54,8 +56,10 @@ for the administrator and runtime-key handoffs.
       Operator reports at `01f60ae` and `1f1493d` record successful installation,
       clock synchronization, verification and automatic setup-key retirement.
 - [x] Verify client disconnect/resume preserves the saved plan and completed stages.
-- [ ] Exercise broader mid-stage interruption/recovery cases; a between-stage client
-      restart does not prove recovery from a host crash or interrupted mutation.
+- [x] Interrupt a real endpoint mid-stage with a disposable payload; persisted
+      uncertainty refuses mutation replay and remains visible through progress.
+- [ ] Qualify host-crash/disk-mutation recovery and partial administrator-registration
+      repair. The process-interruption test does not prove those cases.
 
 ## Runtime acceptance
 
@@ -69,9 +73,14 @@ for the administrator and runtime-key handoffs.
 - [x] Qualify save/last-window close/reopen without manual recovery.
       The isolated Hermes rerun verified closure through read-only checks and
       reopened the exact saved content; normal per-action approvals remained.
-- [ ] Qualify mixed-profile provider loading.
-- [ ] Exercise combined restart, lock/unlock, sign-out, driver restart and gateway restart.
-- [ ] Qualify input modes and prerelease-driver update policy; document unsupported actions.
+- [x] Qualify mixed-profile provider loading: cached cross-profile calls refuse;
+      separate processes with a shared VM control directory capture successfully.
+- [x] Exercise lock/unlock, sign-out/in, driver restart and gateway restart with
+      same-process capture recovery and stale-target refusal. Guest cold-start
+      persistence is separately recorded above; physical-host reboot remains open.
+- [ ] Finish the input-mode qualification matrix.
+- [x] Document the pinned-driver update policy and unsupported in-place updates
+      after setup retirement; use a separate fresh guest and requalify each new pin.
 - [ ] Keep initial support claims limited to the tested Enterprise Evaluation matrix.
       Home/Pro installation and qualification are deferred until after PR #28.
 
@@ -99,7 +108,7 @@ for the administrator and runtime-key handoffs.
       after 6m46s; the displayed local time was correct.
 
 These are fresh-guest results on an existing host. They do not complete the broader
-session/recovery, upgrade, or physical-host reboot gates above.
+host-crash recovery, end-to-end upgrade, or physical-host reboot gates above.
 
 ## Release qualification — explicitly held
 

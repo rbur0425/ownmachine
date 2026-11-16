@@ -95,8 +95,33 @@ class FreshWindowsTests(unittest.TestCase):
         with patch.object(stages,'probe',side_effect=lambda c,r,operation='status': {'vm_uuid':'test'} if operation=='status' else True):
             for step in ('keys','relay'):
                 self.assertEqual(stages.execute({}, {},step,True)['stage'],'verified')
-        with patch.object(w,'guest',return_value={k:True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')}):
+        with patch.object(w,'guest',return_value={k:True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')}), patch.object(stages,'wait_driver',return_value={'driver_ready':True}):
             self.assertEqual(stages.execute({}, {},'driver',True)['stage'],'verified')
+
+    def test_driver_readiness_wait_is_bounded_and_read_only(self):
+        pending=dict(vm_state='running',guest_reachable=True,bootstrap_hardened=True,driver_ready=False)
+        ready=dict(pending,driver_ready=True)
+        with patch.object(stages.time,'monotonic',side_effect=[0,0,2]),patch.object(stages.time,'sleep') as sleep,patch.object(stages,'probe',return_value=ready) as probe:
+            self.assertEqual(stages.wait_driver({},pending),ready)
+            sleep.assert_called_once_with(2)
+            probe.assert_called_once_with({},'agent',timeout=20)
+        with patch.object(stages.time,'monotonic',side_effect=[0,30]),patch.object(stages,'probe') as probe:
+            self.assertEqual(stages.wait_driver({},pending),pending)
+            probe.assert_not_called()
+        with patch.object(stages.time,'monotonic',side_effect=[0,0,2]),patch.object(stages.time,'sleep'),patch.object(stages,'probe',side_effect=subprocess.TimeoutExpired('ssh',1)):
+            self.assertEqual(stages.wait_driver({},pending),pending)
+        for changes in ({'vm_state':'stopped'},{'bootstrap_hardened':False},{'guest_reachable':False},{'driver_state':'health_check_failed'}):
+            report=dict(pending,**changes)
+            with patch.object(stages,'probe') as probe:
+                self.assertEqual(stages.wait_driver({},report),report)
+                probe.assert_not_called()
+
+    def test_driver_wait_configuration(self):
+        self.assertEqual(stages.readiness_timeout({}),30)
+        for seconds in (0,120):self.assertEqual(stages.readiness_timeout({'driver_ready_timeout_seconds':seconds}),seconds)
+        for value in (True,-1,121,'30',None):
+            with self.assertRaisesRegex(ValueError,'invalid_driver_ready_timeout'):
+                stages.readiness_timeout({'driver_ready_timeout_seconds':value})
 
     def test_ejected_cdrom_accepts_live_index_but_rejects_media(self):
         import xml.etree.ElementTree as ET

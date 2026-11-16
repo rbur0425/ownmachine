@@ -344,3 +344,16 @@ acknowledgement correctly returns HTTP 409. Never acknowledge blindly or retry a
 uncertain close. Modern Notepad can restore unsaved/session tabs; verification of
 a saved file must explicitly open its exact path through File → Open or File
 Explorer, rather than relying on a restored tab.
+
+## Maintenance and restrictive shell permissions
+
+Administrator installation supports a restrictive `umask 077`: the installer sets
+runtime traversal/read modes, the agent-only guest key mode, console permissions
+and SSH file modes explicitly. You do not need to relax your shell's umask. A
+partial registration still requires inspection rather than an automatic retry.
+
+Driver readiness is polled for up to 30 additional seconds by default; configure
+`driver_ready_timeout_seconds` (0–120) in the services JSON for a slower host.
+Polling is read-only and never substitutes for hardening or interactive sign-in.
+See [Windows maintenance](windows-maintenance.md) for session recovery,
+interrupted setup, compatible relay updates, rollback and the pinned-driver policy.

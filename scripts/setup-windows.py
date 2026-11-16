@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from setup_support import private_read, module
 
 ENV={k:os.environ[k] for k in ('PATH','HOME','SSH_AUTH_SOCK','LANG') if k in os.environ}
@@ -21,8 +22,9 @@ ENV={k:os.environ[k] for k in ('PATH','HOME','SSH_AUTH_SOCK','LANG') if k in os.
 
 def configuration(path,plan,require_runtime=True):
     c=json.loads(private_read(path))
-    if not isinstance(c,dict) or (not {'vm_name','storage_dir','runtime_config','agent_alias','viewer_alias','ssh_config'}<=set(c) or set(c)-{'vm_name','storage_dir','runtime_config','agent_alias','viewer_alias','ssh_config','provision'}):
+    if not isinstance(c,dict) or (not {'vm_name','storage_dir','runtime_config','agent_alias','viewer_alias','ssh_config'}<=set(c) or set(c)-{'vm_name','storage_dir','runtime_config','agent_alias','viewer_alias','ssh_config','provision','driver_ready_timeout_seconds'}):
         raise ValueError('invalid_windows_services')
+    readiness_timeout(c)
     if c['vm_name']!=plan['vm_name'] or c['storage_dir']!=plan['storage_dir']:raise ValueError('service_plan_mismatch')
     for key in ('runtime_config','ssh_config'):
         if not isinstance(c[key],str) or not Path(c[key]).is_absolute():raise ValueError('absolute_path_required')
@@ -38,15 +40,47 @@ def configuration(path,plan,require_runtime=True):
     return c
 
 
-def probe(c,role,operation='status'):
+def probe(c,role,operation='status',timeout=20):
     argv=['ssh','-F',c['ssh_config'],'-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ForwardAgent=no','-o','ClearAllForwardings=yes','-o','ConnectTimeout=8',c[role+'_alias'],'ownmachine-host '+operation+' --vm '+c['vm_name']]
-    result=subprocess.run(argv,env=ENV,capture_output=True,text=True,timeout=20)
+    result=subprocess.run(argv,env=ENV,capture_output=True,text=True,timeout=timeout)
     if operation!='status':return result.returncode!=0
     if result.returncode!=0 or len(result.stdout)>65536:raise ValueError('runtime_probe_failed')
     data=json.loads(result.stdout)
     if data.get('vm_uuid')!=c['_vm_uuid'] or data.get('vm_name')!=c['vm_name'] or data.get('backend')!='kvm' or data.get('guest_os')!='windows':
         raise ValueError('production_windows_relay_required')
     return data
+
+
+def readiness_timeout(c):
+    timeout=c.get('driver_ready_timeout_seconds',30)
+    if type(timeout) is not int or not 0<=timeout<=120:raise ValueError('invalid_driver_ready_timeout')
+    return timeout
+
+
+def wait_driver(c,report=None):
+    # Read-only polling: never launch, restart, log in or change a control gate.
+    deadline=time.monotonic()+readiness_timeout(c)
+    if report is None:report=probe(c,'agent')
+    while report.get('driver_ready') is not True:
+        if (report.get('vm_state')!='running' or report.get('guest_reachable') is not True
+                or report.get('bootstrap_hardened') is not True
+                or report.get('driver_state')=='health_check_failed'):
+            break
+        remaining=deadline-time.monotonic()
+        if remaining<=0:break
+        time.sleep(min(2,remaining))
+        remaining=deadline-time.monotonic()
+        if remaining<=0:break
+        try:report=probe(c,'agent',timeout=min(20,remaining))
+        except subprocess.TimeoutExpired:break
+    return report
+
+
+def readiness_result(report):
+    code=('windows_hardening_required' if report.get('bootstrap_hardened') is not True else
+          'windows_driver_start_required' if report.get('guest_reachable') is True else
+          'standard_interactive_guest_login_required')
+    return dict(ok=False,stage='needs_attention',code=code)
 
 
 def preflight(plan):
@@ -89,6 +123,8 @@ def execute(c,plan,step,apply=False):
     if step=='driver':
         result=w.guest(c,'status')
         if not all(result.get(k) is True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')):raise ValueError('guest_driver_validation_failed')
+        report=wait_driver(c)
+        if report.get('driver_ready') is not True:return readiness_result(report)
         return dict(ok=True,stage='verified')
     if step in ('viewer','viewer-check'):
         w.viewer(c,plan,apply and step=='viewer');return dict(ok=True,stage='verified')
@@ -96,11 +132,9 @@ def execute(c,plan,step,apply=False):
         agent=probe(c,'agent');viewer=probe(c,'viewer')
         if agent.get('vm_uuid')!=viewer.get('vm_uuid'):raise ValueError('runtime_roles_disagree')
         if not probe(c,'agent','vnc') or not probe(c,'viewer','mcp'):raise ValueError('runtime_roles_not_restricted')
-        if step in ('permissions','verify') and agent.get('driver_ready') is not True:
-            code=('windows_hardening_required' if agent.get('bootstrap_hardened') is not True else
-                  'windows_driver_start_required' if agent.get('guest_reachable') is True else
-                  'standard_interactive_guest_login_required')
-            return dict(ok=False,stage='needs_attention',code=code)
+        if step in ('permissions','verify'):
+            agent=wait_driver(c,agent)
+            if agent.get('driver_ready') is not True:return readiness_result(agent)
         # Final acceptance must additionally prove viewer connectivity, before the
         # client capture and setup-key retirement can be authorized.
         if step=='verify':

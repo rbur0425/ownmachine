@@ -580,3 +580,64 @@ The automatic-close and revised desktop-task follow-up checks are now passed.
 Mid-stage interruption, broader session recovery, Linux host reboot, maintenance
 policy and final release qualification remain separate gates. No merge or release
 is authorized by this report.
+
+### Restrictive umask and recovery follow-up — November 15, 2026
+
+The administrator installer now applies final modes explicitly, including
+root-owned runtime directories/files, the agent-group-readable guest key,
+private console directory and SSH files. An isolated Linux root fixture used
+umasks 022, 027 and 077 and actual UID/GID changes: the agent read succeeded and
+the viewer read was denied in all three cases. Unit tests additionally check
+same-content mode repair and refusal to overwrite different content. This is
+installer-helper qualification, not a claim of another complete fresh registration.
+A separate root fixture upgraded and rolled back all three runtime modules under
+umask 077, verified final 0644 modes, and checked private 0600 backup hashes.
+That fixture does not qualify an end-to-end version migration on a live VM.
+
+Driver and permissions stages now poll read-only readiness for a configurable
+bounded interval, covering the reported six-second startup race. Tests cover
+late readiness, expiry, slow-probe timeout and refusal to wait through missing
+hardening, stopped VM or failed health. The updated permissions stage also passed
+against the existing accepted guest through both restricted runtime roles.
+
+Live tests used the existing accepted guest and its installed Hermes plugin:
+
+- Lock/unlock: the same backend process captured after unlock; pre-handoff input
+  was refused as stale. Unlock remained an operator viewer action.
+- Sign-out/in: doctor identified the missing interactive driver; capture failed
+  while the session was unavailable. The same backend recovered after normal
+  sign-in and driver startup, without restarting Hermes.
+- Driver restart: stopped the standard user's driver, observed failed transport
+  and doctor reporting driver/session unavailability while guest SSH remained
+  reachable, then started its existing Limited task. The same backend captured
+  successfully afterward. No setup access was restored.
+- Gateway restart: stopped/ensured only the isolated acceptance profile's gateway;
+  its new runtime became ready and capture remained usable without a session-lock
+  repair. The shared Hermes deployment was untouched.
+- Mixed profiles: a cached backend refused both reads and writes under another
+  installed profile. A separate process using that profile captured the same VM
+  through the shared control directory. The original process rejected its old
+  target, then captured afresh. This qualifies refusal plus separate-process use,
+  not transparent cross-profile module reuse in one process.
+
+These are direct installed-Hermes backend/recovery checks, not a second real-model
+save task. No stale-input test dispatched its sentinel text. Existing tests also
+retain uncertain-write markers across reconnect and verify no automatic replay.
+
+A real endpoint subprocess was terminated after a disposable stage payload
+started. Its persisted running checkpoint survived; a second mutation was
+refused before dispatch and progress reported the uncertainty. The test cleaned
+up the disposable child. This exercises mid-stage process interruption and safe
+refusal; it does not simulate power loss during a Windows disk write or prove
+automatic repair of partial administrator registration.
+
+[Maintenance procedures](windows-maintenance.md) now define compatible relay-code
+upgrades, complete-set rollback, interruption inspection and fresh-guest-only
+driver updates after setup retirement. Physical Linux-host reboot and final
+release qualification remain open. No merge or release was performed.
+
+Validation for this follow-up: Linux with the installed Hermes contract ran 488
+tests, with 478 passing and 10 expected macOS-only skips. Hermes plugin validation
+passed, including security scanning and the no-core-override check; the existing
+in-process hook disclosure remains. The accepted guest ended in agent control
+with no pending input outcome and doctor READY. Other VM states/IDs were unchanged.

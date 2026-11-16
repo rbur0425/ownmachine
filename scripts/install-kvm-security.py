@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import pwd
 import re
+import stat
 import subprocess
 import sys
 import uuid
@@ -65,9 +66,29 @@ def write(path,data,mode=0o644):
     if path.exists() or path.is_symlink():
         protected(path)
         if path.read_bytes()!=data: raise ValueError('existing_install_differs_'+path.name)
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        try: os.fchmod(fd,mode)
+        finally: os.close(fd)
         return
     fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,mode)
-    with os.fdopen(fd,'wb') as stream: stream.write(data)
+    with os.fdopen(fd,'wb') as stream:
+        stream.write(data);stream.flush();os.fchmod(stream.fileno(),mode)
+
+
+def runtime_directory(path):
+    # Newly created parents are public code/config traversal paths, never key stores.
+    missing=[];parent=path
+    while not parent.exists():
+        if parent.is_symlink():raise ValueError('unsafe_install_parent')
+        missing.append(parent);parent=parent.parent
+    for existing in (parent,*parent.parents):
+        st=existing.lstat()
+        if not stat.S_ISDIR(st.st_mode) or existing.is_symlink() or st.st_uid!=0 or st.st_mode & 0o022:raise ValueError('unsafe_install_parent')
+        if existing!=path and not st.st_mode & 0o001:raise ValueError('runtime_parent_not_traversable')
+    for directory in reversed(missing):
+        directory.mkdir(mode=0o755)
+        directory.chmod(0o755)
+    path.chmod(0o755)
 
 
 def main():
@@ -76,7 +97,7 @@ def main():
     parser.add_argument('--prefix',type=Path,default=Path('/usr/local/lib/ownmachine-kvm'))
     args=parser.parse_args()
     if os.geteuid()!=0: parser.error('Administrator authentication required')
-    if not re.fullmatch(r'/[A-Za-z0-9_./-]+',str(args.prefix)): raise ValueError('invalid_install_prefix')
+    if not re.fullmatch(r'/[A-Za-z0-9_./-]+',str(args.prefix)) or '..' in args.prefix.parts: raise ValueError('invalid_install_prefix')
     sys.path.insert(0,str(ROOT/'host'))
     from kvm_backend import protected
     from kvm_security import live_hash, polkit_configured
@@ -88,7 +109,7 @@ def main():
     access=Path('/etc/libvirt/libvirtd.conf'); protected(access)
     if not polkit_configured(access.read_text()):
         raise ValueError('enable_libvirt_polkit_and_restart_with_operator_before_installing')
-    args.prefix.mkdir(mode=0o755,parents=True,exist_ok=True)
+    runtime_directory(args.prefix)
     for name in ('ownmachine_host.py','kvm_backend.py','kvm_security.py'):
         write(args.prefix/name,(ROOT/'host'/name).read_bytes())
     config=args.prefix/(identity+'.json')

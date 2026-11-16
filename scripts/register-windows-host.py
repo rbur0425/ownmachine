@@ -95,7 +95,7 @@ def main():
     for role in ('agent','viewer'):
         call('useradd','--create-home','--shell','/bin/bash','--groups','libvirt',p[role+'_user'])
     call('usermod','-aG',p['console_group'],p['viewer_user']);call('usermod','-aG',p['console_group'],p['qemu_user'])
-    console=Path(p['console_socket']).parent;console.mkdir(mode=0o750)
+    console=Path(p['console_socket']).parent;console.mkdir(mode=0o750);console.chmod(0o750)
     os.chown(console,qemu.pw_uid,grp.getgrnam(p['console_group']).gr_gid)
     call('setfacl','-m','d:u:'+p['viewer_user']+':rwx,d:o::---',str(console))
     call('virsh','-c','qemu:///system','net-define',str(state/'network.xml'))
@@ -114,19 +114,19 @@ def main():
     if str(installed)!=c['runtime_config']:raise ValueError('runtime_configuration_path_mismatch')
     for role in ('agent','viewer'):
         user=pwd.getpwnam(p[role+'_user']);home=Path(user.pw_dir);home.chmod(0o700)
-        directory=home/'.ssh';directory.mkdir(mode=0o700);os.chown(directory,user.pw_uid,user.pw_gid)
+        directory=home/'.ssh';directory.mkdir(mode=0o700);directory.chmod(0o700);os.chown(directory,user.pw_uid,user.pw_gid)
         command=shlex.join(['/usr/bin/python3',str(prefix/'ownmachine_host.py'),'--role',role,'--config',str(installed)])
         public=(state/(role+'.pub')).read_text().strip()
         if not re_full_key(public):raise ValueError('invalid_runtime_public_key')
         fd=os.open(directory/'authorized_keys',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
-        with os.fdopen(fd,'w') as f:f.write('restrict,command="'+command.replace('\\','\\\\').replace('"','\\"')+'" '+public+'\n');os.fchown(f.fileno(),user.pw_uid,user.pw_gid)
+        with os.fdopen(fd,'w') as f:f.write('restrict,command="'+command.replace('\\','\\\\').replace('"','\\"')+'" '+public+'\n');os.fchown(f.fileno(),user.pw_uid,user.pw_gid);os.fchmod(f.fileno(),0o600)
     # Only add AllowUsers if the host already maintains that allowlist.
     effective=call('/usr/sbin/sshd','-T')
     users=[p['agent_user'],p['viewer_user']]
     text=('AllowUsers '+' '.join(users)+'\n' if any(line.startswith('allowusers ') for line in effective.splitlines()) else '')
     text+='Match User '+','.join(users)+'\n AuthenticationMethods publickey\n PasswordAuthentication no\n KbdInteractiveAuthentication no\n AllowTcpForwarding no\n AllowStreamLocalForwarding no\n AllowAgentForwarding no\n X11Forwarding no\n PermitTTY no\nMatch all\n'
     fragment=Path('/etc/ssh/sshd_config.d')/('20-ownmachine-'+p['vm_uuid']+'.conf')
-    with fragment.open('x') as f:f.write(text)
+    with fragment.open('x') as f:f.write(text);os.fchmod(f.fileno(),0o644)
     call('/usr/sbin/sshd','-t');call('systemctl','reload',p.get('ssh_service','ssh'))
     call('virsh','-c','qemu:///system','net-start',p['network_uuid'])
     call('virsh','-c','qemu:///system','net-autostart',p['network_uuid'])

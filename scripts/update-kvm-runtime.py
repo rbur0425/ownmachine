@@ -30,12 +30,12 @@ def main():
         backup=destination.with_name(name+'.before-'+hashlib.sha256(old).hexdigest()[:16])
         if not backup.exists():
             fd=os.open(backup,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
-            with os.fdopen(fd,'wb') as f:f.write(old)
+            with os.fdopen(fd,'wb') as f:f.write(old);os.fchmod(f.fileno(),0o600)
         prepared.append((destination,content))
     for destination,content in prepared:
         temp=destination.with_name(destination.name+'.update-new')
         fd=os.open(temp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o644)
-        with os.fdopen(fd,'wb') as f:f.write(content);f.flush();os.fsync(f.fileno())
+        with os.fdopen(fd,'wb') as f:f.write(content);f.flush();os.fchmod(f.fileno(),0o644);os.fsync(f.fileno())
         os.replace(temp,destination)
     print('Root-owned relay code updated with backups; no keys, VM, services or firewall rules changed.')
 
