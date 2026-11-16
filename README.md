@@ -2,7 +2,7 @@
 
 ### Give your AI agent its own desktop.
 
-**A persistent desktop for Hermes—with private SSH access and a browser viewer that keeps you in control.**
+**Give Hermes a Mac, Omarchy or Windows VM to test apps, scrape websites and get work done—while your personal desktop stays yours.**
 
 You want an agent that can use desktop apps. You don't want to hand it your
 personal desktop, give up your mouse while it works, or spend a weekend wiring
@@ -12,6 +12,11 @@ OwnMachine gives Hermes a separate macOS, ARM64 Omarchy or Windows 11 Enterprise
 and working environment. You decide what goes into that workspace. Watch it in
 your browser, pause the agent, take over with your mouse and keyboard, then hand
 control back when you're ready.
+
+Your workspace runs on infrastructure you control, with a private SSH connection
+between Hermes and the VM host. Apps and saved files persist between sessions.
+Screenshots and app text used by the agent follow your configured model provider;
+OwnMachine does not make a cloud model local.
 
 ![OwnMachine desktops: Windows on Linux KVM, macOS and Omarchy on Apple Silicon — promotional illustration](docs/media/releases/1.1.0/platforms.webp)
 

@@ -119,10 +119,12 @@ relay-code upgrade/rollback test is recorded below; physical-host reboot was ski
 
 - [ ] Green final-head CI, plugin validation, bundles and checksums.
 - [ ] Publishable installation, recovery, upgrade and security documentation.
-- [ ] **New release images showcasing Windows, macOS and Omarchy as supported OSes.**
-      Produce these only with accurate qualification labels; do not imply Windows
-      is released before its acceptance gates pass.
-- [ ] Update README, support matrix, catalog pin and release notes through Gitflow.
+- [x] **New release images showcasing Windows, macOS and Omarchy as supported OSes.**
+      [Four promotional illustrations and exact prompts](media/releases/1.1.0/README.md)
+      include host/edition qualification labels. Publication awaits release approval.
+- [x] Prepare README roadmap, support matrix and [v1.1.0 release notes](release-1.1.0.md).
+- [x] Prepare benefit-led [marketplace About copy](catalog/marketplace-copy.md) with accurate privacy disclosure.
+- [ ] Publish through Gitflow and update the catalog pin after release.
 - [ ] Obtain explicit approval to merge/release; this development request does not authorize either.
 
 See [acceptance evidence](windows-kvm-acceptance.md) for completed tests and their
