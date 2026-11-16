@@ -70,7 +70,8 @@ for the administrator and runtime-key handoffs.
 - [ ] Qualify mixed-profile provider loading.
 - [ ] Exercise combined restart, lock/unlock, sign-out, driver restart and gateway restart.
 - [ ] Qualify input modes and prerelease-driver update policy; document unsupported actions.
-- [ ] Test Windows editions separately; keep claims within the tested matrix.
+- [ ] Keep initial support claims limited to the tested Enterprise Evaluation matrix.
+      Home/Pro installation and qualification are deferred until after PR #28.
 
 ## Operator-review regression qualification
 
@@ -107,6 +108,20 @@ session/recovery, upgrade, or physical-host reboot gates above.
 
 See [acceptance evidence](windows-kvm-acceptance.md) for completed tests and their
 limits. A checked implementation item is not a claim of live deployment acceptance.
+
+## Deferred follow-up after PR #28: Windows Home and Pro
+
+Explicitly outside this initial PR and not a blocker for its Enterprise Evaluation
+scope. Do not advertise Home/Pro support until this follow-up is qualified.
+
+- [ ] Add a portable, configurable bring-your-own-media and license installation
+      path for Windows 11 Home and Pro, with explicit edition/image selection.
+- [ ] Document edition-matched activation and license requirements for the VM;
+      do not present a Home/Pro key as activating the Enterprise evaluation.
+      Keep product keys out of chat, logs and repository files.
+- [ ] Test each edition independently: fresh setup, account/sign-in requirements,
+      hardening, driver/control, viewer, model file tasks and restart persistence.
+- [ ] Update the support matrix and onboarding guides only for qualified editions.
 
 ## Existing-domain administrator workflow
 
