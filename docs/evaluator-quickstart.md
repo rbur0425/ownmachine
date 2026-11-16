@@ -1,9 +1,15 @@
 # Evaluator quickstart
 
-OwnMachine gives Hermes a persistent macOS VM and a private browser viewer with
+OwnMachine gives Hermes a persistent desktop VM and a private browser viewer with
 human/agent handoff. This guide is the entry point for evaluating the released
 plugin. Installing the plugin does **not** silently create accounts, authorize
 SSH keys, install a firewall or grant macOS permissions.
+
+**Setting up Windows?** Use the
+[Windows onboarding guide](windows-onboarding.md) and
+[support/input matrix](windows-support-matrix.md). It requires a Linux KVM host,
+not the Mac/Lume prerequisites below. Windows guest login and administrator host
+registration remain manual handoffs; physical Linux-host reboot is unqualified.
 
 ## Manual prerequisites before Hermes can provision
 

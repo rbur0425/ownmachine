@@ -60,6 +60,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--require-hermes', action='store_true')
     args = parser.parse_args()
+    # Tests import the checkout's plugin. An installed OwnMachine in the caller's
+    # Hermes home would make the provider origin guard refuse that copy.
+    import os
+    import tempfile
+    os.environ['HERMES_HOME'] = tempfile.mkdtemp(prefix='ownmachine-tests-home-')
     sys.path.insert(0, str(ROOT / 'plugin'))
     try:
         from ownmachine.provider import OwnMachineBackend

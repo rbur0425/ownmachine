@@ -405,6 +405,13 @@ def main(role='agent'):
     os.umask(0o077)
     try:
         if role not in {'agent','viewer'}:raise ValueError('invalid_role')
+        settings = read_settings()
+        if settings.get('backend') == 'kvm':
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('ownmachine_kvm', Path(__file__).with_name('kvm_backend.py'))
+            adapter = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(adapter)
+            return adapter.main(role, CONFIG_PATH or Path.home()/'.config/ownmachine/host.json')
         name, binary, guest = configuration()
         allowed = {'status','mcp'} if role == 'agent' else {'status','vnc','start','stop','restart'}
         if os.environ.get('SSH_ORIGINAL_COMMAND') not in {f'ownmachine-host {op} --vm {name}' for op in allowed}:
@@ -426,8 +433,9 @@ def main(role='agent'):
         settings = read_settings()
         print(json.dumps(status(name, binary, guest, settings.get('storage_dir'), guest_profile(settings)[0])))
         return 0
-    except (ValueError, OSError, subprocess.SubprocessError):
-        print(json.dumps({'code': 'invalid_host_configuration'}))
+    except (ValueError, OSError, subprocess.SubprocessError) as exc:
+        code = str(exc) if isinstance(exc, ValueError) and str(exc) in {'live_firewall_drift','persistent_firewall_service_required','configuration_changed','security_file_changed','network_identity_mismatch','network_isolation_drift','autostart_must_be_disabled','libvirt_acl_required','live_security_verification_required'} else 'invalid_host_configuration'
+        print(json.dumps({'code': code}))
         return 2
 
 

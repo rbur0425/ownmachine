@@ -14,6 +14,8 @@ def serialized(method):
 
 @contextmanager
 def operation(backend):
+    from .origin import require_active_install
+    require_active_install()
     with backend._operation_lock:
         if backend.owner is not None:
             yield

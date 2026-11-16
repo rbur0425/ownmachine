@@ -101,3 +101,23 @@ verified, then resumed after explicit user confirmation; delivery rechecks conse
 No gateway/provider credentials are read from credential stores. Disclose the
 profile-local helper script, scheduled job and persisted reminder state as well.
 See [submission handoff](../submission-handoff.md) for the checked entry process.
+
+
+## Marketplace banner update queued in PR #28
+
+Set `image:` in the upstream `plugin-catalog/ownmachine.yaml` to the approved
+privacy-choice promotional artwork:
+
+```yaml
+image: https://raw.githubusercontent.com/rbur0425/ownmachine/0a8d3ff5c87f320cbaa0340a77b75dbd49709218/docs/media/catalog/promotions/privacy-choice.png
+```
+
+This selects plugin artwork for the banner instead of the maintainer-avatar
+fallback; `screenshots:` remains the separate gallery. The artwork has an
+immutable asset commit and does not require changing the runtime `sha` or version.
+
+The local YAML above is a historical preparation draft. For the next upstream
+update, apply this field to the **current accepted entry**, preserving its reviewed
+runtime pin, disclosures and screenshots; do not replace it wholesale with the
+older draft. Merging OwnMachine PR #28 alone does not update the live marketplace:
+Nous must merge the catalog change and deploy the site.

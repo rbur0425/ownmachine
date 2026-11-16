@@ -9,6 +9,7 @@ class Config:
     control_dir: str = ""
     vm_name: str = "ownmachine"
     guest_profile: str = "macos"
+    console_transport: str = "password-vnc"
     connect_timeout_seconds: int = 15
     action_timeout_seconds: int = 30
     experimental_linux_background_input: bool = False
@@ -16,8 +17,10 @@ class Config:
     def validate(self):
         if type(self.experimental_linux_background_input) is not bool or (self.experimental_linux_background_input and self.guest_profile != "omarchy"):
             raise ValueError("invalid_linux_background_opt_in")
-        if self.guest_profile not in {"macos", "omarchy"}:
+        if self.guest_profile not in {"macos", "omarchy", "windows"}:
             raise ValueError("unsupported_guest_profile")
+        if self.console_transport not in {"password-vnc", "private-unix"} or (self.console_transport == "private-unix" and self.guest_profile != "windows"):
+            raise ValueError("unsupported_console_transport")
         for value in (self.host_alias, self.vm_name):
             if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,63}", value):
                 raise ValueError("invalid_configuration")

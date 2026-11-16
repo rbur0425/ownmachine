@@ -44,6 +44,25 @@ class OnboardingCommandsTests(unittest.TestCase):
         capture.__enter__()
         self.addCleanup(capture.__exit__, None, None, None)
 
+    def test_guide_uses_public_installed_commit_and_keeps_explicit_override(self):
+        import json
+        original=Path.read_text
+        def read(path,*args,**kwargs):
+            if path.name=='.hermes-catalog.json':
+                return json.dumps({'repo':'https://github.com/rbur0425/ownmachine','sha':'a'*40})
+            return original(path,*args,**kwargs)
+        with patch.object(Path,'read_text',read):
+            self.assertIn('/'+'a'*40+'/docs/windows-onboarding.md',o.guide(Context(),'windows'))
+            self.assertIn('/v2.0.0/',o.guide(Context({'setup_guide_ref':'v2.0.0'}),'windows'))
+
+    def test_isolation_hint_only_when_not_already_configured(self):
+        import types
+        module=types.ModuleType('hermes_cli.config');module.load_config_readonly=lambda:{'plugins':{'isolation':'in_process'}}
+        with patch.dict(sys.modules,{'hermes_cli.config':module}):
+            self.assertEqual(o.prerequisite(),'')
+            module.load_config_readonly=lambda:{}
+            self.assertEqual(o.prerequisite(),o.PREREQUISITE)
+
     def test_registration_is_side_effect_free_and_has_all_entrypoints(self):
         ctx = Context()
         with patch.object(o, 'diagnose', side_effect=AssertionError('network')), patch('builtins.input', side_effect=AssertionError('prompt')):
@@ -63,6 +82,20 @@ class OnboardingCommandsTests(unittest.TestCase):
         self.assertEqual(ctx.settings,original)
         self.assertEqual(ctx.state.values,{})
         with self.assertRaises(o.InputError):o.setup(ctx,args('setup','--later','--apply'))
+
+    def test_windows_saved_reason_directs_handoff_without_remote_execution(self):
+        from ownmachine.setup_next import next_step
+        plan=dict(o.DEFAULTS,target='remote',guest_profile='windows')
+        ctx=Context({'setup_host_alias':'setup-only','setup_source_sha256':'a'*64})
+        outcomes={step:{'stage':'verified'} for step in ('preflight','build','firewall','relay','keys','viewer')}
+        outcomes['provision']={'stage':'needs_attention','code':'windows_time_sync_required'}
+        with patch('ownmachine.setup_transport.summary',return_value={'outcomes':outcomes}):
+            result=next_step(ctx,plan)
+        self.assertIn('UDP 123',result['next'])
+        self.assertIn('provision --apply',result['next'])
+        self.assertIn('next-visit',result['next'])
+        self.assertIn('#first-install-progress-and-recovery',result['next'])
+        self.assertEqual(ctx.state.values,{})
 
     def test_noninteractive_never_prompts_or_saves(self):
         ctx = Context(); o.register_commands(ctx)
@@ -340,3 +373,23 @@ class OnboardingProgressTests(unittest.TestCase):
         for option in ('--os', '--image', '--guest-os'):
             with self.assertRaises(o.InputError):
                 args('setup', option, 'linux')
+
+
+class WindowsPlanningTests(unittest.TestCase):
+    def test_windows_plan_is_saved_without_provisioning(self):
+        ctx=Context()
+        with patch.object(o,'preflight',return_value=[]):
+            report=o.setup(ctx,args('setup','--guest-profile','windows','--target','remote','--storage-dir','/srv/vms','--save'))
+        self.assertEqual(report['guest_os'],'windows')
+        self.assertTrue(report['guide'].endswith('/docs/windows-onboarding.md'))
+        self.assertEqual(ctx.settings['setup_plan']['guest_profile'],'windows')
+        self.assertIn('administrator registration',' '.join(report['steps']))
+        self.assertNotIn('Apple',' '.join(report['steps']))
+
+    def test_windows_disk_minimum(self):
+        with self.assertRaises(o.InputError):o.validate_plan(dict(o.DEFAULTS,guest_profile='windows',target='remote',disk_gb=50))
+
+    def test_windows_local_does_not_accept_a_mac(self):
+        plan=dict(o.DEFAULTS,guest_profile='windows',target='local')
+        with patch.object(o.platform,'system',return_value='Darwin'),patch.object(o.platform,'machine',return_value='arm64'):
+            self.assertTrue(any(c['status']=='fail' for c in o.preflight(plan)))
