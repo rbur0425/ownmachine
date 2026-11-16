@@ -42,6 +42,26 @@ class NativeProviderTests(unittest.TestCase):
   self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
   self.fake=FakeTransport();self.config=Config(host_alias='test',control_dir=self.tmp.name)
   self.b=OwnMachineBackend(self.config,transport=self.fake);self.b.start();self.addCleanup(self.b.stop)
+ def test_failed_read_disconnects_without_replay_and_next_read_recovers(self):
+  from unittest.mock import patch
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  self.fake.fail=True;self.b.type_text('uncertain');self.fake.fail=False
+  original=self.fake.call
+  def failed(name,args):
+   if name=='get_window_state':
+    self.fake.calls.append((name,args));return {'isError':True}
+   return original(name,args)
+  with patch.object(self.fake,'call',side_effect=failed),patch.object(self.fake,'stop') as stop:
+   before=sum(n=='get_window_state' for n,a in self.fake.calls)
+   with self.assertRaisesRegex(RuntimeError,'driver_read_failed'):self.b.capture(app='Editor')
+   self.assertEqual(sum(n=='get_window_state' for n,a in self.fake.calls),before+1)
+   stop.assert_called_once();self.assertFalse(self.b._connected)
+  before=sum(n=='start_session' for n,a in self.fake.calls)
+  self.b.capture(app='Editor')
+  self.assertEqual(sum(n=='start_session' for n,a in self.fake.calls),before+1)
+  self.assertTrue(self.b.lease.status()['pending'])
+  self.assertEqual(self.b.type_text('do not replay').code,'transport_outcome_unknown')
+
  def test_abc_instantiates_and_permission_modes_fail_closed(self):
   for mode in ('bounded','unrestricted','unknown'):
    with self.assertRaises(ValueError):OwnMachineBackend(self.config,mode)
@@ -237,6 +257,201 @@ b.stop()
   self.assertEqual(self.b.focus_app('Browser').code,'linux_launch_identity_missing')
   self.assertNotIn('launch_app',[n for n,a in self.fake.calls])
   self.assertFalse(self.b.lease.status()['pending'])
+
+ def test_windows_uwp_launch_uses_complete_aumid(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  self.cold_launch_fixture(launch_path='shell:appsFolder\\Example.Package!App')
+  self.assertTrue(self.b.focus_app('Browser',raise_window=True).ok)
+  launched=[a for n,a in self.fake.calls if n=='launch_app']
+  self.assertEqual(launched[0]['aumid'],'Example.Package!App')
+  self.assertNotIn('bundle_id',launched[0])
+
+ def test_windows_foreground_shortcut_preserves_exact_target_and_delivery(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  self.fake.tools['press_key']['properties']['modifiers']={}
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  result=self.b.key('ctrl+s',delivery_mode='foreground')
+  self.assertTrue(result.ok)
+  self.assertEqual(result.meta['input_route'],dict(guest_profile='windows',requested_delivery_mode='foreground',driver_tool='press_key'))
+  name,args=self.fake.calls[-1]
+  self.assertEqual(name,'press_key');self.assertEqual(args['modifiers'],['ctrl'])
+  self.assertEqual((args['key'],args['pid'],args['window_id'],args['delivery_mode']),('s',12,34,'foreground'))
+  self.assertTrue(self.b.key('ctrl+s',delivery_mode='background').ok)
+  self.assertEqual(self.fake.calls[-1][0],'hotkey')
+
+ def test_windows_shortcut_requires_driver_modifier_contract(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  self.b.lease.transfer('agent');self.b.capture(app='Editor');count=len(self.fake.calls)
+  self.assertEqual(self.b.key('ctrl+s',delivery_mode='foreground').code,'windows_modifier_keys_unsupported')
+  self.assertEqual(len(self.fake.calls),count)
+
+ def close_fixture(self, *, label='Close Tab', profile='windows', failure=None,
+                   windows=None, probe=None, probe_error=False):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile=profile)
+  original=self.fake.call
+  dispatched=False
+  def call(name,args):
+   nonlocal dispatched
+   if name=='click':
+    self.fake.calls.append((name,args));dispatched=True
+    return failure or {'isError':True,'structuredContent':{'code':'tool_invocation_failed',
+     'message':'foreground_unavailable: exact target HWND 0x22 or a verified same-process post-action window was not foreground after the click (actual foreground HWND 0x33)'}}
+   if dispatched and name=='list_windows':
+    self.fake.calls.append((name,args))
+    return windows if windows is not None else {'structuredContent':{'windows':[]}}
+   if dispatched and name=='get_window_state':
+    self.fake.calls.append((name,args))
+    if probe_error:raise TransportError('transport_outcome_unknown')
+    return probe if probe is not None else {'isError':True,'content':[{'type':'text',
+     'text':'No window with window_id 34 exists. Call `list_windows({"pid": 12})` for candidates.'}]}
+   reply=original(name,args)
+   if name=='get_window_state':
+    row=reply['structuredContent']['elements'][0]
+    row.update(role='Button',label=label,actions=['invoke','AXPress'])
+   return reply
+  self.fake.call=call
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+
+ def test_last_window_close_verified_without_replay_or_transfer(self):
+  self.close_fixture();generation=self.b.lease.status()['generation']
+  result=self.b.click(element=1,delivery_mode='foreground')
+  self.assertTrue(result.ok);self.assertTrue(result.verified)
+  self.assertEqual(result.code,'window_closed_verified')
+  self.assertEqual(self.b.lease.status(),dict(controller='agent',generation=generation,pending=False))
+  self.assertIsNone(self.b.target);self.assertEqual(self.b.tokens,{})
+  self.assertEqual([n for n,a in self.fake.calls].count('click'),1)
+  self.assertEqual(self.b.type_text('no stale input').code,'capture_required')
+
+ def test_close_reconciliation_rejects_ambiguous_and_non_close_results(self):
+  cases=[{'label':'Delete'}, {'profile':'macos'},
+   {'failure':{'isError':True,'structuredContent':{'code':'tool_invocation_failed','message':'foreground_unavailable: refused before input'}}},
+   {'windows':{'structuredContent':{}}},
+   {'windows':{'isError':True,'structuredContent':{'windows':[]}}},
+   {'windows':{'structuredContent':{'windows':[{}]}}},
+   {'windows':{'structuredContent':{'windows':[{'pid':12,'window_id':34,'minimized':True}]}}},
+   {'windows':{'structuredContent':{'windows':[{'pid':12,'window_id':35}]}}},
+   {'windows':{'structuredContent':{'windows':[{'pid':13,'window_id':34}]}}},
+   {'probe':{'structuredContent':{'elements':[]}}},
+   {'probe':{'isError':True,'content':[{'type':'text','text':'capture failed'}]}},
+   {'probe':{'isError':True,'content':[{'type':'text','text':'window_id 34 belongs to pid 13, not pid 12.'}]}},
+   {'probe_error':True}]
+  for case in cases:
+   with self.subTest(case=case):
+    self.b.stop();self.fake=FakeTransport()
+    self.b=OwnMachineBackend(self.config,transport=self.fake)
+    self.close_fixture(**case)
+    result=self.b.click(element=1,delivery_mode='foreground')
+    self.assertFalse(result.ok);self.assertTrue(self.b.lease.status()['pending'])
+    self.assertEqual([n for n,a in self.fake.calls].count('click'),1)
+
+ def test_background_close_is_not_reclassified(self):
+  self.close_fixture()
+  self.assertFalse(self.b.click(element=1,delivery_mode='background').ok)
+  self.assertTrue(self.b.lease.status()['pending'])
+
+ def combo_edit_fixture(self, profile='windows'):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile=profile)
+  original=self.fake.call
+  def call(name,args):
+   reply=original(name,args)
+   if name=='get_window_state':
+    reply['structuredContent']['elements']=[
+     {'element_index':0,'element_token':'s00000001:0','role':'ComboBox','actions':['set_value']},
+     {'element_index':1,'element_token':'s00000001:1','role':'Edit','parent_index':0,'actions':['set_value'],'focused':True},
+     {'element_index':2,'element_token':'s00000001:2','role':'Edit','actions':['set_value']}]
+   return reply
+  self.fake.call=call
+  self.b.lease.transfer('agent')
+  return self.b.capture(app='Editor')
+
+ def test_windows_combo_edit_capability_is_filtered_before_dispatch(self):
+  cap=self.combo_edit_fixture()
+  self.assertNotIn('set_value',cap.elements[1].attributes['actions'])
+  self.assertIn('set_value',cap.elements[0].attributes['actions'])
+  self.assertIn('set_value',cap.elements[2].attributes['actions'])
+  self.assertIn('confirm the edit has keyboard focus',cap.note)
+  self.assertIn('delivery_mode=foreground',cap.note)
+  self.assertIn('restored Notepad tab is not file-reopen evidence',cap.note)
+  count=len(self.fake.calls)
+  result=self.b.set_value('new-file.txt',element=2)
+  self.assertEqual(result.code,'windows_combo_edit_requires_keyboard')
+  self.assertFalse(result.meta['dispatched']);self.assertEqual(len(self.fake.calls),count)
+  self.assertFalse(self.b.lease.status()['pending'])
+  self.assertTrue(self.b.type_text('new-file.txt',delivery_mode='foreground').ok)
+  self.assertTrue(self.b.set_value('ordinary edit',element=3).ok)
+  self.assertTrue(self.b.set_value('existing option',element=1).ok)
+
+ def test_windows_combo_edit_preflight_preserves_control_gates(self):
+  self.combo_edit_fixture();self.b.lease.transfer('human')
+  count=len(self.fake.calls)
+  self.assertEqual(self.b.set_value('x',element=2).code,'human_takeover')
+  self.assertEqual(len(self.fake.calls),count)
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  self.fake.fail=True
+  self.assertEqual(self.b.type_text('x').code,'transport_outcome_unknown')
+  self.fake.fail=False;self.b.capture(app='Editor')
+  self.assertEqual(self.b.set_value('x',element=2).code,'transport_outcome_unknown')
+  self.assertTrue(self.b.lease.status()['pending'])
+
+ def test_combo_edit_filter_is_windows_only_and_capture_scoped(self):
+  cap=self.combo_edit_fixture('macos')
+  self.assertIn('set_value',cap.elements[1].attributes['actions'])
+  self.assertTrue(self.b.set_value('x',element=2).ok)
+  self.combo_edit_fixture()
+  self.fake.call=FakeTransport.call.__get__(self.fake,FakeTransport)
+  self.b.capture(app='Editor')
+  self.assertFalse(self.b.combo_edit_tokens)
+  self.assertTrue(self.b.set_value('x',element=1).ok)
+
+ def test_windows_uia_invoke_action_is_supported(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  self.b.lease.transfer('agent');self.b.capture(app='Editor')
+  self.b.element_actions[1]=['invoke']
+  self.assertTrue(self.b.click(element=1).ok)
+  self.b.element_actions[1]=['set_value'];count=len(self.fake.calls)
+  self.assertEqual(self.b.click(element=1).code,'element_press_unsupported')
+  self.assertEqual(len(self.fake.calls),count)
+
+ def test_windows_display_name_resolves_exact_running_process(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  original=self.fake.call
+  def call(name,args):
+   if name=='list_apps':
+    return {'structuredContent':{'apps':[{'name':'Localized Editor','pid':12,'bundle_id':'package.editor'}]}}
+   return original(name,args)
+  self.fake.call=call
+  self.b.capture(app='Localized Editor',pid=12,window_id=34)
+  self.assertEqual(self.b.target,{'pid':12,'window_id':34})
+  with self.assertRaisesRegex(ValueError,'window_not_found'):
+   self.b.capture(app='Localized Editor',pid=99)
+
+ def test_windows_display_name_ambiguity_never_guesses(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  original=self.fake.call
+  def call(name,args):
+   if name=='list_apps':
+    return {'structuredContent':{'apps':[{'name':'Editor name','pid':p} for p in (12,13)]}}
+   return original(name,args)
+  self.fake.call=call
+  with self.assertRaisesRegex(ValueError,'windows_app_target_not_unique'):
+   self.b.capture(app='Editor name')
+  self.assertIsNone(self.b.target)
+
+ def test_windows_desktop_launch_preserves_discovered_command(self):
+  from dataclasses import replace
+  self.b.config=replace(self.config,guest_profile='windows')
+  path='"C:\\Program Files\\Example\\browser.exe" --profile=test'
+  self.cold_launch_fixture(launch_path=path)
+  self.assertTrue(self.b.focus_app('Browser').ok)
+  self.assertEqual([a for n,a in self.fake.calls if n=='launch_app'][0]['launch_path'],path)
 
  def test_linux_text_activation_refuses_without_poisoning_gate(self):
   from dataclasses import replace

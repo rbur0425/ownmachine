@@ -1,4 +1,6 @@
 import json
+import os
+import signal
 from pathlib import Path
 import subprocess
 import sys
@@ -30,6 +32,22 @@ class TransportTests(unittest.TestCase):
         self.assertTrue(result['ok'])
         report,_=o.execute(self.ctx,args('status','--json'))
         self.assertEqual(json.loads(report)['execution']['outcomes']['preflight']['stage'],'observed')
+
+    def test_only_allowlisted_windows_reasons_import(self):
+        self.plan['guest_profile']='windows'
+        def receipt(code):
+            def exchange(argv,request,timeout):
+                result=self.receipt(argv,request,timeout)
+                result['ok']=False
+                result['outcomes'][request['step']].update(stage='needs_attention',code=code)
+                return result
+            return exchange
+        with patch.object(t,'exchange',side_effect=receipt('windows_time_sync_required')):
+            result=t.dispatch(self.ctx,self.plan,'preflight')
+            self.assertEqual(result['outcomes']['preflight']['code'],'windows_time_sync_required')
+        for code in ('remote command: run unsafe',{},''):
+            with patch.object(t,'exchange',side_effect=receipt(code)),self.assertRaises(ValueError):
+                t.dispatch(self.ctx,self.plan,'preflight')
 
     def test_mismatches_never_import_or_retry(self):
         for key in ('nonce','source_sha256','plan_digest','vm','step'):
@@ -80,6 +98,53 @@ class TransportTests(unittest.TestCase):
                 self.assertEqual(progress['outcomes']['preflight']['stage'],'observed')
                 with self.assertRaises(ValueError):endpoint.execute(dict(req,nonce='d'*64,vm='other'),c,self.plan)
 
+    def test_mid_stage_process_death_refuses_mutation_replay(self):
+        # Real child/lock/checkpoint interruption; only the stage payload is a fixture.
+        with tempfile.TemporaryDirectory() as folder,patch.object(Path,'home',return_value=Path(folder).resolve()):
+            marker=Path(folder)/'started'
+            c=dict(source_sha256='a'*64,allowed_steps=['driver'])
+            req=dict(format=1,nonce='b'*64,source_sha256='a'*64,plan_digest=t.digest(self.plan),vm='ownmachine',step='driver',apply=True)
+            payload="import os,time,pathlib; pathlib.Path("+repr(str(marker))+").write_text(str(os.getpid())); time.sleep(60)"
+            pid=os.fork()
+            if pid==0:
+                try:
+                    with patch.object(endpoint,'command',return_value=[sys.executable,'-c',payload]):endpoint.execute(req,c,self.plan)
+                finally:os._exit(0)
+            child=None
+            try:
+                deadline=time.monotonic()+5
+                while not marker.exists() and time.monotonic()<deadline:time.sleep(.02)
+                self.assertTrue(marker.exists())
+                child=int(marker.read_text())
+                os.kill(pid,signal.SIGTERM);os.waitpid(pid,0);pid=None
+                # The running marker survives and prevents a second mutation,
+                # even after the dead endpoint's OS lock has been released.
+                with patch.object(endpoint,'command') as command:
+                    with self.assertRaisesRegex(ValueError,'uncertain_previous_step'):
+                        endpoint.execute(dict(req,nonce='c'*64),c,self.plan)
+                    command.assert_not_called()
+                progress=endpoint.execute(dict(req,nonce='d'*64,step='progress',apply=False),c,self.plan)
+                self.assertFalse(progress['ok'])
+                self.assertEqual(progress['outcomes']['driver']['stage'],'running')
+            finally:
+                if pid:
+                    os.kill(pid,signal.SIGTERM);os.waitpid(pid,0)
+                if child:
+                    try:os.kill(child,signal.SIGTERM)
+                    except ProcessLookupError:pass
+
+    def test_endpoint_preserves_only_allowlisted_windows_reason(self):
+        plan=dict(self.plan,guest_profile='windows')
+        for code,expected in [('windows_time_sync_required','windows_time_sync_required'),('private remote text',None),({},None)]:
+            with tempfile.TemporaryDirectory() as folder,patch.object(Path,'home',return_value=Path(folder).resolve()):
+                c=dict(source_sha256='a'*64,allowed_steps=['permissions'])
+                req=dict(format=1,nonce='b'*64,source_sha256='a'*64,plan_digest=t.digest(plan),vm='ownmachine',step='permissions',apply=False)
+                report=dict(ok=False,stage='needs_attention',code=code,next='untrusted instructions')
+                with patch.object(endpoint,'command',return_value=['fixed']),patch.object(endpoint.subprocess,'run',return_value=subprocess.CompletedProcess([],2,json.dumps(report))):
+                    result=endpoint.execute(req,c,plan)['outcomes']['permissions']
+                    self.assertEqual(result.get('code'),expected)
+                    self.assertNotIn('next',result)
+
     def test_endpoint_requires_preflight_before_creation(self):
         with tempfile.TemporaryDirectory() as folder,patch.object(Path,'home',return_value=Path(folder).resolve()):
             c=dict(source_sha256='a'*64,allowed_steps=['build'])
@@ -127,3 +192,16 @@ class StreamTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'setup_cancelled'):
                 t.exchange([sys.executable,'-c','import time; time.sleep(30)'],{},60)
         finally:t.CANCEL.reset(token)
+
+
+class WindowsEndpointTests(unittest.TestCase):
+    def test_windows_never_routes_to_macos_provisioner(self):
+        c={'services_file':'/private/services.json','plan_file':'/private/plan.json'}
+        argv=endpoint.command(c,dict(o.DEFAULTS,guest_profile='windows'),'provision',True)
+        self.assertTrue(argv[1].endswith('/setup-windows.py'))
+        self.assertIn('--apply',argv)
+
+    def test_windows_mutations_require_explicit_apply(self):
+        windows=module('test_windows_stages','scripts/setup-windows.py')
+        for step in ('build','provision','harden'):
+            with self.assertRaisesRegex(ValueError,'explicit_apply'):windows.execute({},dict(o.DEFAULTS,guest_profile='windows'),step)
