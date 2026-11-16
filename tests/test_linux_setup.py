@@ -1,6 +1,5 @@
 """Linux onboarding rejects unsafe/replayed installation and preserves profile routing."""
 import json
-import os
 from pathlib import Path
 import subprocess
 import sys

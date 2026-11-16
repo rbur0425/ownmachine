@@ -3,7 +3,6 @@
 import base64
 import fcntl
 import hashlib
-import json
 import os
 from pathlib import Path
 import shlex

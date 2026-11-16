@@ -2,6 +2,8 @@
 # Ubuntu-only prerequisite installation; creates no VM or runtime authorization.
 set -euo pipefail
 if [[ ${EUID} -ne 0 ]]; then echo 'Run with sudo on the selected Linux VM host.' >&2; exit 1; fi
+# The distribution metadata is provided by the host, not this repository.
+# shellcheck source=/dev/null
 . /etc/os-release
 if [[ ${ID:-} != ubuntu ]]; then echo 'This reviewed prerequisite script targets Ubuntu.' >&2; exit 1; fi
 if [[ $(uname -m) != x86_64 ]]; then echo 'The spike requires an x86_64 host.' >&2; exit 1; fi

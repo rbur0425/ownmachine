@@ -1,0 +1,20 @@
+[
+  {
+    "path": "host/ownmachine_host.py",
+    "rule": "OM004",
+    "fingerprint": "8e9b00a1393877d566067787623d60a7d9ca9d65156e350f4dd9b7121873596c",
+    "reason": "VNC authentication metadata intentionally sent only on the restricted viewer SSH protocol stream, not to operator logs."
+  },
+  {
+    "path": "scripts/ownmachine-viewer-access.py",
+    "rule": "OM004",
+    "fingerprint": "51d7e770b776cb4a23662885bbf88a8c9646c8392047338d9681180271211070",
+    "reason": "Owner explicitly requests --show-url or --show-token after private-file and live-viewer validation; default output does not expose the token."
+  },
+  {
+    "path": "scripts/ownmachine-viewer-access.py",
+    "rule": "OM004",
+    "fingerprint": "892f6075e9b28e910869517cdc527fa8979ba2c7331c7335e504f5258794c0cc",
+    "reason": "Owner explicitly requests --show-url or --show-token after private-file and live-viewer validation; default output does not expose the token."
+  }
+]

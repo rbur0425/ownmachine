@@ -1,0 +1,5 @@
+target-version = "py311"
+extend-exclude = ["viewer/vendor"]
+[lint]
+# Correctness first; formatting/style migration is deliberately separate.
+select = ["F", "E9"]

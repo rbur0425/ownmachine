@@ -51,6 +51,8 @@ def exchange(argv, request, timeout):
     output = bytearray()
     total = sequence = 0
     try:
+        if process.stdin is None or process.stdout is None:
+            raise ValueError("setup_pipe_unavailable")
         process.stdin.write(json.dumps(request).encode())
         process.stdin.close()
         deadline = time.monotonic() + timeout
@@ -90,8 +92,8 @@ def exchange(argv, request, timeout):
         if process.poll() is None:
             process.kill()
         process.wait(timeout=5)
-        process.stdout.close()
-        if not process.stdin.closed: process.stdin.close()
+        if process.stdout is not None: process.stdout.close()
+        if process.stdin is not None and not process.stdin.closed: process.stdin.close()
 
 
 def dispatch(ctx, plan, step, apply=False, *, capture=None):

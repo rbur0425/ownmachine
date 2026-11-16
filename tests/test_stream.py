@@ -5,7 +5,6 @@ import struct
 import sys
 import tempfile
 import threading
-import time
 import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace

@@ -2,11 +2,10 @@ import importlib.util
 from dataclasses import replace
 import json
 from pathlib import Path
-import sqlite3
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'plugin'))
 from ownmachine.config import Config
 from ownmachine.diagnostics import diagnose, render, REQUIRED_TOOLS

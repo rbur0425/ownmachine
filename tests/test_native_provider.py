@@ -1,8 +1,6 @@
 """Run against Hermes's installed public ABC; skip when Hermes is absent."""
 import base64
-import importlib.util
 from pathlib import Path
-import struct
 import sys
 import tempfile
 import unittest

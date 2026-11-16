@@ -9,10 +9,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import re
 import shlex
 import subprocess
-import sys
 import urllib.request
 from setup_support import ROOT, mac, module, private_read, install_exact
 
@@ -88,6 +86,7 @@ systemctl daemon-reload
 def download(stage):
     name='install-arch.sh' if stage=='base' else 'install-omarchy.sh'
     url=f'https://raw.githubusercontent.com/trycua/cua/{PIN}/docs/public/scripts/omarchy-arm64-lume/{name}'
+    # HTTPS URL is built from a pinned upstream source; content SHA-256 is verified before use.
     with urllib.request.urlopen(url,timeout=60) as response:content=response.read(131073)
     if len(content)>131072 or hashlib.sha256(content).hexdigest()!=DIGESTS[stage]:raise ValueError('installer_checksum_mismatch')
     return content.decode()

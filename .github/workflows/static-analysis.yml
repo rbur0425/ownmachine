@@ -1,0 +1,64 @@
+name: Static analysis
+on:
+  push:
+    branches: [develop, main, 'release/**']
+  pull_request:
+    branches: [develop, main]
+  schedule:
+    - cron: '23 14 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analysis:
+    name: Code and security analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.25'
+          cache: false
+      - name: Install pinned development analyzers
+        run: |
+          python -m pip install -r ci/analysis-requirements.txt
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - name: Run all analyzers
+        run: python scripts/static-analysis.py --output-dir "$RUNNER_TEMP/ownmachine-analysis"
+      - name: Preserve analysis findings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: static-analysis
+          path: ${{ runner.temp }}/ownmachine-analysis
+          retention-days: 14
+          if-no-files-found: warn
+  dependencies:
+    name: Runtime dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install pinned auditing tools
+        run: python -m pip install pip-audit==2.10.1 PyYAML==6.0.3
+      - name: Audit plugin and viewer dependencies
+        run: python scripts/audit-dependencies.py --output "$RUNNER_TEMP/ownmachine-audit/dependencies.json"
+      - name: Preserve dependency findings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dependency-audit
+          path: ${{ runner.temp }}/ownmachine-audit
+          retention-days: 14
+          if-no-files-found: warn
