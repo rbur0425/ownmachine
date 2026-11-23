@@ -125,16 +125,21 @@ def build(c,plan):
     wrapper=state/'ssh-bin';wrapper.mkdir(mode=0o700)
     import shlex
     install_exact(wrapper/'ssh',('#!/bin/sh\nexec /usr/bin/ssh -F '+shlex.quote(c['ssh_config'])+' "$@"\n').encode());(wrapper/'ssh').chmod(0o700)
-    runtime={k:p[k] for k in ('vm_uuid','network_uuid','agent_user','viewer_user','qemu_user','console_group','console_socket','guest_ip','subnet','guest_user')}
-    runtime.update(backend='kvm',vm_name=plan['vm_name'],network_name=plan['vm_name'],guest_key=str(state/'guest'),guest_known_hosts=str(state/'guest-known-hosts'),
-                   driver_executable=p.get('guest_install_root','')+'/driver/cua-driver-rs-0.49.3-windows-x86_64/cua-driver.exe',guest_health_script=p.get('guest_install_root','')+'/health.ps1',require_hardened=True)
-    if linux:
-        runtime.pop('guest_health_script')
-        runtime.pop('driver_executable')
-        runtime['guest_profile']='omarchy-kvm'
+    runtime=runtime_settings(p,plan,state)
     write(state/'install.json',dict(runtime=runtime,bridge=p['bridge']))
     files={name:sha(state/name) for name in ('domain.xml','network.xml','omarchy.qcow2' if linux else 'bootstrap.iso','install.json')}
     write(receipt,dict(identity=identity,files=files))
+
+
+def runtime_settings(p, plan, state):
+    runtime={k:p[k] for k in ('vm_uuid','network_uuid','agent_user','viewer_user','qemu_user','console_group','console_socket','guest_ip','subnet','guest_user')}
+    runtime.update(backend='kvm',vm_name=plan['vm_name'],network_name=plan['vm_name'],guest_key=str(state/'guest'),guest_known_hosts=str(state/'guest-known-hosts'),
+                   driver_executable=p.get('guest_install_root','')+'/driver/cua-driver-rs-0.49.3-windows-x86_64/cua-driver.exe',guest_health_script=p.get('guest_install_root','')+'/health.ps1',require_hardened=True)
+    if plan.get('guest_profile') == 'omarchy-kvm':
+        runtime.pop('guest_health_script')
+        runtime.pop('driver_executable')
+        runtime['guest_profile']='omarchy-kvm'
+    return runtime
 
 
 def guest(c,operation):

@@ -13,11 +13,12 @@ import os
 from pathlib import Path
 import pwd
 import shlex
+import stat
 import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
-from windows_provision import settings,sha
+from windows_provision import runtime_settings,settings,sha
 from setup_support import ROOT
 
 
@@ -28,8 +29,23 @@ def call(*args):
 def absent(*args):return subprocess.run(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode!=0
 
 
+def copy_setup_file(source, target, owner):
+    fd=os.open(source,os.O_RDONLY|os.O_NONBLOCK|os.O_NOFOLLOW)
+    with os.fdopen(fd,'rb') as stream:
+        info=os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid!=owner or info.st_nlink!=1:
+            raise ValueError('invalid_setup_key_material')
+        value=stream.read(16385)
+        if not value or len(value)>16384:
+            raise ValueError('invalid_setup_key_material')
+    target.write_bytes(value)
+    target.chmod(0o600)
+
+
 def main():
-    a=argparse.ArgumentParser(description=__doc__);a.add_argument('--services-file',type=Path,required=True);a.add_argument('--plan-file',type=Path,required=True);args=a.parse_args()
+    a=argparse.ArgumentParser(description=__doc__);a.add_argument('--services-file',type=Path,required=True);a.add_argument('--plan-file',type=Path,required=True);a.add_argument('--disk-parent', type=Path, default=Path('/var/lib/libvirt/images'),
+        help='Existing root-controlled runtime disk directory for Omarchy KVM')
+    args=a.parse_args()
     if os.geteuid()!=0:a.error('Administrator authentication required')
     c=json.loads(args.services_file.read_text());payload=json.loads(args.plan_file.read_text());plan=payload.get('plan',payload);p=settings(c,plan)
     linux=plan.get('guest_profile')=='omarchy-kvm'
@@ -74,28 +90,40 @@ def main():
     if set(receipt['files'])!={'domain.xml','network.xml','omarchy.qcow2' if linux else 'bootstrap.iso','install.json'}:raise ValueError('invalid_build_receipt')
     if json.loads((state/'render.json').read_text())!={**p,'storage_dir':str(state)}:raise ValueError('render_configuration_changed')
     for name,digest in receipt['files'].items():
+        if linux and name=='omarchy.qcow2':continue  # verified while copying from the open inode
         if sha(state/name)!=digest:raise ValueError('built_artifact_changed')
     if not linux and sha(p['windows_iso'])!=p['windows_iso_sha256']:raise ValueError('windows_iso_changed')
     # Re-render, compare and then define, never accept arbitrary supplied XML.
     with tempfile.TemporaryDirectory() as directory:
-        call(sys.executable,str(ROOT/'scripts/windows/render-domain.py'),str(state/'render.json'),directory)
+        reviewed=Path(directory)/'render.json'
+        reviewed.write_text(json.dumps(p))
+        call(sys.executable,str(ROOT/'scripts/windows/render-domain.py'),str(reviewed),directory)
         for name in ('domain.xml','network.xml'):
             if (Path(directory)/name).read_bytes()!=(state/name).read_bytes():raise ValueError('unexpected_domain_template')
+        network_xml=(Path(directory)/'network.xml').read_text()
+        domain_xml=(Path(directory)/'domain.xml').read_text()
     for path in (prefix.parent,*prefix.parent.parents):
         st=path.stat()
         if path.is_symlink() or st.st_uid!=0 or st.st_mode & 0o022:raise ValueError('unsafe_runtime_parent')
+    qemu=pwd.getpwnam(p['qemu_user'])
     if linux:
-        disks=[state/'omarchy.qcow2']
+        from kvm_disk import import_disk
+        disk=import_disk(state/'omarchy.qcow2', args.disk_parent, p['vm_uuid'],
+                         pwd.getpwnam(p['operator_user']).pw_uid, qemu,
+                         plan['disk_gb'] * 1024**3, receipt['files']['omarchy.qcow2'])
+        tree=ET.fromstring(domain_xml)
+        tree.find("./devices/disk[@device='disk']/source").set('file',str(disk))
+        domain_xml=ET.tostring(tree,encoding='unicode')
+        disks=[]
     else:
         disk=state/'windows.qcow2'
         fd=os.open(disk,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600);os.close(fd)
         call('qemu-img','create','-f','qcow2',str(disk),str(plan['disk_gb'])+'G')
         disks=[disk,state/'bootstrap.iso']
-    qemu=pwd.getpwnam(p['qemu_user'])
     for path in disks:
         os.chown(path,qemu.pw_uid,qemu.pw_gid);path.chmod(0o600)
     # Traversal only through private parents, no recursive sharing with runtime users.
-    for path in (state,*state.parents,media.parent,*media.parent.parents):
+    for path in (() if linux else (state,*state.parents,media.parent,*media.parent.parents)):
         if path.is_symlink():raise ValueError('symlink_storage_refused')
         if path.stat().st_mode & 0o001==0:call('setfacl','-m','u:'+p['qemu_user']+':--x',str(path))
     call('groupadd','--system',p['console_group'])
@@ -105,8 +133,11 @@ def main():
     console=Path(p['console_socket']).parent;console.mkdir(mode=0o750);console.chmod(0o750)
     os.chown(console,qemu.pw_uid,grp.getgrnam(p['console_group']).gr_gid)
     call('setfacl','-m','d:u:'+p['viewer_user']+':rwx,d:o::---',str(console))
-    call('virsh','-c','qemu:///system','net-define',str(state/'network.xml'))
-    call('virsh','-c','qemu:///system','define',str(state/'domain.xml'))
+    with tempfile.TemporaryDirectory() as directory:
+        network=Path(directory)/'network.xml';network.write_text(network_xml)
+        domain=Path(directory)/'domain.xml';domain.write_text(domain_xml)
+        call('virsh','-c','qemu:///system','net-define',str(network))
+        call('virsh','-c','qemu:///system','define',str(domain))
     # Verify libvirt's normalized definition before installing any runtime keys.
     # XML is generated by local libvirt via fixed virsh commands, not guest/network XML.
     actual=ET.fromstring(call('virsh','-c','qemu:///system','dumpxml',p['vm_uuid']))
@@ -117,7 +148,17 @@ def main():
     if len(listeners)!=1 or listeners[0].get('type')!='socket' or listeners[0].get('socket')!=p['console_socket']:
         raise ValueError('libvirt_did_not_preserve_private_console')
     # install-kvm-security validates existing ACL configuration and pins all code.
-    call(sys.executable,str(ROOT/'scripts/install-kvm-security.py'),'--config',str(state/'install.json'),'--prefix',str(prefix))
+    with tempfile.TemporaryDirectory() as directory:
+        setup_dir=Path(directory)
+        runtime=runtime_settings(p,plan,state)
+        owner=pwd.getpwnam(p['operator_user']).pw_uid
+        for field in ('guest_key','guest_known_hosts'):
+            target=setup_dir/field
+            copy_setup_file(Path(runtime[field]),target,owner)
+            runtime[field]=str(target)
+        install=setup_dir/'install.json'
+        install.write_text(json.dumps(dict(runtime=runtime,bridge=p['bridge'])))
+        call(sys.executable,str(ROOT/'scripts/install-kvm-security.py'),'--config',str(install),'--prefix',str(prefix))
     installed=prefix/(p['vm_uuid'].replace('-','')+'.json')
     if str(installed)!=c['runtime_config']:raise ValueError('runtime_configuration_path_mismatch')
     for role in ('agent','viewer'):

@@ -49,7 +49,7 @@ def prepare_disk(state,p):
         put('etc/ssh/sshd_config.d/00-00-ownmachine.conf','HostKey /etc/ssh/ownmachine_host_ed25519_key\nAuthorizedKeysFile .ssh/authorized_keys .ssh/ownmachine-setup\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\nAllowTcpForwarding no\nAllowAgentForwarding no\n')
         put('usr/local/libexec/ownmachine-hardening-gate.py',(ROOT/'scripts/linux-hardening-gate.py').read_text(),0o755)
         put('etc/systemd/logind.conf.d/99-ownmachine-kvm.conf','[Login]\nHandlePowerKey=poweroff\nPowerKeyIgnoreInhibited=yes\n')
-        put('etc/systemd/system/ownmachine-firstboot.service','[Unit]\nDescription=Harden OwnMachine guest\nAfter=sshd.service\nWants=sshd.service\nBefore=display-manager.service\nConditionPathExists=!/etc/ownmachine/hardened.json\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 /opt/ownmachine-kvm/first-boot.py\n')
+        put('etc/systemd/system/ownmachine-firstboot.service','[Unit]\nDescription=Harden OwnMachine guest\nAfter=sshd.service\nWants=sshd.service\nBefore=display-manager.service\nConditionPathExists=!/opt/ownmachine-kvm/firstboot.complete\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 /opt/ownmachine-kvm/first-boot.py\n')
         put('etc/systemd/system/display-manager.service.d/ownmachine.conf','[Unit]\nRequires=ownmachine-firstboot.service\nAfter=ownmachine-firstboot.service\n[Service]\nExecStartPre=/usr/bin/python3 /usr/local/libexec/ownmachine-hardening-gate.py\n')
         archive=state/'seed.tar'
         try:

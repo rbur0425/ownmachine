@@ -51,12 +51,10 @@ def install_file(path, value, mode=0o600):
         if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != mode:
             raise ValueError('unsafe_existing_configuration')
         return
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
-    with os.fdopen(fd, 'w') as stream:
-        # The operator deliberately uses umask 077. Sudo requires exactly 0440,
-        # so apply the reviewed destination mode to the open, exclusive inode.
-        os.fchmod(stream.fileno(), mode)
-        stream.write(value);stream.flush();os.fsync(stream.fileno())
+    with tempfile.NamedTemporaryFile(dir=path.parent) as tmp:
+        tmp.write(value.encode());tmp.flush()
+        os.fchmod(tmp.fileno(), mode);os.fsync(tmp.fileno())
+        os.link(tmp.name, path)
 
 
 def user_support(home, uid, gid):
@@ -72,7 +70,7 @@ def user_support(home, uid, gid):
     return support
 
 
-def harden(user, source, password_file):
+def harden(user, source, password_file, hypervisor="apple"):
     if not re.fullmatch('[a-z_][a-z0-9_-]{0,31}', user) or user == 'root':
         raise ValueError('desktop_user_required')
     # Refuse before password rotation or policy mutation if desktop setup did
@@ -130,20 +128,20 @@ WantedBy=multi-user.target
         command(['visudo','-cf',rule.name])
     install_file(Path('/etc/sudoers.d/ownmachine-shutdown'),sudo_rule,0o440)
     support=user_support(home,account.pw_uid,account.pw_gid)
-    helper=support/'vm-shutdown.sh'
-    install_file(helper,'#!/bin/sh\nexec /usr/bin/sudo -n /usr/bin/systemctl poweroff\n',0o700)
-    os.chown(support,account.pw_uid,account.pw_gid);os.chown(helper,account.pw_uid,account.pw_gid)
+    if hypervisor != 'kvm':  # KVM uses a host-issued ACPI shutdown.
+        helper=support/'vm-shutdown.sh'
+        install_file(helper,'#!/bin/sh\nexec /usr/bin/sudo -n /usr/bin/systemctl poweroff\n',0o700)
+        os.chown(support,account.pw_uid,account.pw_gid);os.chown(helper,account.pw_uid,account.pw_gid)
     # Remove only the exact upstream unattended passwordless rule, preserving
     # administrator customizations. Unknown rules require operator inspection.
     # Establish recovery access before removing unattended sudo.
     command(['chpasswd'], input=user + ':' + password + '\n')
     if wheel.exists():
-        fd=os.open(wheel,os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW)
-        with os.fdopen(fd,'w') as stream:
-            stream.write('%wheel ALL=(ALL:ALL) ALL\n');stream.flush();os.fsync(stream.fileno())
-        wheel.chmod(0o440)
+        with tempfile.NamedTemporaryFile(dir=wheel.parent, prefix='.ownmachine-', delete=False) as tmp:
+            tmp.write(b'%wheel ALL=(ALL:ALL) ALL\n');tmp.flush()
+            os.fchmod(tmp.fileno(),0o440);os.fsync(tmp.fileno())
+        os.replace(tmp.name,wheel)
     command(['visudo','-c'])
-    Path(password_file).unlink()
     command(['passwd','-l','root'])
     command(['systemctl','daemon-reload'])
     command(['systemctl','enable','--now','ownmachine-firewall.service'])
@@ -157,6 +155,8 @@ WantedBy=multi-user.target
     # The receipt is public policy metadata; recovery material remains private.
     Path('/etc/ownmachine').chmod(0o755)
     command(['/usr/bin/python3','/usr/local/libexec/ownmachine-hardening-gate.py','--seal',user])
+    if hypervisor != 'kvm':
+        Path(password_file).unlink()
     return dict(hardened=True,guest_os='linux',ssh='key_only',firewall='loaded',sudo='exact_shutdown_only')
 
 
@@ -174,7 +174,7 @@ def main():
     if platform.system()!='Linux' or os.geteuid()!=0 or command(['systemd-detect-virt']).stdout.strip()!=args.hypervisor:
         raise ValueError('matching_virtualized_linux_guest_root_required')
     if args.password_file is None:raise ValueError('private_recovery_password_required')
-    print(json.dumps(harden(args.user,args.ssh_source,args.password_file)))
+    print(json.dumps(harden(args.user,args.ssh_source,args.password_file,args.hypervisor)))
 
 if __name__=='__main__':
     try:main()
