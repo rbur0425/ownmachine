@@ -35,18 +35,26 @@ def configuration(path,plan,require_runtime=True):
     runtime=json.loads(adapter.protected(c['runtime_config']).read_text())
     if runtime.get('backend')!='kvm' or runtime.get('vm_name')!=plan['vm_name']:
         raise ValueError('runtime_plan_mismatch')
+    if runtime.get('guest_profile','windows')!=plan['guest_profile']:raise ValueError('runtime_plan_mismatch')
+    c['_profile']=plan['guest_profile']
     c['_vm_uuid']=runtime['vm_uuid']
     return c
 
 
 def probe(c,role,operation='status',timeout=20):
     argv=['ssh','-F',c['ssh_config'],'-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ForwardAgent=no','-o','ClearAllForwardings=yes','-o','ConnectTimeout=8',c[role+'_alias'],'ownmachine-host '+operation+' --vm '+c['vm_name']]
-    result=subprocess.run(argv,env=ENV,capture_output=True,text=True,timeout=timeout)
-    if operation!='status':return result.returncode!=0
+    result=subprocess.run(argv,env=ENV,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=timeout)
+    if operation != 'status':
+        if result.returncode != 2 or len(result.stdout) > 65536:
+            return False
+        try:
+            return json.loads(result.stdout) == {'code': 'unsupported_operation'}
+        except ValueError:
+            return False
     if result.returncode!=0 or len(result.stdout)>65536:raise ValueError('runtime_probe_failed')
     data=json.loads(result.stdout)
-    if data.get('vm_uuid')!=c['_vm_uuid'] or data.get('vm_name')!=c['vm_name'] or data.get('backend')!='kvm' or data.get('guest_os')!='windows':
-        raise ValueError('production_windows_relay_required')
+    if not isinstance(data,dict) or data.get('vm_uuid')!=c['_vm_uuid'] or data.get('vm_name')!=c['vm_name'] or data.get('backend')!='kvm' or data.get('guest_profile')!=c.get('_profile','windows'):
+        raise ValueError('production_kvm_relay_required')
     return data
 
 
@@ -63,7 +71,7 @@ def wait_driver(c,report=None):
     while report.get('driver_ready') is not True:
         if (report.get('vm_state')!='running' or report.get('guest_reachable') is not True
                 or report.get('bootstrap_hardened') is not True
-                or report.get('driver_state')=='health_check_failed'):
+                or report.get('driver_state') == 'health_check_failed'):
             break
         remaining=deadline-time.monotonic()
         if remaining<=0:break
@@ -71,11 +79,23 @@ def wait_driver(c,report=None):
         remaining=deadline-time.monotonic()
         if remaining<=0:break
         try:report=probe(c,'agent',timeout=min(20,remaining))
-        except subprocess.TimeoutExpired:break
+        except subprocess.TimeoutExpired:
+            continue  # no new observation; the original deadline still applies
     return report
 
 
-def readiness_result(report):
+def attention(code):
+    return dict(ok=False,stage='needs_attention',code=code)
+
+
+def readiness_result(report, linux=False):
+    if linux:
+        if report.get('guest_reachable') is not True:return attention('omarchy_guest_unreachable')
+        if report.get('driver_state')=='health_check_failed':return attention('omarchy_guest_health_check_failed')
+        if report.get('bootstrap_hardened') is not True:return attention('omarchy_hardening_required')
+        if report.get('graphical_session') is not True:return attention('graphical_session_required')
+        if report.get('driver_state')=='foreground_input_unavailable':return attention('foreground_input_unavailable')
+        return attention('omarchy_driver_required')
     code=('windows_hardening_required' if report.get('bootstrap_hardened') is not True else
           'windows_driver_start_required' if report.get('guest_reachable') is True else
           'standard_interactive_guest_login_required')
@@ -88,7 +108,7 @@ def preflight(plan):
     while not path.exists():path=path.parent
     checks={'linux_x86_64':platform.system()=='Linux' and platform.machine() in ('x86_64','amd64'),
             'kvm_available':Path('/dev/kvm').exists(),
-            'tools_available':all(shutil.which(x) for x in ('virsh','qemu-system-x86_64','qemu-img','swtpm','nft','xorriso','ssh-keygen','setfacl'))}
+            'tools_available':all(shutil.which(x) for x in ('virsh','qemu-system-x86_64','qemu-img','nft','ssh-keygen','setfacl')+(('guestfish',) if plan.get('guest_profile')=='omarchy-kvm' else ('swtpm','xorriso')))}
     free=shutil.disk_usage(path).free//(1024**3)
     memory=os.sysconf('SC_PAGE_SIZE')*os.sysconf('SC_PHYS_PAGES')//(1024**3) if platform.system()=='Linux' else 0
     ok=all(checks.values()) and free>=plan['min_free_gb'] and (os.cpu_count() or 0)>=plan['cpu'] and memory>=plan['memory_gb']
@@ -97,6 +117,7 @@ def preflight(plan):
 
 def execute(c,plan,step,apply=False):
     import windows_provision as w
+    linux=plan.get('guest_profile')=='omarchy-kvm'
     if step=='preflight':return preflight(plan)
     if step in ('build','provision','harden') and not apply:raise ValueError('explicit_apply_required')
     if step=='build':
@@ -106,7 +127,8 @@ def execute(c,plan,step,apply=False):
         if report['vm_state']=='stopped':
             w.run(['ssh','-F',c['ssh_config'],'-T',c['viewer_alias'],'ownmachine-host start --vm '+c['vm_name']])
         try:result=w.guest(c,'status')
-        except (ValueError,subprocess.SubprocessError):return dict(ok=False,stage='needs_attention',code='windows_installation_in_progress',next='Use the private viewer for any installation prompt. Resume provision after setup; do not recreate the disk.')
+        except (ValueError,subprocess.SubprocessError):return attention('omarchy_bootstrap_pending' if linux else 'windows_installation_in_progress')
+        if linux:return dict(ok=True,stage='verified') if result.get('bootstrap_hardened') is True else attention('omarchy_hardening_required')
         phase=result.get('bootstrap_stage')
         if phase=='awaiting_time_sync':
             result=w.guest(c,'sync-time')
@@ -115,31 +137,58 @@ def execute(c,plan,step,apply=False):
         if result.get('configured') is True:return dict(ok=True,stage='verified')
         return dict(ok=False,stage='needs_attention',code='windows_bootstrap_failed' if phase=='failed' else 'windows_bootstrap_in_progress')
     if step=='harden':
+        if linux:
+            hardened=w.guest(c,'status').get('bootstrap_hardened') is True
+            return dict(ok=True,stage='verified') if hardened else attention('omarchy_hardening_required')
         if w.guest(c,'status').get('configured') is not True:raise ValueError('bootstrap_must_finish_before_hardening')
         w.eject(c);result=w.guest(c,'harden')
         if result.get('hardened') is not True:raise ValueError('guest_hardening_failed')
         return dict(ok=True,stage='verified')
     if step=='driver':
-        result=w.guest(c,'status')
+        if linux:
+            try:
+                result = w.guest(c, 'status')
+            except (subprocess.SubprocessError, ValueError):
+                return attention('omarchy_driver_status_unconfirmed')
+            if not isinstance(result, dict):
+                return attention('omarchy_driver_status_unconfirmed')
+            if result.get('bootstrap_hardened') is not True:return attention('omarchy_hardening_required')
+            if result.get('graphical_session') is not True:return attention('graphical_session_required')
+            if result.get('foreground_input_ready') is not True or result.get('driver_ready') is not True:
+                try:
+                    installed=w.guest(c,'driver')
+                except (subprocess.SubprocessError, ValueError):
+                    return attention('omarchy_driver_install_incomplete')
+                if not isinstance(installed, dict) or installed.get('ok') is not True:
+                    return attention('omarchy_driver_install_incomplete')
+            try:
+                report = wait_driver(c)
+            except (subprocess.SubprocessError, ValueError):
+                return attention('omarchy_driver_status_unconfirmed')
+            ok=report.get('foreground_input_ready') is True and report.get('driver_ready') is True
+            return dict(ok=True,stage='verified') if ok else readiness_result(report,linux=True)
+        result = w.guest(c, 'status')
         if not all(result.get(k) is True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')):raise ValueError('guest_driver_validation_failed')
         report=wait_driver(c)
         if report.get('driver_ready') is not True:return readiness_result(report)
         return dict(ok=True,stage='verified')
     if step in ('viewer','viewer-check'):
-        w.viewer(c,plan,apply and step=='viewer');return dict(ok=True,stage='verified')
+        w.viewer(c,plan,apply and step=='viewer')
+        return dict(ok=True,stage='checks_passed' if step=='viewer-check' else 'verified')
     if step in ('firewall','relay','keys','permissions','verify'):
         agent=probe(c,'agent');viewer=probe(c,'viewer')
         if agent.get('vm_uuid')!=viewer.get('vm_uuid'):raise ValueError('runtime_roles_disagree')
         if not probe(c,'agent','vnc') or not probe(c,'viewer','mcp'):raise ValueError('runtime_roles_not_restricted')
         if step in ('permissions','verify'):
             agent=wait_driver(c,agent)
-            if agent.get('driver_ready') is not True:return readiness_result(agent)
+            if agent.get('driver_ready') is not True:return readiness_result(agent,linux)
         # Final acceptance must additionally prove viewer connectivity, before the
         # client capture and setup-key retirement can be authorized.
         if step=='verify':
-            if not w.media_ejected(c) or agent.get('bootstrap_hardened') is not True:raise ValueError('guest_hardening_required')
+            if (not linux and not w.media_ejected(c)) or agent.get('bootstrap_hardened') is not True:raise ValueError('guest_hardening_required')
             w.viewer(c,plan,False);w.console(c)
         return dict(ok=True,stage='verified' if step in ('relay','keys') else 'checks_passed',vm_uuid=agent['vm_uuid'])
+    if linux:return attention('omarchy_setup_check_failed')
     return dict(ok=False,stage='blocked',code='windows_stage_not_integrated',next='See docs/windows-production-plan.md; preserve the saved plan and do not mark this stage complete manually.')
 
 
@@ -148,12 +197,14 @@ def main():
     p.add_argument('--config',type=Path,required=True);p.add_argument('--plan-file',type=Path,required=True)
     p.add_argument('--step',required=True);p.add_argument('--apply',action='store_true')
     a=p.parse_args()
+    profile=None
     try:
         payload=json.loads(private_read(a.plan_file));plan=payload.get('plan',payload)
-        if plan.get('guest_profile')!='windows':raise ValueError('windows_profile_required')
+        profile=plan.get('guest_profile')
+        if profile not in {'windows','omarchy-kvm'}:raise ValueError('windows_profile_required')
         c=configuration(a.config,plan,require_runtime=a.step not in ('preflight','build'));result=execute(c,plan,a.step,a.apply)
     except (OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError):
-        result=dict(ok=False,stage='needs_attention',code='windows_setup_check_failed')
+        result=attention({'omarchy-kvm':'omarchy_setup_check_failed','windows':'windows_setup_check_failed'}.get(profile,'kvm_setup_check_failed'))
     print(json.dumps(result));return 0 if result['ok'] else 2
 
 

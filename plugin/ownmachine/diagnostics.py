@@ -75,18 +75,22 @@ def diagnose(config, permission_mode="standard"):
         return result()
     add('host','pass','host_reachable')
     windows = config.guest_profile == 'windows'
-    if not windows and not remote.get('lume_installed'):
+    kvm = config.guest_profile in {'windows','omarchy-kvm'}
+    if not kvm and not remote.get('lume_installed'):
         add('vm','fail','lume_missing','Install the pinned Lume release on the Mac host and check the relay lume_path.')
         return result()
     if remote.get('vm_state')!='running':
         state=remote.get('vm_state')
         code='vm_'+state if state in {'stopped','absent','provisioning','unknown','not_probed'} else 'vm_unknown'
-        add('vm','fail',code,('Check the configured KVM domain and persistent security service on the Linux host. Sign in after starting the guest through the viewer.' if windows else 'Check the named VM with Lume on the host. Provision an absent VM explicitly; start an existing stopped VM with the operator lifecycle command.'))
+        add('vm','fail',code,('Check the configured KVM domain and persistent security service on the Linux host. Sign in after starting the guest through the viewer.' if kvm else 'Check the named VM with Lume on the host. Provision an absent VM explicitly; start an existing stopped VM with the operator lifecycle command.'))
         return result()
     add('vm','pass','vm_running')
     state=remote.get('driver_state')
-    if windows and state == 'health_check_failed':
-        add('guest','fail','guest_health_check_failed','Guest SSH answered, but its readiness helper failed. Inspect the installed Windows health helper and configuration before changing SSH keys or firewall rules.')
+    if kvm and state == 'health_check_failed':
+        add('guest','fail','guest_health_check_failed','Guest SSH answered, but its readiness helper failed. Inspect the installed guest health helper and its configuration.')
+        return result()
+    if config.guest_profile == 'omarchy-kvm' and not remote.get('guest_reachable'):
+        add('guest','fail','guest_unreachable','Check the configured guest SSH address, pinned host key, agent key and guest firewall. During first boot, check setup --run progress.')
         return result()
     if windows and not remote.get('guest_reachable'):
         add('guest','fail','guest_unreachable','During a fresh install, open the private viewer and read OwnMachine setup progress: OpenSSH may still be installing. Use setup --run progress and setup --next; do not recreate the VM. After bootstrap, check the pinned guest SSH endpoint and host firewall reply rules. See docs/windows-onboarding.md#first-install-progress-and-recovery. Optional: remind later --mode next-visit requires confirmation.')
@@ -99,6 +103,15 @@ def diagnose(config, permission_mode="standard"):
     for key, label in ([] if linux or windows else [('accessibility','Accessibility'),('screen_recording','Screen Recording')]):
         add(key,'pass' if remote.get(key) else 'fail',key+'_granted' if remote.get(key) else key+'_required',
             '' if remote.get(key) else 'Open the guided permission setup inside the guest and approve '+label+'. Follow any restart prompt, then rerun doctor.')
+    if linux and config.guest_profile=='omarchy-kvm':
+        if remote.get('graphical_session') is not True:
+            add('graphical_session','fail','graphical_session_required','Sign into Hyprland through the private viewer and rerun doctor.')
+            return result()
+        ready=remote.get('foreground_input_ready') is True
+        add('foreground_input','pass' if ready else 'fail','foreground_input_ready' if ready else 'foreground_input_unavailable',
+            '' if ready else 'In the signed-in guest check systemctl --user status ownmachine-input.service. For a partial build or Hyprland update follow docs/omarchy-kvm.md#recover-foreground-input.')
+        if not ready and state == 'foreground_input_unavailable':
+            return result()
     if linux:
         for key in ('graphical_session', 'accessibility_bus', 'standard_mode'):
             add(key, 'pass' if remote.get(key) else 'fail', key + ('_ready' if remote.get(key) else '_required'),

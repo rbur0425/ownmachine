@@ -39,6 +39,12 @@ def args(*argv):
 
 
 class OnboardingCommandsTests(unittest.TestCase):
+    def test_kvm_omarchy_disk_minimum_matches_upstream(self):
+        p=dict(o.DEFAULTS,guest_profile='omarchy-kvm',target='remote',disk_gb=40)
+        o.validate_plan(p)
+        with self.assertRaises(o.InputError):
+            o.validate_plan(dict(p,disk_gb=39))
+
     def setUp(self):
         capture = redirect_stdout(io.StringIO())
         capture.__enter__()
@@ -129,6 +135,67 @@ class OnboardingCommandsTests(unittest.TestCase):
         self.assertEqual(ctx.settings['host_alias'], 'example-mac')
         o.setup(ctx, args('setup', '--host-alias', 'different', '--connect', '--replace'))
         self.assertEqual(ctx.settings['host_alias'], 'different')
+
+    def test_kvm_connection_stays_valid_after_each_write_and_rollback(self):
+        profiles = {'macos': 'password-vnc', 'omarchy': 'password-vnc', 'windows': 'password-vnc',
+                    'omarchy-kvm': 'private-unix'}
+        for other in ('macos', 'omarchy', 'windows'):
+            for source, target in [(other, 'omarchy-kvm'), ('omarchy-kvm', other)]:
+                for failure in (None, 'guest_profile', 'setup_transport_final'):
+                    with self.subTest(source=source,target=target,failure=failure):
+                        ctx = Context(dict(host_alias='example', control_dir='/shared', vm_name='ownmachine',
+                                           guest_profile=source, console_transport=profiles[source]))
+                        original = deepcopy(ctx.settings)
+                        def checked(key, value):
+                            if (key == failure or
+                                (failure == 'setup_transport_final' and key == 'console_transport'
+                                 and value != 'profile-default' and ctx.settings['guest_profile'] == target)):
+                                raise OSError('injected write failure')
+                            ctx.settings[key] = value
+                            o.configuration(ctx).validate()
+                        request = args('setup', '--target','existing','--guest-profile',target,
+                                       '--disk-gb','64','--connect','--replace')
+                        with patch.object(ctx,'set_config',side_effect=checked), patch.object(o,'preflight',return_value=[]):
+                            if failure == 'guest_profile' or (failure == 'setup_transport_final' and other != 'windows'):
+                                with self.assertRaises(OSError):
+                                    o.setup(ctx,request)
+                                self.assertEqual(ctx.settings,original)
+                            else:
+                                o.setup(ctx,request)
+                                self.assertEqual(ctx.settings['guest_profile'],target)
+
+    def test_lume_to_windows_persists_private_transport_and_rolls_back_on_failure(self):
+        for profile in ('macos','omarchy'):
+            for fail in (True,False):
+                ctx=Context(dict(host_alias='example', control_dir='/shared', vm_name='ownmachine',
+                                 guest_profile=profile,console_transport='password-vnc'))
+                previous=deepcopy(ctx.settings)
+                def save(key,value):
+                    if fail and key=='console_transport' and value=='private-unix':
+                        raise OSError('failed transport write')
+                    ctx.settings[key]=value
+                    o.configuration(ctx).validate()
+                with patch.object(ctx,'set_config',side_effect=save),patch.object(o,'preflight',return_value=[]):
+                    request=args('setup','--target','existing','--guest-profile','windows','--disk-gb','64','--connect','--replace')
+                    if fail:
+                        with self.assertRaises(OSError):o.setup(ctx,request)
+                        self.assertEqual(ctx.settings,previous)
+                    else:
+                        o.setup(ctx,request)
+                        self.assertEqual((ctx.settings['guest_profile'], ctx.settings['console_transport']),('windows','private-unix'))
+
+    def test_kvm_guides_sign_in_before_driver_with_or_without_saved_reason(self):
+        from ownmachine.setup_next import next_step
+        plan=dict(o.DEFAULTS,target='remote',guest_profile='omarchy-kvm')
+        ctx=Context(dict(setup_host_alias='setup',setup_source_sha256='a'*64))
+        outcomes={step:{'stage':'verified'} for step in ('preflight','build','firewall','relay','keys','viewer','provision','harden')}
+        for row in ({},{'stage':'needs_attention','code':'graphical_session_required'}):
+            outcomes['driver']=row
+            with patch('ownmachine.setup_transport.summary',return_value={'outcomes':outcomes}):
+                result=next_step(ctx,plan)
+            self.assertEqual(result['stage'],'await_driver')
+            self.assertIn('sign into',result['next'])
+            self.assertIn('Hyprland',result['next'])
 
     def test_provisioned_targets_can_explicitly_connect_without_changing_target(self):
         for target in ('local','remote'):

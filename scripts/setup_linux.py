@@ -1,5 +1,6 @@
 """Linux branches of the reviewed operator setup service (never loaded by Hermes)."""
 import json
+import re
 import secrets
 import shlex
 from pathlib import Path
@@ -25,21 +26,36 @@ def prerequisites(service,c):
 def harden(service,c):
     state=service.hardening_state(c);service.mac.private_dir(state)
     password=state/'guest-password'
-    if password.exists():raise ValueError('existing_credentials_require_inspection')
-    value='-'.join(''.join(secrets.choice('abcdefghjkmnpqrstuvwxyz23456789') for _ in range(4)) for _ in range(4))+'\n'
-    install_exact(password,value.encode())
+    if password.exists() or password.is_symlink():
+        value = private_read(password, 128)
+        if not re.fullmatch(rb'[A-Za-z0-9._~-]{16,128}\n', value):
+            raise ValueError('invalid_saved_recovery_password')
+    else:
+        value = ('-'.join(''.join(secrets.choice('abcdefghjkmnpqrstuvwxyz23456789')
+                                  for _ in range(4)) for _ in range(4)) + '\n').encode()
+        install_exact(password, value)
     # Query the authenticated connection's peer; never infer the host address
     # from documentation or pass a developer-specific network default.
     observed=service.call(service.guest_argv(c)+['printf "%s" "$SSH_CONNECTION"']).stdout.decode().split()
     if len(observed)!=4:raise ValueError('ssh_source_unavailable')
     import ipaddress
     source=str(ipaddress.ip_address(observed[0]))
-    payload=(ROOT/'scripts/secure-linux-guest.py').read_bytes()
-    command=('set -eu; umask 077; dir=$(mktemp -d); trap \'rm -rf "$dir"\' EXIT; '
-             'cat > "$dir/harden.py"; sudo -n /usr/bin/python3 "$dir/harden.py" --user '+shlex.quote(c['guest_user'])+
-             ' --ssh-source '+shlex.quote(source)+' --password-file "$HOME/.ownmachine-recovery-transfer" --apply')
-    service.call(service.guest_argv(c)+['umask 077; set -C; cat > "$HOME/.ownmachine-recovery-transfer"'],data=value.encode())
-    service.call(service.guest_argv(c)+[command],data=payload,timeout=240)
+    user = c['guest_user']
+    if not re.fullmatch('[a-z_][a-z0-9_-]{0,31}', user):
+        raise ValueError('invalid_guest_user')
+    transfer = '"$HOME/.ownmachine-recovery-transfer"'
+    stage = (f'umask 077; set -C; if test -f /etc/ownmachine/rotation-{user}; then exit 0; '
+             f'elif test -f {transfer} && test ! -L {transfer}; then cmp -s - {transfer}; '
+             f'else cat > {transfer}; fi')
+    service.call(service.guest_argv(c)+[stage], data=value)
+    hardener = (ROOT/'scripts/secure-linux-guest.py').read_text()
+    args = shlex.join(['/usr/bin/python3', '-c', hardener, '--user', user, '--ssh-source', source])
+    args += f' --password-file {transfer} --apply'
+    # After the wheel policy changes, authenticate using the original host copy.
+    # The remote command contains only program text and public parameters.
+    command = (f'if sudo -k -n /usr/bin/true >/dev/null 2>&1; then exec sudo -n {args}; '
+               f'else exec sudo -k -S -p "" {args}; fi')
+    service.call(service.guest_argv(c)+[command], data=value, timeout=240)
     install_exact(state/'linux-hardening.json',json.dumps({'schema_version':1,'hardened':True}).encode())
 
 

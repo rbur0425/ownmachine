@@ -134,6 +134,23 @@ class KvmSecurityConfigurationTests(unittest.TestCase):
 
 
 class KvmMcpStreamTests(unittest.TestCase):
+    def test_kvm_foreground_failure_is_distinct_from_session_failure(self):
+        config=dict(agent_user='agent',vm_name='desktop',vm_uuid='test-id',guest_profile='omarchy-kvm',require_hardened=True)
+        health=dict(guest_reachable=True,graphical_session=True,accessibility_bus=True,driver_running=True,
+                    standard_mode=True,bootstrap_hardened=True,foreground_input_ready=False)
+        with patch.object(kvm,'C',config),patch.object(kvm.pwd,'getpwuid') as user,patch.object(kvm,'security_ready'),patch.object(kvm,'inspect',return_value=(None,'running')),patch.object(kvm,'guest_argv',return_value=['ssh']),patch.object(kvm.subprocess,'run') as run,patch.object(kvm.os,'execve') as execute:
+            user.return_value.pw_name='agent'
+            run.return_value.returncode=0
+            run.return_value.stdout=json.dumps(health)
+            with patch.dict(kvm.os.environ,SSH_ORIGINAL_COMMAND='ownmachine-host status --vm desktop'),patch('sys.stdout',new_callable=io.StringIO) as stdout:
+                kvm.dispatch('agent')
+                status=json.loads(stdout.getvalue())
+                self.assertFalse(status['driver_ready'])
+                self.assertEqual(status['driver_state'],'foreground_input_unavailable')
+            with patch.dict(kvm.os.environ,SSH_ORIGINAL_COMMAND='ownmachine-host mcp --vm desktop'),self.assertRaisesRegex(ValueError,'^foreground_input_unavailable$'):
+                kvm.dispatch('agent')
+            execute.assert_not_called()
+
     def test_health_probe_cannot_consume_mcp_stdin(self):
         flags={k:True for k in ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')}
         config={'agent_user':'agent','vm_name':'desktop'}

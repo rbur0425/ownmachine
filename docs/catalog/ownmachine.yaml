@@ -14,7 +14,7 @@ requires_hermes: ">=0.23.1"
 version: "0.7.0"
 docs_url: https://github.com/rbur0425/ownmachine#readme
 readme: true
-platforms: [linux, macos] # Hermes runtime; guest host still requires Apple Silicon macOS.
+platforms: [linux, macos] # Hermes runtime platforms for this historical v0.7.0 entry.
 # Banner artwork is separately pinned; keep the reviewed runtime SHA unchanged.
 image: https://raw.githubusercontent.com/rbur0425/ownmachine/0a8d3ff5c87f320cbaa0340a77b75dbd49709218/docs/media/catalog/promotions/privacy-choice.png
 screenshots:

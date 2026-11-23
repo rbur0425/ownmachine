@@ -12,6 +12,7 @@ from pathlib import Path
 import pwd
 import stat
 import subprocess
+import tempfile
 
 RECEIPT = Path('/etc/ownmachine/hardened.json')
 
@@ -68,10 +69,13 @@ def seal(user):
         info = item.lstat()
         if info.st_uid != 0 or info.st_mode & 0o022 or stat.S_ISLNK(info.st_mode):
             raise ValueError('unsafe_hardening_directory')
-    fd = os.open(RECEIPT, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
-    with os.fdopen(fd, 'w') as stream:
-        os.fchmod(stream.fileno(), 0o644)
-        stream.write(content); stream.flush(); os.fsync(stream.fileno())
+    with tempfile.NamedTemporaryFile(dir=RECEIPT.parent) as tmp:
+        tmp.write(content.encode());tmp.flush()
+        os.fchmod(tmp.fileno(),0o644);os.fsync(tmp.fileno())
+        os.link(tmp.name,RECEIPT)
+    directory=os.open(RECEIPT.parent,os.O_RDONLY | os.O_DIRECTORY)
+    try:os.fsync(directory)
+    finally:os.close(directory)
 
 
 if __name__ == '__main__':

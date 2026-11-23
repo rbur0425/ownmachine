@@ -78,6 +78,36 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertNotIn('host_unreachable', self.codes(report))
         self.transport.assert_not_called()
 
+    def test_kvm_ssh_and_helper_failures_stop_before_session_checks(self):
+        config=replace(self.config,guest_profile='omarchy-kvm',console_transport='private-unix')
+        for reachable,state,code in [(False,'not_running','guest_unreachable'),
+                                     (True,'health_check_failed','guest_health_check_failed')]:
+            self.remote.return_value=dict(READY,guest_os='linux',guest_reachable=reachable,
+                                          driver_state=state,driver_ready=False)
+            report=diagnose(config)
+            self.assertIn(code,self.codes(report))
+            self.assertNotIn('guest_reachable',self.codes(report))
+            self.assertNotIn('graphical_session_required',self.codes(report))
+            self.transport.assert_not_called()
+
+    def test_omarchy_kvm_requires_live_foreground_input(self):
+        config=replace(self.config,guest_profile='omarchy-kvm',console_transport='private-unix')
+        self.remote.return_value=dict(READY,guest_os='linux',lume_installed=False,
+                                      graphical_session=True,accessibility_bus=True,standard_mode=True)
+        for flag in (False,True):
+            self.remote.return_value['foreground_input_ready']=flag
+            report=diagnose(config)
+            self.assertEqual(report['ok'],flag)
+            self.assertIn('foreground_input_ready' if flag else 'foreground_input_unavailable',self.codes(report))
+            self.assertNotIn('lume_missing',self.codes(report))
+
+    def test_omarchy_signed_out_prompts_login_before_module_diagnosis(self):
+        config=replace(self.config,guest_profile='omarchy-kvm',console_transport='private-unix')
+        self.remote.return_value=dict(READY,guest_os='linux',graphical_session=False,driver_ready=False)
+        codes=self.codes(diagnose(config))
+        self.assertIn('graphical_session_required',codes)
+        self.assertNotIn('foreground_input_unavailable',codes)
+
     def test_lume_missing(self):
         self.remote.return_value={**READY,'lume_installed':False}
         self.assertIn('lume_missing',self.codes(diagnose(self.config)))

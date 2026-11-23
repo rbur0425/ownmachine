@@ -1,3 +1,5 @@
+import hashlib
+import tarfile
 import importlib.util
 import json
 import os
@@ -17,6 +19,33 @@ guest = load('linux_guest_tested', 'scripts/linux-guest.py')
 relay = load('linux_host_tested', 'host/ownmachine_host.py')
 
 class LinuxGuestTests(unittest.TestCase):
+    def test_local_driver_install_retries_after_failed_service_start(self):
+        with tempfile.TemporaryDirectory() as td:
+            home=Path(td).resolve()
+            binary=home/'cua-driver'
+            binary.write_bytes(b'fixture')
+            binary.chmod(0o700)
+            archive=home/'driver.tar.gz'
+            with tarfile.open(archive,'w:gz') as tar:
+                tar.add(binary,'cua-driver')
+            digest=hashlib.sha256(archive.read_bytes()).hexdigest()
+            starts=[]
+            def invoke(argv):
+                if argv[:3] == ['systemctl','--user','start']:
+                    starts.append(argv)
+                    if len(starts)==1:
+                        raise subprocess.CalledProcessError(1,argv)
+                return subprocess.CompletedProcess(argv,0,'cua-driver 1.2.3')
+            with patch.object(Path,'home',return_value=home),patch.object(guest,'call',side_effect=invoke), \
+                    patch.object(guest,'require_hardening'),patch.object(guest,'session_environment'):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    guest.install('1.2.3',digest,archive)
+                config=home/'.config/ownmachine/linux-driver.json'
+                inode=config.stat().st_ino
+                guest.install('1.2.3',digest,archive)
+                self.assertEqual(len(starts),2)
+                self.assertEqual(config.stat().st_ino,inode)
+
     def test_foreground_readiness_requires_private_matching_production_transport(self):
         data = dict(configured=True, abi=dict(match=True, compiled_hash='abi', runtime_hash='abi'),
                     transport=dict(ready=True, mode='0600', peer_policy='same_uid'),
@@ -42,6 +71,12 @@ class LinuxGuestTests(unittest.TestCase):
         self.assertTrue(result['driver_ready'])
         self.assertNotIn('screen_recording', result)
         self.assertNotIn('capture_consent_verified', result)
+
+    def test_signed_in_session_is_detected_before_driver_installation(self):
+        with patch.object(guest,'require_hardening'),patch.object(guest,'session_environment',return_value={}),patch.object(guest,'call'),patch.object(guest,'settings',side_effect=FileNotFoundError):
+            result=guest.readiness()
+        self.assertTrue(result['graphical_session'])
+        self.assertFalse(result['driver_ready'])
 
     def test_wrong_authorization_mode_refuses_readiness(self):
         with patch.object(guest, 'require_hardening'), patch.object(guest, 'settings', return_value={'binary':'/driver'}), \
@@ -114,6 +149,49 @@ class LinuxIsolationTests(unittest.TestCase):
             try:hardener.install_file(path,'fixture\n',0o440)
             finally:os.umask(previous)
             self.assertEqual(path.stat().st_mode & 0o777,0o440)
+
+    def test_sudo_rule_staging_name_is_ignored_before_publication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            final = Path(directory).resolve() / 'ownmachine-shutdown'
+            def interrupt(staged, destination):
+                self.assertEqual(Path(staged).parent, final.parent)
+                self.assertTrue(Path(staged).name.startswith('.ownmachine-'))
+                self.assertFalse(destination.exists())
+                raise InterruptedError()
+            with patch.object(hardener.os, 'link', side_effect=interrupt), self.assertRaises(InterruptedError):
+                hardener.install_file(final, 'fixture', 0o440)
+
+    def test_transfer_file_lifetime_at_password_rotation(self):
+        for hypervisor in ('apple', 'kvm'):
+            with self.subTest(hypervisor=hypervisor), tempfile.TemporaryDirectory() as directory:
+                policy = Path(directory).resolve()
+                transfer = policy / 'transfer'
+                password = 'this-is-a-test-fixture'
+                transfer.touch(mode=0o600)
+                transfer.write_text(password)
+                def apply():
+                    with patch.object(hardener, 'check_rotation_directory'):
+                        hardener.rotate_password('desktop', os.getuid(), transfer, hypervisor, policy)
+                with patch.object(hardener, 'command', side_effect=subprocess.CalledProcessError(1, 'chpasswd')):
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        apply()
+                self.assertTrue(transfer.exists())
+                self.assertFalse((policy / 'rotation-desktop').exists())
+                with patch.object(hardener, 'command') as rotate:
+                    apply()
+                    if hypervisor == 'apple':
+                        self.assertFalse(transfer.exists())
+                        apply()  # resume after a later policy step failed
+                        marker = policy / 'rotation-desktop'
+                        self.assertNotIn(password, marker.read_text())
+                        marker.write_text(f'v1 desktop {os.getuid() + 1}\n')
+                        with self.assertRaisesRegex(ValueError, 'invalid_rotation_checkpoint'):
+                            apply()
+                        marker.unlink()
+                        with self.assertRaises(FileNotFoundError):
+                            apply()
+                    rotate.assert_called_once_with(['chpasswd'], input='desktop:' + password + '\n')
+                self.assertEqual(transfer.exists(), hypervisor == 'kvm')
 
     def test_guest_firewall_does_not_flush_other_tables(self):
         rules = hardener.firewall_rules('192.0.2.7')

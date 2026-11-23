@@ -33,6 +33,11 @@ class TransportTests(unittest.TestCase):
   self.client.start();self.assertIn('test',self.client.tools)
   self.assertEqual(self.client.call('test',{})['content'][0]['text'],'ok')
   process=self.client.process;self.client.stop();self.assertIsNotNone(process.poll())
+ def test_handshake_preserves_only_known_foreground_refusal(self):
+  Path(self.client.argv[-1]).write_text("import sys; sys.stdin.readline(); print('{\"code\":\"foreground_input_unavailable\"}')")
+  with self.assertRaisesRegex(TransportError,'^foreground_input_unavailable$'):
+   self.client.start()
+  self.assertIsNone(self.client.process)
  def test_connection_faults_never_replay(self):
   for fault in ('drop','timeout','id','large'):
    with self.subTest(fault=fault):

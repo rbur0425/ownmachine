@@ -2,7 +2,7 @@ name: ownmachine
 # Load operator commands before a computer-use provider is selected.
 # The native provider remains available through Hermes category discovery.
 kind: standalone
-version: 1.1.1
+version: 1.2.0
 manifest_version: 2
 api_version: 1
 description: Give Hermes its own macOS, Omarchy or Windows VM to test apps, scrape websites and automate desktop work with private SSH access and human control.
@@ -19,7 +19,7 @@ config_schema:
   setup_ssh_config: {type: str, default: "", description: "Optional absolute operator-owned OpenSSH config, passed to ssh -F; no credential files are read by the plugin"}
   setup_host_alias: {type: str, default: "", description: "Separate pinned SSH alias for the temporary fixed-command setup endpoint; never the agent runtime alias"}
   setup_source_sha256: {type: str, default: "", description: "Reviewed full-source fingerprint reported by setup-endpoint.py --fingerprint"}
-  setup_timeout_seconds: {type: int, default: 120, description: "Explicit bounded setup call timeout, 5–7500 seconds; use a longer value for build/provision"}
+  setup_timeout_seconds: {type: int, default: 120, description: "Explicit bounded setup call timeout, 5–7500 seconds; use a longer value for build/provision. The Omarchy KVM driver call waits at least 7400 seconds"}
   setup_guide_ref: {type: str, default: "", description: "Optional immutable vVERSION or full commit for development docs; empty derives the release tag from plugin version"}
   setup_allowed_senders: {type: list, default: [], description: "Explicit chat mutation grants: objects with platform, user_id and chat_id; missing identity is refused. Local CLI setup remains available."}
   setup_plan: {type: dict, default: {}, description: "Non-secret resumable operator setup plan; saving a plan does not provision a VM"}
@@ -27,8 +27,8 @@ config_schema:
   host_alias: {type: str, default: "", description: "Owner-configured SSH alias for the VM host"}
   vm_name: {type: str, default: "ownmachine"}
   experimental_linux_background_input: {type: bool, default: false, description: "Experimental Omarchy separate-seat input for qualifying native Wayland targets; Chromium/Electron and unsupported targets refuse, without foreground fallback"}
-  console_transport: {type: str, default: "password-vnc", description: "private-unix for the Windows KVM relay; password-vnc for Lume profiles"}
-  guest_profile: {type: str, default: "macos", description: "macos or omarchy on Apple Silicon; windows is Windows 11 Enterprise Evaluation x86-64 on a separately configured Linux/KVM host; Linux background input requires experimental opt-in"}
+  console_transport: {type: str, default: "password-vnc", description: "private-unix for Windows and omarchy-kvm; password-vnc for Lume profiles; profile-default selects the matching transport"}
+  guest_profile: {type: str, default: "macos", description: "macos or omarchy on Apple Silicon; omarchy-kvm is x86-64 Omarchy on Linux/KVM; windows is Windows 11 Enterprise Evaluation x86-64 on a separately configured Linux/KVM host; Linux background input requires experimental opt-in"}
   connect_timeout_seconds: {type: int, default: 15}
   action_timeout_seconds: {type: int, default: 30}
 provides_hooks:

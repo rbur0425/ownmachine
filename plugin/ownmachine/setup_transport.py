@@ -10,6 +10,8 @@ import subprocess
 import time
 from .onboarding_state import digest
 
+from .kvm_guidance import guidance, remedies
+
 STEPS = ('preflight', 'build', 'provision', 'linux-boot-installer', 'linux-base', 'linux-boot-system', 'linux-desktop', 'linux-start-desktop', 'firewall', 'relay', 'keys', 'harden', 'driver', 'permissions', 'viewer', 'viewer-check', 'verify', 'retire')
 READ_ONLY = {'preflight', 'firewall', 'permissions', 'viewer-check', 'verify', 'progress'}
 KEY = 'setup_execution'
@@ -102,6 +104,8 @@ def dispatch(ctx, plan, step, apply=False, *, capture=None):
     if step not in READ_ONLY and not apply:
         raise ValueError('explicit_apply_required')
     alias, source, timeout = settings(ctx, plan)
+    if step == 'driver' and plan.get('guest_profile') == 'omarchy-kvm':
+        timeout = max(timeout, 7400)
     nonce = secrets.token_hex(32)
     request = dict(format=1, nonce=nonce, source_sha256=source, plan_digest=digest(plan),
                    vm=plan['vm_name'], step=step, apply=apply)
@@ -128,10 +132,9 @@ def dispatch(ctx, plan, step, apply=False, *, capture=None):
             raise ValueError('invalid_setup_receipt')
         allowed = set(STEPS) if step == 'progress' else {step}
         for name, outcome in receipt['outcomes'].items():
-            from .windows_guidance import REMEDIES
             if name not in allowed or not isinstance(outcome, dict) or set(outcome) not in ({'stage', 'observed_at'},{'stage', 'observed_at','code'}):
                 raise ValueError('invalid_setup_outcome')
-            if 'code' in outcome and (plan.get('guest_profile')!='windows' or outcome.get('stage')!='needs_attention' or not isinstance(outcome['code'],str) or outcome['code'] not in REMEDIES):
+            if 'code' in outcome and (outcome.get('stage')!='needs_attention' or not isinstance(outcome['code'],str) or outcome['code'] not in remedies(plan.get('guest_profile'))):
                 raise ValueError('invalid_setup_reason')
             if outcome['stage'] not in {'verified','checks_passed','observed','needs_attention','needs_inspection','running'} or type(outcome['observed_at']) is not int or not 0 <= outcome['observed_at'] <= time.time()+60:
                 raise ValueError('invalid_setup_outcome')
@@ -150,7 +153,9 @@ def dispatch(ctx, plan, step, apply=False, *, capture=None):
         outcomes.update(receipt['outcomes'])
         imported = dict(pending, stage='remote_observed' if receipt['ok'] else 'needs_attention', outcomes=outcomes)
         ctx.state.set(KEY, imported)
-        return dict(ok=receipt['ok'], **imported, scope='Authenticated setup progress, not completed desktop acceptance. No screenshot or browser input verified.')
+        code=outcomes.get(step,{}).get('code')
+        advice={'next':guidance(plan.get('guest_profile'),code)} if code in remedies(plan.get('guest_profile')) else {}
+        return dict(ok=receipt['ok'], **imported, **advice, scope='Authenticated setup progress, not completed desktop acceptance. No screenshot or browser input verified.')
     except (OSError, ValueError, subprocess.SubprocessError):
         ctx.state.set(KEY, dict(pending, stage='needs_inspection'))
         raise ValueError('setup_outcome_uncertain_use_progress_do_not_replay') from None

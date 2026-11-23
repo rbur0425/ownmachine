@@ -8,7 +8,7 @@ You want an agent that can use desktop apps. You don't want to hand it your
 personal desktop, give up your mouse while it works, or spend a weekend wiring
 together a VM, remote desktop, screen capture and automation scripts.
 
-OwnMachine gives Hermes a separate macOS, ARM64 Omarchy or Windows 11 Enterprise Evaluation virtual machine: its own apps, files
+OwnMachine gives Hermes a separate macOS, Omarchy or Windows 11 Enterprise Evaluation virtual machine with its own apps, files
 and working environment. You decide what goes into that workspace. Watch it in
 your browser, pause the agent, take over with your mouse and keyboard, then hand
 control back when you're ready.
@@ -24,13 +24,13 @@ OwnMachine does not make a cloud model local.
 
 **[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.1/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
 
-> **v1.1.1 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
+> **v1.2.0 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
 > official Nous Research product. Setup includes administrator firewall installation
-> and manual macOS permission grants. The existing plugin is listed in the Hermes community catalog; catalog installs use its reviewed commit pin.
+> and, for a macOS guest, manual permission grants. The existing plugin is listed in the Hermes community catalog; catalog installs use its reviewed commit pin.
 
-> **Omarchy foreground support:** Omarchy foreground desktop support on Apple Silicon has passed fresh installation and real-model acceptance. macOS remains the default. Background Omarchy control remains experimental; see the [tested scope and final evidence](docs/omarchy-final-acceptance.md).
+> **Have an Intel or AMD Linux machine with hardware KVM?** Choose [Windows 11 Enterprise Evaluation](docs/windows-onboarding.md) or [x86-64 Omarchy](docs/omarchy-kvm.md). Both run on Linux without a Mac. The x86-64 Omarchy profile is available in v1.2.0. Catalog installs follow the commit approved by Hermes.
 
-See [v1.1.1 analysis and security updates](docs/release-1.1.1.md) and [v1.1.0 release notes](docs/release-1.1.0.md) for Windows installation, maintenance and qualification limits. [Platform artwork](docs/media/releases/1.1.0/README.md) is available for the release announcement.
+See [v1.2.0 Omarchy KVM release notes](docs/release-1.2.0.md), [v1.1.1 analysis and security updates](docs/release-1.1.1.md) and [v1.1.0 release notes](docs/release-1.1.0.md) for Windows installation, maintenance and qualification limits. [Platform artwork](docs/media/releases/1.1.0/README.md) is available for the release announcement.
 
 ## A verified desktop task
 
@@ -71,8 +71,8 @@ Hermes connects to your VM host through **SSH with a dedicated restricted key**.
 The host relay allows only OwnMachine's supported operations for the configured
 VM and rejects arbitrary shell commands. A separate verified SSH connection
 reaches the guest's computer-use driver. Browser desktop traffic is relayed over
-SSH. Lume hosts require firewall protection for the VNC listener; Windows/KVM
-uses a private Unix console socket instead of a TCP VNC listener.
+SSH. Lume hosts require firewall protection for the VNC listener; the two KVM profiles
+use a private Unix console socket instead of a TCP VNC listener.
 
 ```text
 Hermes + OwnMachine ── restricted SSH ──▶ VM host ── guest SSH / MCP ──▶ Guest desktop
@@ -87,7 +87,7 @@ The viewer uses a private access link; restarting it rotates that credential.
 Never expose the viewer or VNC port directly to the public internet.
 
 **Self-hosted does not automatically mean all data stays local.** The desktop
-runs on your Mac hardware, but Hermes may send screenshots and app text to your
+runs on your VM host, but Hermes may send screenshots and app text to your
 configured model provider. Choose the model deployment and guest contents for
 your privacy needs. The VM is a separate workspace, not a guarantee against a
 compromised host or malicious software. Read the [security model](SECURITY.md).
@@ -98,8 +98,9 @@ compromised host or malicious software. Read the [security model](SECURITY.md).
 | --- | --- |
 | macOS desktop | A Lume VM on a compatible Apple Silicon Mac. Local laptop and dedicated Mac-host installations have been tested. |
 | Omarchy desktop | ARM64 guest on Apple Silicon with patched Lume; tested foreground Chromium and Mousepad control. The native input module requires explicit opt-in and a matching Hyprland ABI. |
+| Omarchy on Linux KVM | x86-64 guest with private browser viewing and foreground input. [Guided setup](docs/omarchy-kvm.md). |
 | Windows desktop | Windows 11 Enterprise Evaluation x86-64 on Linux KVM/libvirt. See the [tested input/platform scope](docs/windows-support-matrix.md) and [Windows setup](docs/windows-onboarding.md). Home/Pro and physical-host reboot recovery are not qualified. |
-| Hermes | On the same Mac or another machine with private SSH access to the host. A separate Linux Docker runtime has been tested. |
+| Hermes | On the VM host or another machine with private SSH access to it. A separate Linux Docker runtime has been tested. |
 | Browser viewer | On a configured runtime host, reached locally or over SSH forwarding. Human input requires a reservation. |
 | Cloud Mac | Potentially suitable if it supports Lume's virtualization requirements and private SSH connectivity. Cloud-hosted Macs have not been acceptance-tested. |
 
@@ -117,25 +118,16 @@ Apple Silicon Mac needed for the macOS guest.
 handoffs, separate runtime identities, shared-control permissions and a verified
 Safari-to-Google task. The detailed guides below remain available for each stage.
 
-Use the [v1.0.1 source tag](https://github.com/rbur0425/ownmachine/tree/v1.0.1)
-with the checkout commands below. The full source includes setup scripts and the
-browser viewer; the plugin-only package does not. See [distribution](docs/distribution.md)
-for building and verifying portable bundles from this checkout.
+Use Hermes 0.23.1 or later, Python and OpenSSH. Match the full source checkout to the plugin revision you install. It contains the host scripts and browser viewer. See [distribution](docs/distribution.md) for bundle verification.
 
-You'll need Hermes **0.23.1 or later** (tested on 0.23.1), Python and OpenSSH,
-plus a compatible Apple Silicon Mac running macOS 13 or later. The default guest
-uses **4 CPUs, 8 GiB RAM, a 64 GiB sparse disk and a 1900×1200 display**. The
-provisioner uses a configurable 60 GiB free-space preflight budget; restore
-images, caches and guest growth need headroom. See [storage and VM setup](docs/vm-setup.md).
+| VM host | Choose in the wizard | Follow this guide |
+| --- | --- | --- |
+| x86-64 Linux with hardware KVM | `windows` | [Windows 11 Enterprise Evaluation](docs/windows-onboarding.md) |
+| x86-64 Linux with hardware KVM | `omarchy-kvm` | [Omarchy with foreground Chromium control](docs/omarchy-kvm.md) |
+| Apple Silicon Mac with Lume | `omarchy` | [ARM64 Omarchy](docs/linux-development.md) |
+| Apple Silicon Mac with Lume | `macos` (default) | [macOS provisioning](docs/vm-setup.md) |
 
-```sh
-git clone https://github.com/rbur0425/ownmachine.git
-cd ownmachine
-git checkout v1.0.1
-```
-
-Follow the setup in order. Installing the Hermes package alone does not create
-or secure a VM.
+For the **macOS guest**, follow these steps in order.
 
 1. **Prepare the Mac connection.** [Install Lume and the restricted host relay](docs/host-setup.md),
    configure your SSH alias and verify its host key.
@@ -172,7 +164,7 @@ See [persistent installation and startup](docs/permanent-installation.md),
 
 ## Roadmap
 
-1. ~~Implement an Omarchy image.~~ Completed for the tested ARM64 foreground configuration in **v1.0.0** ([scope and evidence](docs/omarchy-final-acceptance.md)).
+1. ~~Implement an Omarchy image.~~ ARM64 foreground support shipped in v1.0.0 on [Apple Silicon](docs/omarchy-final-acceptance.md). v1.2.0 adds [x86-64 foreground support on Linux KVM](docs/omarchy-kvm.md#qualification-evidence).
 2. Implement an Ubuntu image.
 3. ~~Implement a Windows VM.~~ Implemented for Windows 11 Enterprise Evaluation on Linux KVM ([scope and limits](docs/windows-support-matrix.md)); Home/Pro remain follow-up work.
 4. Test various cloud providers and record tutorials and setup guides for each.

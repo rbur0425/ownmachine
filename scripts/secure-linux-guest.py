@@ -51,12 +51,12 @@ def install_file(path, value, mode=0o600):
         if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != mode:
             raise ValueError('unsafe_existing_configuration')
         return
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
-    with os.fdopen(fd, 'w') as stream:
-        # The operator deliberately uses umask 077. Sudo requires exactly 0440,
-        # so apply the reviewed destination mode to the open, exclusive inode.
-        os.fchmod(stream.fileno(), mode)
-        stream.write(value);stream.flush();os.fsync(stream.fileno())
+    # sudo skips names containing a dot in an included directory, even if
+    # the guest stops before this staging file can be removed.
+    with tempfile.NamedTemporaryFile(dir=path.parent, prefix='.ownmachine-') as tmp:
+        tmp.write(value.encode());tmp.flush()
+        os.fchmod(tmp.fileno(), mode);os.fsync(tmp.fileno())
+        os.link(tmp.name, path)
 
 
 def user_support(home, uid, gid):
@@ -72,7 +72,46 @@ def user_support(home, uid, gid):
     return support
 
 
-def harden(user, source, password_file):
+def check_rotation_directory(path):
+    for directory in (path, *path.parents):
+        info = directory.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ValueError('unsafe_rotation_directory')
+
+
+def rotate_password(user, uid, password_file, hypervisor, policy_dir=Path('/etc/ownmachine')):
+    receipt = policy_dir / ('rotation-' + user)
+    identity = f'v1 {user} {uid}\n'
+    if hypervisor == 'apple':
+        check_rotation_directory(policy_dir)
+        if receipt.exists() or receipt.is_symlink():
+            info = receipt.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                    or stat.S_IMODE(info.st_mode) != 0o600 or info.st_size != len(identity)
+                    or receipt.read_text() != identity):
+                raise ValueError('invalid_rotation_checkpoint')
+            password_file.unlink(missing_ok=True)
+            return
+    fd = os.open(password_file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd) as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid not in {0, uid} or info.st_mode & 0o077 or info.st_size > 129:
+            raise ValueError('private_recovery_password_required')
+        password = stream.read().rstrip('\n')
+    if not re.fullmatch(r'[A-Za-z0-9._~-]{16,128}', password):
+        raise ValueError('unique_recovery_password_required')
+    command(['chpasswd'], input=user + ':' + password + '\n')
+    if hypervisor == 'apple':
+        install_file(receipt, identity)
+        fd = os.open(policy_dir, os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        password_file.unlink()
+
+
+def harden(user, source, password_file, hypervisor="apple"):
     if not re.fullmatch('[a-z_][a-z0-9_-]{0,31}', user) or user == 'root':
         raise ValueError('desktop_user_required')
     # Refuse before password rotation or policy mutation if desktop setup did
@@ -86,14 +125,6 @@ def harden(user, source, password_file):
     account = pwd.getpwnam(user)
     if account.pw_uid < 1000:raise ValueError('desktop_user_required')
     home = Path(account.pw_dir)
-    fd = os.open(password_file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(fd) as stream:
-        info = os.fstat(stream.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_uid not in {0, account.pw_uid} or info.st_mode & 0o077 or info.st_size > 129:
-            raise ValueError('private_recovery_password_required')
-        password = stream.read().rstrip('\n')
-    if not re.fullmatch(r'[A-Za-z0-9._~-]{16,128}', password):
-        raise ValueError('unique_recovery_password_required')
     authorized = home/'.ssh/authorized_keys'
     if authorized.is_symlink() or not authorized.is_file() or not any('ssh-ed25519 ' in line for line in authorized.read_text().splitlines()):
         raise ValueError('pair_guest_key_before_hardening')
@@ -130,20 +161,29 @@ WantedBy=multi-user.target
         command(['visudo','-cf',rule.name])
     install_file(Path('/etc/sudoers.d/ownmachine-shutdown'),sudo_rule,0o440)
     support=user_support(home,account.pw_uid,account.pw_gid)
-    helper=support/'vm-shutdown.sh'
-    install_file(helper,'#!/bin/sh\nexec /usr/bin/sudo -n /usr/bin/systemctl poweroff\n',0o700)
-    os.chown(support,account.pw_uid,account.pw_gid);os.chown(helper,account.pw_uid,account.pw_gid)
+    if hypervisor != 'kvm':  # KVM uses a host-issued ACPI shutdown.
+        helper=support/'vm-shutdown.sh'
+        # The desktop owns this tree. Create or compare the helper as that user.
+        command(['runuser', '-u', user, '--', '/bin/sh', '-eu', '-c', '''
+            tmp=$(mktemp "$(dirname "$1")/.ownmachine-XXXXXXXX")
+            trap 'rm -f "$tmp"' EXIT
+            cat > "$tmp"
+            chmod 700 "$tmp"
+            ln -T "$tmp" "$1" 2>/dev/null || {
+                test ! -L "$1" && test -f "$1" && test -x "$1" && cmp -s "$tmp" "$1"
+            }
+        ''', 'install-shutdown-helper', str(helper)],
+                input='#!/bin/sh\nexec /usr/bin/sudo -n /usr/bin/systemctl poweroff\n')
     # Remove only the exact upstream unattended passwordless rule, preserving
     # administrator customizations. Unknown rules require operator inspection.
     # Establish recovery access before removing unattended sudo.
-    command(['chpasswd'], input=user + ':' + password + '\n')
+    rotate_password(user, account.pw_uid, Path(password_file), hypervisor)
     if wheel.exists():
-        fd=os.open(wheel,os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW)
-        with os.fdopen(fd,'w') as stream:
-            stream.write('%wheel ALL=(ALL:ALL) ALL\n');stream.flush();os.fsync(stream.fileno())
-        wheel.chmod(0o440)
+        with tempfile.NamedTemporaryFile(dir=wheel.parent, prefix='.ownmachine-', delete=False) as tmp:
+            tmp.write(b'%wheel ALL=(ALL:ALL) ALL\n');tmp.flush()
+            os.fchmod(tmp.fileno(),0o440);os.fsync(tmp.fileno())
+        os.replace(tmp.name,wheel)
     command(['visudo','-c'])
-    Path(password_file).unlink()
     command(['passwd','-l','root'])
     command(['systemctl','daemon-reload'])
     command(['systemctl','enable','--now','ownmachine-firewall.service'])
@@ -165,15 +205,16 @@ def main():
     parser.add_argument('--user',required=True)
     parser.add_argument('--ssh-source',required=True,help='Host-side source address observed over the verified guest SSH connection')
     parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--password-file',type=Path,help='Private guest-side recovery-password transfer file, consumed after rotation; keep the recovery copy on the host, never pass it in argv')
+    parser.add_argument('--password-file',type=Path,help='Private guest password-transfer file. Lume removes it after successful rotation. KVM first boot removes it after hardening is sealed. Keep the recovery copy on the host.')
+    parser.add_argument('--hypervisor',choices=('apple','kvm'),default='apple')
     args=parser.parse_args()
     firewall_rules(args.ssh_source)
     if not args.apply:
         print(json.dumps(dict(stage='planned',guest_os='linux',next='Run as root inside the fresh guest after pairing its key.')));return
-    if platform.system()!='Linux' or os.geteuid()!=0 or command(['systemd-detect-virt']).stdout.strip()!='apple':
-        raise ValueError('apple_virtualized_linux_guest_root_required')
+    if platform.system()!='Linux' or os.geteuid()!=0 or command(['systemd-detect-virt']).stdout.strip()!=args.hypervisor:
+        raise ValueError('matching_virtualized_linux_guest_root_required')
     if args.password_file is None:raise ValueError('private_recovery_password_required')
-    print(json.dumps(harden(args.user,args.ssh_source,args.password_file)))
+    print(json.dumps(harden(args.user,args.ssh_source,args.password_file,args.hypervisor)))
 
 if __name__=='__main__':
     try:main()

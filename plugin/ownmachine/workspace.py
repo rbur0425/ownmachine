@@ -28,7 +28,7 @@ def status(config):
         # driver diagnostics never flow into the model-facing result.
         states = {'not_configured', 'vm_not_running', 'guest_unreachable',
                   'invalid_response', 'permissions_required', 'capture_consent_required',
-                  'not_running', 'health_check_failed', 'ready'}
+                  'not_running', 'health_check_failed', 'foreground_input_unavailable', 'ready'}
         state = data.get('driver_state')
         state = state if isinstance(state, str) and state in states else 'not_probed'
         flags = {key: data.get(key) is True for key in
@@ -41,7 +41,7 @@ def status(config):
                     'vm_state': data['vm_state'], 'driver_ready': False,
                     'driver_state': 'vm_not_running', 'viewer_state': 'not_probed',
                     'controller': 'not_initialized'}
-        linux = data.get('guest_os') == 'linux' and data.get('guest_profile') == 'omarchy'
+        linux = data.get('guest_os') == 'linux' and data.get('guest_profile') in {'omarchy','omarchy-kvm'}
         windows = data.get('guest_os') == 'windows' and data.get('guest_profile') == 'windows'
         if windows != (config.guest_profile == 'windows'):
             return {'host_reachable': True, 'driver_ready': False, 'code': 'guest_profile_mismatch'}
@@ -54,7 +54,7 @@ def status(config):
                     'vm_state': 'running' if data.get('vm_state') == 'running' else 'unknown',
                     'driver_ready': ready, 'driver_state': 'invalid_response' if state == 'ready' and not ready else state,
                     'viewer_state': 'not_probed', 'controller': 'not_initialized'}
-        if linux != (config.guest_profile == 'omarchy'):
+        if linux != (config.guest_profile in {'omarchy','omarchy-kvm'}) or (linux and data.get('guest_profile') != config.guest_profile) or (config.guest_profile=='omarchy-kvm' and data.get('backend')!='kvm'):
             return {'host_reachable': True, 'driver_ready': False, 'code': 'guest_profile_mismatch'}
         linux_flags = {key: data.get(key) is True for key in
                        ('graphical_session', 'accessibility_bus', 'driver_running', 'standard_mode')} if linux else {}
@@ -66,7 +66,7 @@ def status(config):
             # False macOS TCC booleans mislead models into requesting consent
             # that does not exist on Linux. Return the actual Linux gates only.
             flags = {'guest_reachable': flags['guest_reachable']}
-        return {**flags, **linux_flags, **({'guest_os': 'linux', 'guest_profile': 'omarchy'} if linux else {}), 'host_reachable': True,
+        return {**flags, **linux_flags, **({'guest_os': 'linux', 'guest_profile': config.guest_profile, 'foreground_input_ready': data.get('foreground_input_ready') is True} if linux else {}), 'host_reachable': True,
                 'lume_installed': data.get('lume_installed') is True,
                 'vm_state': data.get('vm_state') if data.get('vm_state') in
                     {'not_probed', 'lume_not_installed', 'running', 'stopped', 'provisioning', 'absent', 'unknown'} else 'unknown',

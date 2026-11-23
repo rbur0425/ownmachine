@@ -1,8 +1,6 @@
-# Catalog preparation — not a submission
+# Catalog preparation history
 
-The local `ownmachine.yaml` is a reviewed-source preparation draft, not an
-accepted entry. No upstream PR, issue, fork or maintainer message is authorized
-by this work. The owner confirmed the two policy questions below on 2026-11-11.
+The local `ownmachine.yaml` preserves the v0.7.0 submission draft. The notes below record preparation for that release. For the next catalog pin, use the [marketplace copy](marketplace-copy.md) and the release commit that qualifies each advertised guest.
 
 ## Policy confirmation
 
