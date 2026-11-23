@@ -139,7 +139,8 @@ def execute(c,plan,step,apply=False):
         if report.get('driver_ready') is not True:return readiness_result(report)
         return dict(ok=True,stage='verified')
     if step in ('viewer','viewer-check'):
-        w.viewer(c,plan,apply and step=='viewer');return dict(ok=True,stage='verified')
+        w.viewer(c,plan,apply and step=='viewer')
+        return dict(ok=True,stage='checks_passed' if step=='viewer-check' else 'verified')
     if step in ('firewall','relay','keys','permissions','verify'):
         agent=probe(c,'agent');viewer=probe(c,'viewer')
         if agent.get('vm_uuid')!=viewer.get('vm_uuid'):raise ValueError('runtime_roles_disagree')

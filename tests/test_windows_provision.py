@@ -97,6 +97,12 @@ class FreshWindowsTests(unittest.TestCase):
         with patch.object(w,'guest',return_value={k:True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')}), patch.object(stages,'wait_driver',return_value={'driver_ready':True}):
             self.assertEqual(stages.execute({}, {},'driver',True)['stage'],'verified')
 
+    def test_read_only_viewer_receipt_matches_transport_contract(self):
+        with patch.object(w, 'viewer') as viewer:
+            plan = {'guest_profile': 'omarchy-kvm'}
+            self.assertEqual(stages.execute({}, plan, 'viewer-check')['stage'], 'checks_passed')
+            viewer.assert_called_once_with({}, plan, False)
+
     def test_driver_readiness_wait_is_bounded_and_read_only(self):
         pending=dict(vm_state='running',guest_reachable=True,bootstrap_hardened=True,driver_ready=False)
         ready=dict(pending,driver_ready=True)

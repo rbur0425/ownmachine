@@ -4,7 +4,7 @@ Choose **omarchy-kvm** for an x86-64 Linux host with hardware KVM, QEMU/libvirt 
 
 ## Save the plan
 
-Install this revision in an isolated Hermes home. In the wizard choose the guest, the host location, and a new VM name. The equivalent terminal command is below. Replace the uppercase values. The control directory must be the same physical directory for the viewer and Hermes, even when its container mount path differs.
+Install this revision in an isolated Hermes home. For a development checkout, set the plugin setting `setup_guide_ref` to its full Git commit so the wizard opens the matching guide. In the wizard choose the guest, the host location, and a new VM name. The equivalent terminal command is below. Replace the uppercase values. The control directory must be the same physical directory for the viewer and Hermes, even when its container mount path differs.
 
 ```sh
 hermes ownmachine setup --guest-profile omarchy-kvm --target remote \
