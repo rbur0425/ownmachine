@@ -1,21 +1,11 @@
 # Wizard quickstart
 
-For x86-64 Omarchy on Linux KVM, choose `omarchy-kvm`. See [guided setup](omarchy-kvm.md).
+Start in Hermes with `hermes ownmachine setup`. Choose the guest that matches the machine hosting the VM. Hermes itself can run on a separate machine.
 
-For a first evaluation, start with the [evaluator quickstart](evaluator-quickstart.md),
-including administrator handoffs and shared-control permission checks.
-This is the guided onboarding path, not a claim of one-click setup.
-Use reviewed full source or a checksum-verified release bundle on each operator
-machine. The catalog-installed `plugin/` contains no privileged installers.
-macOS is the default guest. OwnMachine v1.0.0 also offers ARM64
-Omarchy; choose `--guest-profile omarchy` and follow the [Linux operator guide](linux-development.md).
-Ubuntu and Windows are not available images.
+- **Intel or AMD Linux with hardware KVM:** Choose `windows` for [Windows 11 Enterprise Evaluation](windows-onboarding.md), or `omarchy-kvm` for [x86-64 Omarchy](omarchy-kvm.md). Follow the selected guide for host prerequisites, administrator registration and guest sign-in. Both options run without Apple hardware.
+- **Apple Silicon with Lume:** Choose `macos` (default) or `omarchy` for [ARM64 Omarchy](linux-development.md). The [evaluator checklist](evaluator-quickstart.md#manual-prerequisites-before-hermes-can-provision) covers the Mac administrator and guest handoffs described below.
 
-**Start with the [manual prerequisite checklist](evaluator-quickstart.md#manual-prerequisites-before-hermes-can-provision).**
-You can install the plugin and save a plan first, but Hermes cannot provision the
-Mac until the operator has prepared trusted SSH setup access and matching source/
-configuration. The wizard does not create the host account or grant administrator
-privileges. Firewall approval and guest consent remain later human handoffs.
+Use reviewed full source or a checksum-verified release bundle matching the installed plugin. The catalog plugin contains the Hermes commands. The full checkout supplies host installers and the browser viewer.
 If blocked, use the [status-to-documentation and reminder steps](evaluator-quickstart.md#resume-without-guessing).
 
 ## Start in Hermes
@@ -190,8 +180,8 @@ hermes --profile ownmachine config set computer_use.permission_mode standard
 hermes --profile ownmachine config set plugins.isolation in_process
 ```
 
-Use your saved plan's VM name, control directory and guest profile (`omarchy` for
-Omarchy). Keep background input `false` unless you explicitly opt into its tested
+Use your saved plan's VM name, control directory and guest profile (`omarchy` for ARM64 on Lume,
+`omarchy-kvm` for x86-64 on KVM, or `windows` for Windows on KVM). Keep background input `false` unless you explicitly opt into its tested
 experimental scope and prerequisites. The control directory must be the same
 underlying directory shared with the viewer. These settings do not provision a VM.
 **Without `computer_use.backend: ownmachine`, Hermes may select its host-desktop

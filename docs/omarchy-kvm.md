@@ -4,7 +4,7 @@ Choose **omarchy-kvm** for an x86-64 Linux host with hardware KVM, QEMU/libvirt 
 
 ## Save the plan
 
-Install this revision in an isolated Hermes home. For a development checkout, set the plugin setting `setup_guide_ref` to its full Git commit so the wizard opens the matching guide. In the wizard choose the guest, the host location, and a new VM name. The equivalent terminal command is below. Replace the uppercase values. The control directory must be the same physical directory for the viewer and Hermes, even when its container mount path differs.
+Follow the [Hermes profile and plugin installation steps](evaluator-quickstart.md#install-the-reviewed-release) using a revision that contains `omarchy-kvm`. For a development checkout, set the plugin setting `setup_guide_ref` to its full Git commit so the wizard opens the matching guide. In the wizard choose the guest, the host location, and a new VM name. The equivalent terminal command is below. Replace the uppercase values. The control directory must be the same physical directory for the viewer and Hermes, even when its container mount path differs.
 
 ```sh
 hermes ownmachine setup --guest-profile omarchy-kvm --target remote \
@@ -93,3 +93,11 @@ The first end-to-end run exposed a receipt mismatch in the separate read-only vi
 ### Interrupted first-boot recovery
 
 A separate disposable KVM guest booted from an imported copy of the freshly seeded image. A qualification fixture stopped the first hardening attempt immediately after key and tool installation. Offline inspection confirmed the recovery password remained private in the guest and neither completion marker existed. On the second cold boot, hardening sealed successfully, first boot completed and the guest password-transfer file was gone. Both SSH key files and the CMake executable retained their contents, ownership, inode and modification time. The fixture powered the guest down after each observation.
+
+### Release-candidate clean install and login timing
+
+A fresh Hermes Docker profile and a new 40 GiB VM ran the complete guided setup on x86-64 Linux KVM at runtime commit `103bb946acfd1e160cdc99e9be418fba7292c86d`. The administrator registered the stopped domain. Hermes verified the firewall, restricted agent and viewer keys, private viewer, hardening and native driver. Provision initially returned `omarchy_bootstrap_pending` during first boot. Refreshing preflight and repeating provision on the same running guest succeeded. The driver installed in one attempt. Read-only verify captured a 1280 × 800 desktop before the cold start.
+
+The viewer role gracefully stopped the guest. Libvirt confirmed it was shut off and assigned a new domain ID when it started again. The first observed Hyprland session reported both driver and foreground input unready. The first Hermes permissions command then passed without an operator retry. Verify with `--apply` captured another 1280 × 800 screenshot, confirmed setup-key rejection and verified continued runtime access.
+
+After control returned to the agent in the private browser viewer, a local Qwen model used Hermes computer use to navigate an open Chromium New Tab to `chrome://gpu`. A separate libvirt console capture showed the GPU Internals tab, the destination URL and the Graphics Feature Status section reporting software rendering. This run exercised a guest cold start on the existing Linux host.

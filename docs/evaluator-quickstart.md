@@ -5,13 +5,20 @@ human/agent handoff. This guide is the entry point for evaluating the released
 plugin. Installing the plugin does **not** silently create accounts, authorize
 SSH keys, install a firewall or grant macOS permissions.
 
-**Setting up Windows?** Use the
-[Windows onboarding guide](windows-onboarding.md) and
-[support/input matrix](windows-support-matrix.md). It requires a Linux KVM host,
-not the Mac/Lume prerequisites below. Windows guest login and administrator host
-registration remain manual handoffs; physical Linux-host reboot is unqualified.
+## Choose the VM host
+
+| Available host | Desktop to evaluate | Wizard profile and instructions |
+| --- | --- | --- |
+| x86-64 Linux with hardware KVM | Windows 11 Enterprise Evaluation | [`windows` onboarding](windows-onboarding.md) and [input matrix](windows-support-matrix.md) |
+| x86-64 Linux with hardware KVM | Omarchy with foreground input | [`omarchy-kvm` onboarding and acceptance](omarchy-kvm.md) |
+| Apple Silicon Mac | ARM64 Omarchy | [`omarchy` foreground evaluation](#omarchy-foreground-evaluation) |
+| Apple Silicon Mac | macOS | `macos` (default), continue below |
+
+The Linux guides cover administrator registration, the private viewer, guest sign-in and verification. Hermes can run on another machine over SSH. Neither Linux path requires a Mac, Lume or Apple permissions.
 
 ## Manual prerequisites before Hermes can provision
+
+The following checklist covers Apple Silicon hosts.
 
 **You can start in Hermes by installing the plugin and saving a wizard plan. That
 alone does not grant setup access or create a VM.** Before `setup --run preflight`
@@ -26,7 +33,7 @@ Keep the chosen profile, VM name, storage and source pin consistent throughout.
 | After building Lume, before VNC — Mac administrator | Run the firewall installer for the exact app path and fixed port; require its success and the firewall stage check. A successful plugin install does not authorize sudo. | [Administrator handoff](#execute-setup-and-complete-the-administrator-handoff) |
 | During first boot — guest desktop | Complete first-run choices. For macOS, approve Accessibility, Screen Recording and final capture consent in the guest. For Omarchy, review browser terms/keyring prompts yourself; no macOS permission grants apply. | [macOS permissions](#approve-guest-permissions-and-open-the-viewer), [Omarchy handoffs](#omarchy-foreground-evaluation) |
 
-For Omarchy, verified image/private-bootstrap preparation is also required before
+For ARM64 Omarchy, verified image/private-bootstrap preparation is also required before
 provisioning; follow the [Linux bootstrap instructions](linux-development.md#private-installer-bootstrap).
 Chromium foreground input needs explicit native-module opt-in before desktop setup.
 Do not follow the macOS provisioning sequence for an Omarchy plan.
@@ -56,8 +63,7 @@ The agent and viewer share **one underlying control directory**, not their homes
 Use persistent mounts and stable paths; a path inside a container may differ from
 its host path. On the Mac, use the same canonical VM storage path in the plan and
 relay configuration. `local` means the machine running Hermes, not your browser.
-OwnMachine v1.0.1 supports macOS and the tested
-Omarchy foreground configuration described below. Defaults are 4 CPUs, 8 GiB RAM, 64 GiB sparse disk,
+For macOS on Lume, defaults are 4 CPUs, 8 GiB RAM, 64 GiB sparse disk,
 1900×1200 display and a configurable 60 GiB provisioning free-space budget.
 
 Before final verification, complete the [runtime/provider configuration](wizard-quickstart.md#configure-the-runtime-before-final-verification)
@@ -65,7 +71,7 @@ in the same agent profile; setup transport settings alone are insufficient.
 
 ## Install the reviewed release
 
-Check out the v1.0.1 source tag using the README instructions. If using a
+Check out the release tag that supplies your guest profile. For a pre-release evaluation, check out the exact reviewed commit. If using a
 separately distributed full-source bundle, [verify before extraction](distribution.md). Keep the full source at a permanent
 operator-owned location: the viewer service references it. The plugin-only package
 contains no privileged installers. For a Git checkout, select the release tag.
@@ -83,9 +89,7 @@ hermes --profile ownmachine setup
 ```
 
 Replace `RELEASE_COMMIT` with the full 40-character commit from the release, not a
-branch name. Resolve it from the v1.0.1 source checkout with
-`git rev-parse v1.0.1^{commit}` and use the same revision for plugin and full source.
-Do not use v0.8.0 bundles for Omarchy.
+branch name. Run `git rev-parse HEAD` in that checkout and use the same revision for the plugin and full source. For x86-64 Omarchy, the checkout must contain the `omarchy-kvm` profile.
 The last command configures your model through Hermes. Never copy
 another profile's credential files. Verify that no extra tools/MCP servers restore
 host terminal/file access. `in_process` is explicit because the native provider

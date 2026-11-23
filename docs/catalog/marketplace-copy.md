@@ -1,8 +1,6 @@
-# Marketplace copy for the Windows release
+# Marketplace copy for the x86-64 Omarchy release
 
-Use this copy in the next catalog update after v1.1.0 is published and the runtime
-pin is validated. The existing catalog YAML is historical; do not attach Windows
-claims to its old runtime pin. This document does not change the live marketplace.
+Use this copy when the catalog pin advances to a published release containing `omarchy-kvm`. The historical catalog YAML describes its original pinned release.
 
 ## Short description
 
@@ -26,10 +24,7 @@ resumable progress and doctor checks to help you through manual steps.
 by Hermes follow your configured model provider; a cloud model can receive that
 data. Private SSH protects the connection, not every downstream use of the data.
 
-**Supported configurations:** macOS and ARM64 Omarchy on Apple Silicon with patched
-Lume; Windows 11 Enterprise Evaluation x86-64 on Linux KVM/libvirt. Administrator
-setup and guest consent/sign-in steps are required. See the platform guides and
-support matrix for limits.
+**Choose your host.** An Intel or AMD Linux host with hardware KVM can run x86-64 Omarchy or Windows 11 Enterprise Evaluation. Both work without a Mac. Apple Silicon hosts can run macOS or ARM64 Omarchy using patched Lume. Hermes can connect to either host over SSH. See the [platform guides](../evaluator-quickstart.md#choose-the-vm-host) for administrator handoffs and guest sign-in.
 
 ## Preserve the catalog disclosures
 

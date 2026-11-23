@@ -1,6 +1,6 @@
 # OwnMachine
 
-For x86-64 Omarchy on Linux KVM, choose `omarchy-kvm`. See [guided setup](../docs/omarchy-kvm.md).
+On an Intel or AMD Linux host with hardware KVM, choose [Windows](../docs/windows-onboarding.md) or [x86-64 Omarchy](../docs/omarchy-kvm.md). Both run without a Mac.
 
 Start with the [evaluator quickstart](../docs/evaluator-quickstart.md) for the complete ordered setup and permission checks.
 
@@ -12,15 +12,14 @@ control, connect over private SSH, and take over from your browser whenever you
 need to. Apps and saved files persist between sessions. Screenshots and app text
 used by Hermes follow your configured model provider.
 
-OwnMachine connects Hermes to a persistent, separate macOS, ARM64 Omarchy or Windows 11 Enterprise Evaluation VM through restricted
+OwnMachine connects Hermes to a persistent, separate macOS, Omarchy or Windows 11 Enterprise Evaluation VM through restricted
 SSH and MCP. The agent works in its own guest desktop; a separately installed
 private browser viewer lets you watch, pause it, reserve the workspace for human
 mouse/keyboard input, and return control. Your personal host desktop is not the
 computer-use target.
 
 OwnMachine requires Hermes 0.23.1 or later and OpenSSH. macOS and ARM64 Omarchy
-use an Apple Silicon Mac with patched Lume; Windows 11 Enterprise Evaluation
-x86-64 uses Linux KVM/libvirt. Hermes can run on a separate machine, including
+use an Apple Silicon Mac with patched Lume. Windows 11 Enterprise Evaluation and x86-64 Omarchy use Linux KVM/libvirt. Hermes can run on a separate machine, including
 Linux Docker. See the [Windows scope and input matrix](../docs/windows-support-matrix.md)
 and [v1.1.0 notes](../docs/release-1.1.0.md). Cloud hosts and Windows Home/Pro are
 not qualified. Catalog installs use the reviewed upstream commit pin.
@@ -65,13 +64,7 @@ isolation/toolsets: follow the dedicated-profile setup below and start a new
 session after configuration changes. `hermes ownmachine doctor --json` and
 `/ownmachine doctor` report bounded read-only readiness.
 
-**macOS remains the default; OwnMachine also supports Omarchy foreground desktop control on Apple Silicon.** See the [final acceptance and scope](../docs/omarchy-final-acceptance.md). Background input remains experimental. The terminal
-wizard also offers Windows on a Linux KVM host; follow the [Windows guide](../docs/windows-onboarding.md) for its distinct administrator and guest-login handoffs. Use `--guest-profile omarchy` for an explicit
-noninteractive choice. Read the [Omarchy evaluator steps](../docs/evaluator-quickstart.md)
-before provisioning: operator trust/bootstrap and firewall approval remain, while
-Hermes drives installation and boot transitions. Targeted foreground input
-requires explicit opt-in to the exact-ABI Hyprland module. Linux guest control
-does not require macOS guest Accessibility or Screen Recording permissions.
+The default profile is `macos`. On Linux KVM choose `windows` for [Windows onboarding](../docs/windows-onboarding.md) or `omarchy-kvm` for [x86-64 Omarchy onboarding](../docs/omarchy-kvm.md). Both require administrator host registration and guest sign-in. On Apple Silicon choose `omarchy` for [ARM64 Omarchy](../docs/linux-development.md). Its targeted foreground input requires explicit module opt-in. The KVM driver stage builds and verifies its foreground module during guided setup.
 
 The Hermes command layer provides planning, resume, connection configuration
 and diagnosis. `hermes ownmachine setup --run STAGE` now dispatches approved
@@ -153,7 +146,7 @@ verification](../docs/security-isolation.md).
 Hardened VNC requires the pinned local Lume build with protected-file password
 input (Xcode/Swift required); the upstream binary exposes argv passwords to other
 local accounts. No forked binary is bundled. The v0.8.0 preview includes
-this hardening; current macOS/Omarchy installations still require it. Fresh dedicated Hermes profiles
+this hardening; current Lume installations still require it. Fresh dedicated Hermes profiles
 disable terminal, file and code-execution toolsets.
 
 **Plugin runtime:** the provider launches an OpenSSH subprocess and maintains a
