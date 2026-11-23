@@ -72,9 +72,42 @@ def user_support(home, uid, gid):
     return support
 
 
-def rotate_password(user, password, password_file, hypervisor):
+def check_rotation_directory(path):
+    for directory in (path, *path.parents):
+        info = directory.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ValueError('unsafe_rotation_directory')
+
+
+def rotate_password(user, uid, password_file, hypervisor, policy_dir=Path('/etc/ownmachine')):
+    receipt = policy_dir / ('rotation-' + user)
+    identity = f'v1 {user} {uid}\n'
+    if hypervisor == 'apple':
+        check_rotation_directory(policy_dir)
+        if receipt.exists() or receipt.is_symlink():
+            info = receipt.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                    or stat.S_IMODE(info.st_mode) != 0o600 or info.st_size != len(identity)
+                    or receipt.read_text() != identity):
+                raise ValueError('invalid_rotation_checkpoint')
+            password_file.unlink(missing_ok=True)
+            return
+    fd = os.open(password_file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd) as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid not in {0, uid} or info.st_mode & 0o077 or info.st_size > 129:
+            raise ValueError('private_recovery_password_required')
+        password = stream.read().rstrip('\n')
+    if not re.fullmatch(r'[A-Za-z0-9._~-]{16,128}', password):
+        raise ValueError('unique_recovery_password_required')
     command(['chpasswd'], input=user + ':' + password + '\n')
     if hypervisor == 'apple':
+        install_file(receipt, identity)
+        fd = os.open(policy_dir, os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
         password_file.unlink()
 
 
@@ -92,14 +125,6 @@ def harden(user, source, password_file, hypervisor="apple"):
     account = pwd.getpwnam(user)
     if account.pw_uid < 1000:raise ValueError('desktop_user_required')
     home = Path(account.pw_dir)
-    fd = os.open(password_file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(fd) as stream:
-        info = os.fstat(stream.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_uid not in {0, account.pw_uid} or info.st_mode & 0o077 or info.st_size > 129:
-            raise ValueError('private_recovery_password_required')
-        password = stream.read().rstrip('\n')
-    if not re.fullmatch(r'[A-Za-z0-9._~-]{16,128}', password):
-        raise ValueError('unique_recovery_password_required')
     authorized = home/'.ssh/authorized_keys'
     if authorized.is_symlink() or not authorized.is_file() or not any('ssh-ed25519 ' in line for line in authorized.read_text().splitlines()):
         raise ValueError('pair_guest_key_before_hardening')
@@ -138,12 +163,21 @@ WantedBy=multi-user.target
     support=user_support(home,account.pw_uid,account.pw_gid)
     if hypervisor != 'kvm':  # KVM uses a host-issued ACPI shutdown.
         helper=support/'vm-shutdown.sh'
-        install_file(helper,'#!/bin/sh\nexec /usr/bin/sudo -n /usr/bin/systemctl poweroff\n',0o700)
-        os.chown(support,account.pw_uid,account.pw_gid);os.chown(helper,account.pw_uid,account.pw_gid)
+        # The desktop owns this tree. Create or compare the helper as that user.
+        command(['runuser', '-u', user, '--', '/bin/sh', '-eu', '-c', '''
+            tmp=$(mktemp "$(dirname "$1")/.ownmachine-XXXXXXXX")
+            trap 'rm -f "$tmp"' EXIT
+            cat > "$tmp"
+            chmod 700 "$tmp"
+            ln -T "$tmp" "$1" 2>/dev/null || {
+                test ! -L "$1" && test -f "$1" && test -x "$1" && cmp -s "$tmp" "$1"
+            }
+        ''', 'install-shutdown-helper', str(helper)],
+                input='#!/bin/sh\nexec /usr/bin/sudo -n /usr/bin/systemctl poweroff\n')
     # Remove only the exact upstream unattended passwordless rule, preserving
     # administrator customizations. Unknown rules require operator inspection.
     # Establish recovery access before removing unattended sudo.
-    rotate_password(user, password, Path(password_file), hypervisor)
+    rotate_password(user, account.pw_uid, Path(password_file), hypervisor)
     if wheel.exists():
         with tempfile.NamedTemporaryFile(dir=wheel.parent, prefix='.ownmachine-', delete=False) as tmp:
             tmp.write(b'%wheel ALL=(ALL:ALL) ALL\n');tmp.flush()

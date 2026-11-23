@@ -148,7 +148,7 @@ def execute(c,plan,step,apply=False):
                 except subprocess.CalledProcessError:
                     return attention('omarchy_driver_required')
                 if installed.get('ok') is not True:return attention('omarchy_driver_required')
-            report=probe(c,'agent');ok=report.get('foreground_input_ready') is True and report.get('driver_ready') is True
+            report=wait_driver(c);ok=report.get('foreground_input_ready') is True and report.get('driver_ready') is True
             return dict(ok=True,stage='verified') if ok else readiness_result(report,linux=True)
         if not all(result.get(k) is True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')):raise ValueError('guest_driver_validation_failed')
         report=wait_driver(c)

@@ -26,6 +26,16 @@ class TransportTests(unittest.TestCase):
         return {**{k:v for k,v in request.items() if k!='apply'},'ok':True,
                 'outcomes':{request['step']:{'stage':'observed','observed_at':int(time.time())}}}
 
+    def test_omarchy_driver_client_outlasts_endpoint(self):
+        self.plan['guest_profile'] = 'omarchy-kvm'
+        def verified(argv, request, timeout):
+            receipt = self.receipt(argv, request, timeout)
+            receipt['outcomes']['driver']['stage'] = 'verified'
+            return receipt
+        with patch.object(t, 'exchange', side_effect=verified) as exchange:
+            t.dispatch(self.ctx, self.plan, 'driver', True)
+            self.assertEqual(exchange.call_args.args[2], 7400)
+
     def test_import_only_matching_channel_receipt_and_show_status(self):
         with patch.object(t,'exchange',side_effect=self.receipt):
             result=o.setup(self.ctx,args('setup','--run','preflight'))

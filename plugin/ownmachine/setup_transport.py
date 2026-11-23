@@ -104,6 +104,8 @@ def dispatch(ctx, plan, step, apply=False, *, capture=None):
     if step not in READ_ONLY and not apply:
         raise ValueError('explicit_apply_required')
     alias, source, timeout = settings(ctx, plan)
+    if step == 'driver' and plan.get('guest_profile') == 'omarchy-kvm':
+        timeout = max(timeout, 7400)
     nonce = secrets.token_hex(32)
     request = dict(format=1, nonce=nonce, source_sha256=source, plan_digest=digest(plan),
                    vm=plan['vm_name'], step=step, apply=apply)

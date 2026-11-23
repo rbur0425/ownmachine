@@ -153,7 +153,8 @@ def execute(request,c,plan):
         mac.write_state(path,saved)
         if step!='progress':
             old=saved['outcomes'].get(step,{})
-            if old.get('stage') in {'running','needs_inspection'} and step not in READ_ONLY:
+            resuming_hardening = step == 'harden' and plan.get('guest_profile') == 'omarchy' and request['apply']
+            if old.get('stage') in {'running','needs_inspection'} and step not in READ_ONLY and not resuming_hardening:
                 raise ValueError('uncertain_previous_step')
             if step in {'build','provision'}:
                 preflight = saved['outcomes'].get('preflight', {})

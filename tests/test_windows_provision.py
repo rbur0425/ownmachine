@@ -24,6 +24,23 @@ class FreshWindowsTests(unittest.TestCase):
             self.assertEqual(stages.execute({},plan,'driver',True)['code'],'graphical_session_required')
             guest.assert_called_once_with({},'status')
 
+    def test_omarchy_driver_waits_after_a_single_install(self):
+        plan = {'guest_profile': 'omarchy-kvm'}
+        pending = dict(bootstrap_hardened=True, graphical_session=True, guest_reachable=True,
+                       vm_state='running', driver_ready=False, foreground_input_ready=False)
+        ready = dict(pending, driver_ready=True, foreground_input_ready=True)
+        with patch.object(w, 'guest', side_effect=[pending, {'ok': True}]) as guest, \
+                patch.object(stages, 'probe', side_effect=[pending, ready]), patch.object(stages.time, 'sleep'):
+            self.assertEqual(stages.execute({}, plan, 'driver', True)['stage'], 'verified')
+            self.assertEqual([call.args[1] for call in guest.call_args_list], ['status', 'driver'])
+
+    def test_first_build_has_budget_for_all_three_build_commands(self):
+        for profile, operation, timeout in [('omarchy-kvm', 'driver', 6900), ('windows', 'driver', 1800),
+                                            ('omarchy-kvm', 'status', 120)]:
+            with patch.object(w, 'run', return_value=subprocess.CompletedProcess([], 0, '{}')) as run:
+                w.guest({'ssh_config': '/config', '_profile': profile}, operation)
+                self.assertEqual(run.call_args.kwargs['timeout'], timeout)
+
     def test_omarchy_bootstrap_and_readiness_report_profile_reasons(self):
         plan={'guest_profile':'omarchy-kvm'}
         with patch.object(stages,'probe',return_value={'vm_state':'running'}),patch.object(w,'guest',side_effect=ValueError()):

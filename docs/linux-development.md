@@ -4,6 +4,8 @@ OwnMachine v1.0.0 supports the tested ARM64 Omarchy foreground desktop on an App
 the default installation path. Linux implementation is recorded in PR #15 and the
 [Omarchy plan](omarchy-plan.md); the setup planner accepts `--guest-profile omarchy`; macOS is the default.
 
+If Lume guest hardening stops after password rotation, correct the reported failure and rerun `hermes ownmachine setup --run harden --apply` with the same configuration. Keep the host recovery copy. A root-owned guest checkpoint records rotation for the desktop account, allowing setup to finish the remaining policy checks after the guest deletes its password-transfer file.
+
 ## Isolated host build
 
 Set operator-owned absolute app/build paths and build with

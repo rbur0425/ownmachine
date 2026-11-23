@@ -135,15 +135,33 @@ class LinuxIsolationTests(unittest.TestCase):
     def test_transfer_file_lifetime_at_password_rotation(self):
         for hypervisor in ('apple', 'kvm'):
             with self.subTest(hypervisor=hypervisor), tempfile.TemporaryDirectory() as directory:
-                transfer = Path(directory) / 'transfer'
+                policy = Path(directory).resolve()
+                transfer = policy / 'transfer'
+                password = 'this-is-a-test-fixture'
                 transfer.touch(mode=0o600)
+                transfer.write_text(password)
+                def apply():
+                    with patch.object(hardener, 'check_rotation_directory'):
+                        hardener.rotate_password('desktop', os.getuid(), transfer, hypervisor, policy)
                 with patch.object(hardener, 'command', side_effect=subprocess.CalledProcessError(1, 'chpasswd')):
                     with self.assertRaises(subprocess.CalledProcessError):
-                        hardener.rotate_password('desktop', 'fixture', transfer, hypervisor)
+                        apply()
                 self.assertTrue(transfer.exists())
+                self.assertFalse((policy / 'rotation-desktop').exists())
                 with patch.object(hardener, 'command') as rotate:
-                    hardener.rotate_password('desktop', 'fixture', transfer, hypervisor)
-                    rotate.assert_called_once_with(['chpasswd'], input='desktop:fixture\n')
+                    apply()
+                    if hypervisor == 'apple':
+                        self.assertFalse(transfer.exists())
+                        apply()  # resume after a later policy step failed
+                        marker = policy / 'rotation-desktop'
+                        self.assertNotIn(password, marker.read_text())
+                        marker.write_text(f'v1 desktop {os.getuid() + 1}\n')
+                        with self.assertRaisesRegex(ValueError, 'invalid_rotation_checkpoint'):
+                            apply()
+                        marker.unlink()
+                        with self.assertRaises(FileNotFoundError):
+                            apply()
+                    rotate.assert_called_once_with(['chpasswd'], input='desktop:' + password + '\n')
                 self.assertEqual(transfer.exists(), hypervisor == 'kvm')
 
     def test_guest_firewall_does_not_flush_other_tables(self):

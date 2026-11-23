@@ -143,7 +143,11 @@ def runtime_settings(p, plan, state):
 
 
 def guest(c,operation):
-    result=run(['ssh','-F',c['ssh_config'],'-T','ownmachine-guest-setup','ownmachine-guest '+operation],timeout=1800 if operation=='driver' else 120)
+    timeout = 120
+    if operation == 'driver':
+        # Omarchy configures, compiles and tests the module (up to 1800s each).
+        timeout = 6900 if c.get('_profile') == 'omarchy-kvm' else 1800
+    result=run(['ssh','-F',c['ssh_config'],'-T','ownmachine-guest-setup','ownmachine-guest '+operation],timeout=timeout)
     if len(result.stdout)>65536:raise ValueError('oversized_guest_response')
     return json.loads(result.stdout.lstrip('\ufeff'))
 
