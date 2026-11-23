@@ -14,13 +14,22 @@ class Config:
     action_timeout_seconds: int = 30
     experimental_linux_background_input: bool = False
 
+    def __post_init__(self):
+        # Both explicit transports stay strict. A profile-default setting can
+        # safely span a profile change made through Hermes's single-key API.
+        if self.console_transport == "profile-default":
+            transport = "private-unix" if self.guest_profile in {"windows", "omarchy-kvm"} else "password-vnc"
+            object.__setattr__(self, "console_transport", transport)
+
     def validate(self) -> "Config":
         if type(self.experimental_linux_background_input) is not bool or (self.experimental_linux_background_input and self.guest_profile != "omarchy"):
             raise ValueError("invalid_linux_background_opt_in")
-        if self.guest_profile not in {"macos", "omarchy", "windows"}:
+        if self.guest_profile not in {"macos", "omarchy", "omarchy-kvm", "windows"}:
             raise ValueError("unsupported_guest_profile")
-        if self.console_transport not in {"password-vnc", "private-unix"} or (self.console_transport == "private-unix" and self.guest_profile != "windows"):
+        if self.console_transport not in {"password-vnc", "private-unix"} or (self.console_transport == "private-unix" and self.guest_profile not in {"windows", "omarchy-kvm"}):
             raise ValueError("unsupported_console_transport")
+        if self.guest_profile == "omarchy-kvm" and self.console_transport != "private-unix":
+            raise ValueError("private_console_required")
         for value in (self.host_alias, self.vm_name):
             if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,63}", value):
                 raise ValueError("invalid_configuration")

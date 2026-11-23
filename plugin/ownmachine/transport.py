@@ -12,6 +12,11 @@ class TransportError(RuntimeError):
     pass
 
 
+class ForegroundInputUnavailable(TransportError):
+    def __init__(self):
+        super().__init__('foreground_input_unavailable')
+
+
 class MCPTransport:
     MAX_FRAME = 16 * 1024 * 1024
 
@@ -49,6 +54,9 @@ class MCPTransport:
                     cursor = data.get('nextCursor')
                     if not cursor: break
                 else: raise TransportError('tool_listing_limit')
+            except ForegroundInputUnavailable:
+                self.stop()
+                raise
             except Exception:
                 self.stop()
                 raise TransportError('mcp_start_failed') from None
@@ -102,6 +110,8 @@ class MCPTransport:
                 self._send({'jsonrpc':'2.0', 'id':ident, 'method':method, 'params':params}, deadline)
                 for _ in range(256):
                     msg = self._read(deadline)
+                    if method == 'initialize' and msg == {'code': 'foreground_input_unavailable'}:
+                        raise ForegroundInputUnavailable()
                     if not isinstance(msg, dict) or msg.get('jsonrpc') != '2.0':
                         raise TransportError('invalid_mcp_message')
                     if 'method' in msg:
@@ -115,6 +125,9 @@ class MCPTransport:
                     if not isinstance(msg.get('result'), dict): raise TransportError('invalid_result')
                     return msg['result']
                 raise TransportError('notification_limit')
+            except ForegroundInputUnavailable:
+                self.stop()
+                raise
             except Exception:
                 self.stop()
                 raise TransportError('transport_outcome_unknown') from None

@@ -21,6 +21,7 @@ import urllib.request
 # Verified Sigstore issuer: https://token.actions.githubusercontent.com
 # Identity: https://github.com/trycua/cua/.github/workflows/cd-rust-cua-driver.yml@refs/tags/cua-driver-rs-v0.47.19
 VERSION = '0.47.19'
+X86_SHA256 = 'a9b89435e4257467749e5da12770d74882e1e250925e3079b05a392f824b0e71'
 SHA256 = '5a1daed6820e6063f33dddbd3e5403d89dc27b8cf197b45df9af0fddd4fd50bb'
 SESSION_KEYS = {'DISPLAY', 'WAYLAND_DISPLAY', 'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP',
                 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'HYPRLAND_INSTANCE_SIGNATURE'}
@@ -120,13 +121,14 @@ def readiness():
                   foreground_input_ready=False)
     try:
         require_hardening()
-        config = settings()
         env = session_environment()
+        call(['hyprctl', '-j', 'activeworkspace'], env=env)
         result['graphical_session'] = True
         result['foreground_input_ready'] = foreground_input_ready(env)
         call(['gdbus', 'call', '--session', '--dest', 'org.a11y.Bus',
               '--object-path', '/org/a11y/bus', '--method', 'org.a11y.Bus.GetAddress'], env=env)
         result['accessibility_bus'] = True
+        config = settings()
         state = call([config['binary'], 'status'], env=env).stdout
         result['driver_running'] = 'daemon is not running' not in state and 'permission mode:' in state
         result['standard_mode'] = 'permission mode: standard (' in state
@@ -160,7 +162,7 @@ def install(version, sha256, artifact=None):
     support = home/'.local/lib/ownmachine'
     destinations = [root, config, support/'linux-guest.py', support/'driver-mcp.sh',
                     home/'.config/systemd/user/ownmachine-driver.service']
-    if any(p.exists() or p.is_symlink() for p in destinations):
+    if artifact is None and any(p.exists() or p.is_symlink() for p in destinations):
         raise ValueError('existing_installation_requires_inspection')
     private_dir(root.parent)
     with tempfile.TemporaryDirectory(dir=root.parent) as temporary:
@@ -169,7 +171,8 @@ def install(version, sha256, artifact=None):
         if artifact:
             shutil.copyfile(artifact, archive)
         else:
-            url = f'https://github.com/trycua/cua/releases/download/cua-driver-rs-v{version}/cua-driver-rs-{version}-linux-arm64-binary.tar.gz'
+            arch = 'x86_64' if platform.machine()=='x86_64' else 'arm64'
+            url = f'https://github.com/trycua/cua/releases/download/cua-driver-rs-v{version}/cua-driver-rs-{version}-linux-{arch}-binary.tar.gz'
             # HTTPS URL is built from a pinned upstream source; content SHA-256 is verified before use.
             with urllib.request.urlopen(url, timeout=60) as response, archive.open('wb') as out:
                 shutil.copyfileobj(response, out)
@@ -187,10 +190,31 @@ def install(version, sha256, artifact=None):
         binary = unpacked/'cua-driver'
         if call([str(binary), '--version']).stdout.strip() != 'cua-driver ' + version:
             raise ValueError('driver_version_mismatch')
-        unpacked.rename(root)
-    write_new(config, json.dumps(dict(version=version, sha256=sha256, binary=str(root/'cua-driver'))).encode())
-    write_new(support/'linux-guest.py', Path(__file__).read_bytes(), 0o700)
-    write_new(support/'driver-mcp.sh', b'#!/bin/sh\nexec /usr/bin/python3 "$HOME/.local/lib/ownmachine/linux-guest.py" mcp\n', 0o700)
+        if root.exists() or root.is_symlink():
+            if root.is_symlink() or not root.is_dir():
+                raise ValueError('existing_installation_requires_inspection')
+            installed = root/'cua-driver'
+            if installed.is_symlink() or not installed.is_file() or not os.access(installed, os.X_OK):
+                raise ValueError('existing_driver_differs')
+            with binary.open('rb') as expected, installed.open('rb') as actual:
+                if hashlib.file_digest(expected, 'sha256').digest() != hashlib.file_digest(actual, 'sha256').digest():
+                    raise ValueError('existing_driver_differs')
+        else:
+            unpacked.rename(root)
+
+    def install_exact(path, content, mode=0o600):
+        private_dir(path.parent)
+        if artifact is not None and (path.exists() or path.is_symlink()):
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                    or stat.S_IMODE(info.st_mode) != mode or path.read_bytes() != content):
+                raise ValueError('existing_driver_configuration_differs')
+            return
+        write_new(path, content, mode)
+
+    install_exact(config, json.dumps(dict(version=version, sha256=sha256, binary=str(root/'cua-driver'))).encode())
+    install_exact(support/'linux-guest.py', Path(__file__).read_bytes(), 0o700)
+    install_exact(support/'driver-mcp.sh', b'#!/bin/sh\nexec /usr/bin/python3 "$HOME/.local/lib/ownmachine/linux-guest.py" mcp\n', 0o700)
     service = '''[Unit]
 Description=OwnMachine Linux desktop driver
 PartOf=graphical-session.target
@@ -205,7 +229,7 @@ Restart=no
 [Install]
 WantedBy=graphical-session.target
 '''
-    write_new(home/'.config/systemd/user/ownmachine-driver.service', service.encode())
+    install_exact(home/'.config/systemd/user/ownmachine-driver.service', service.encode())
     call(['systemctl', '--user', 'daemon-reload'])
     call(['systemctl', '--user', 'enable', 'ownmachine-driver.service'])
     # No linger: no desktop control before graphical login.
@@ -217,11 +241,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['install', 'status', 'mcp', 'serve'])
     parser.add_argument('--version', default=VERSION)
-    parser.add_argument('--sha256', default=SHA256)
+    parser.add_argument('--sha256', default=X86_SHA256 if platform.machine()=='x86_64' else SHA256)
     parser.add_argument('--artifact', type=Path)
     args = parser.parse_args()
-    if platform.system() != 'Linux' or platform.machine() not in {'aarch64', 'arm64'} or os.geteuid() == 0:
-        raise ValueError('run_inside_arm64_linux_guest_as_desktop_user')
+    if platform.system() != 'Linux' or platform.machine() not in {'aarch64', 'arm64','x86_64'} or os.geteuid() == 0:
+        raise ValueError('run_inside_supported_linux_guest_as_desktop_user')
     os.umask(0o077)
     if args.operation == 'install':
         install(args.version, args.sha256, args.artifact)

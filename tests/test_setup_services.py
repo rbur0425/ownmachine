@@ -44,6 +44,23 @@ class ServicesTests(unittest.TestCase):
         self.config.write_text(json.dumps(self.c))
         self.args = SimpleNamespace(config=self.config, step='relay', apply=False)
 
+    def test_explicit_lume_hardening_retry_after_policy_failure(self):
+        self.c.update(guest_profile='omarchy', guest_user='desktop')
+        self.config.write_text(json.dumps(self.c))
+        self.args.step = 'harden'
+        self.args.apply = True
+        peer = subprocess.CompletedProcess([], 0, b'192.0.2.1 1000 192.0.2.2 22')
+        with patch.object(s, 'preflight_mutation'), patch.object(s, 'verify'), \
+                patch.object(s, 'guest_argv', return_value=['ssh']), \
+                patch.object(s, 'call', side_effect=[peer, None, subprocess.CalledProcessError(1, 'ssh'),
+                                                     peer, None, None]) as remote:
+            with self.assertRaises(subprocess.CalledProcessError):
+                s.execute(self.args)
+            self.assertEqual(s.execute(self.args)['stage'], 'verified')
+            first, retried = remote.call_args_list[2], remote.call_args_list[5]
+            self.assertEqual(first.kwargs['data'], retried.kwargs['data'])
+            self.assertNotIn(first.kwargs['data'].decode().strip(), str(retried.args))
+
     def test_preview_never_connects_or_writes(self):
         before = set(self.home.rglob('*'))
         with patch.object(s, 'call', side_effect=AssertionError('network')):

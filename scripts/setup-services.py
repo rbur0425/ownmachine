@@ -448,10 +448,18 @@ def execute(args):
         fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
         old = mac.read_state(checkpoint)
         if old:
-            if old.get('identity') != identity or old['stage'] != 'verified':
+            if old.get('identity') != identity:
                 raise ValueError('previous_execution_requires_inspection')
-            verify(step, c)
-            return dict(ok=True, step=step, stage='verified', replayed=False)
+            if old['stage'] == 'verified':
+                verify(step, c)
+                return dict(ok=True, step=step, stage='verified', replayed=False)
+            if not (step == 'harden' and c.get('guest_profile') == 'omarchy'
+                    and old['stage'] in {'running', 'needs_inspection'}):
+                raise ValueError('previous_execution_requires_inspection')
+        if not old and step == 'harden' and c.get('guest_profile') == 'omarchy':
+            password = hardening_state(c)/'guest-password'
+            if password.exists() or password.is_symlink():
+                raise ValueError('existing_credentials_require_inspection')
         preflight_mutation(step, c)
         record = dict(schema_version=1, identity=identity, stage='running')
         mac.write_state(checkpoint, record)
