@@ -254,9 +254,9 @@ def console(c):
 def retire(c,state):
     marker=state/'windows-retirement.json'
     linux = c.get('_profile') == 'omarchy-kvm'
-    previous = json.loads(private_read(marker)) if marker.exists() else {}
-    if previous and not linux:
+    if marker.exists() and not linux:
         raise ValueError('guest_retirement_requires_inspection')
+    previous = json.loads(private_read(marker)) if marker.exists() else {}
     binding = {'vm_uuid': c['_vm_uuid'], 'ssh_config_sha256': sha(c['ssh_config'])} if linux else {}
     if previous and (any(previous.get(k) != v for k,v in binding.items())
                      or previous.get('stage') not in {'retiring', 'rejected', 'retired'}):
