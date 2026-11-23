@@ -43,6 +43,12 @@ class LinuxGuestTests(unittest.TestCase):
         self.assertNotIn('screen_recording', result)
         self.assertNotIn('capture_consent_verified', result)
 
+    def test_signed_in_session_is_detected_before_driver_installation(self):
+        with patch.object(guest,'require_hardening'),patch.object(guest,'session_environment',return_value={}),patch.object(guest,'call'),patch.object(guest,'settings',side_effect=FileNotFoundError):
+            result=guest.readiness()
+        self.assertTrue(result['graphical_session'])
+        self.assertFalse(result['driver_ready'])
+
     def test_wrong_authorization_mode_refuses_readiness(self):
         with patch.object(guest, 'require_hardening'), patch.object(guest, 'settings', return_value={'binary':'/driver'}), \
              patch.object(guest, 'session_environment', return_value={}), \

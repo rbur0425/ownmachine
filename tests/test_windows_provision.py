@@ -18,6 +18,19 @@ class FreshWindowsTests(unittest.TestCase):
         p=dict(vm_uuid='11111111-1111-4111-8111-111111111111',network_uuid='22222222-2222-4222-8222-222222222222',bridge='ownm-test',subnet='10.243.0.0/24',guest_ip='10.243.0.10',dns_server='9.9.9.9',windows_iso='/private/windows.iso',windows_iso_sha256='a'*64,driver_zip='/private/driver.zip',accept_evaluation_terms=True,operator_user='operator',agent_user='agent',viewer_user='viewer',qemu_user='qemu',console_group='console',console_socket='/private/console/vnc.sock',host_address='host.example',host_known_hosts='/private/known_hosts',runtime_prefix='/usr/local/lib/ownmachine-test',guest_user='desktop',guest_setup_user='setup',guest_install_root='C:/ProgramData/OwnMachine',viewer_python='/private/venv/bin/python',viewer_control_dir='/private/viewer/control',access_dir='/private/viewer/access',viewer_port=0)
         return dict(provision=p),dict(vm_name='ownmachine-test',storage_dir='/private/new',control_dir='/container/control',cpu=4,memory_gb=8,disk_gb=96)
 
+    def test_omarchy_driver_waits_for_sign_in_before_mutation(self):
+        plan={'guest_profile':'omarchy-kvm'}
+        with patch.object(w,'guest',return_value=dict(bootstrap_hardened=True,graphical_session=False)) as guest:
+            self.assertEqual(stages.execute({},plan,'driver',True)['code'],'graphical_session_required')
+            guest.assert_called_once_with({},'status')
+
+    def test_omarchy_bootstrap_and_readiness_report_profile_reasons(self):
+        plan={'guest_profile':'omarchy-kvm'}
+        with patch.object(stages,'probe',return_value={'vm_state':'running'}),patch.object(w,'guest',side_effect=ValueError()):
+            self.assertEqual(stages.execute({},plan,'provision',True)['code'],'omarchy_bootstrap_pending')
+        self.assertEqual(stages.readiness_result({},linux=True)['code'],'omarchy_guest_unreachable')
+        self.assertEqual(stages.readiness_result(dict(guest_reachable=True,bootstrap_hardened=True),linux=True)['code'],'graphical_session_required')
+
     def test_host_viewer_and_client_control_paths_are_distinct(self):
         c,p=self.config();merged=w.settings(c,p)
         self.assertEqual(merged['viewer_control_dir'],'/private/viewer/control')

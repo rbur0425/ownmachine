@@ -121,13 +121,14 @@ def readiness():
                   foreground_input_ready=False)
     try:
         require_hardening()
-        config = settings()
         env = session_environment()
+        call(['hyprctl', '-j', 'activeworkspace'], env=env)
         result['graphical_session'] = True
         result['foreground_input_ready'] = foreground_input_ready(env)
         call(['gdbus', 'call', '--session', '--dest', 'org.a11y.Bus',
               '--object-path', '/org/a11y/bus', '--method', 'org.a11y.Bus.GetAddress'], env=env)
         result['accessibility_bus'] = True
+        config = settings()
         state = call([config['binary'], 'status'], env=env).stdout
         result['driver_running'] = 'daemon is not running' not in state and 'permission mode:' in state
         result['standard_mode'] = 'permission mode: standard (' in state

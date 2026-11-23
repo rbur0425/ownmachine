@@ -49,6 +49,22 @@ class TransportTests(unittest.TestCase):
             with patch.object(t,'exchange',side_effect=receipt(code)),self.assertRaises(ValueError):
                 t.dispatch(self.ctx,self.plan,'preflight')
 
+    def test_omarchy_transport_imports_only_profile_reasons(self):
+        self.plan['guest_profile']='omarchy-kvm'
+        def exchange(argv,request,timeout):
+            receipt=self.receipt(argv,request,timeout)
+            receipt['ok']=False
+            receipt['outcomes'][request['step']].update(stage='needs_attention',code=code)
+            return receipt
+        with patch.object(t,'exchange',side_effect=exchange):
+            code='graphical_session_required'
+            result=t.dispatch(self.ctx,self.plan,'permissions')
+            self.assertEqual(result['outcomes']['permissions']['code'],code)
+            self.assertIn('Hyprland',result['next'])
+            code='windows_installation_in_progress'
+            with self.assertRaisesRegex(ValueError,'setup_outcome_uncertain'):
+                t.dispatch(self.ctx,self.plan,'permissions')
+
     def test_mismatches_never_import_or_retry(self):
         for key in ('nonce','source_sha256','plan_digest','vm','step'):
             def altered(argv,request,timeout):
@@ -134,8 +150,11 @@ class TransportTests(unittest.TestCase):
                     except ProcessLookupError:pass
 
     def test_endpoint_preserves_only_allowlisted_windows_reason(self):
-        plan=dict(self.plan,guest_profile='windows')
-        for code,expected in [('windows_time_sync_required','windows_time_sync_required'),('private remote text',None),({},None)]:
+        for profile,code,expected in [('windows','windows_time_sync_required','windows_time_sync_required'),
+                                      ('windows','private remote text',None),('windows',{},None),
+                                      ('omarchy-kvm','graphical_session_required','graphical_session_required'),
+                                      ('omarchy-kvm','windows_installation_in_progress',None)]:
+            plan=dict(self.plan,guest_profile=profile)
             with tempfile.TemporaryDirectory() as folder,patch.object(Path,'home',return_value=Path(folder).resolve()):
                 c=dict(source_sha256='a'*64,allowed_steps=['permissions'])
                 req=dict(format=1,nonce='b'*64,source_sha256='a'*64,plan_digest=t.digest(plan),vm='ownmachine',step='permissions',apply=False)

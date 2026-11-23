@@ -211,8 +211,10 @@ def setup(ctx, args):
         if current.guest_profile == 'windows' and profile in ('omarchy', 'macos'):
             desired['console_transport'] = 'password-vnc'
         desired['guest_profile'] = profile
-        if switching_kvm and profile != 'omarchy-kvm':
-            desired['console_transport'] = 'private-unix' if profile == 'windows' else 'password-vnc'
+        if profile == 'windows':
+            desired['console_transport'] = 'private-unix'
+        elif switching_kvm and profile != 'omarchy-kvm':
+            desired['console_transport'] = 'password-vnc'
         old = {k: getattr(current, k) for k in desired}
         if (current.host_alias or current.control_dir) and desired != old and not args.replace:
             raise InputError('Existing connection differs. Review it before explicitly using --replace.')
@@ -243,7 +245,7 @@ def setup(ctx, args):
             'guest_os': {'omarchy':'linux','omarchy-kvm':'linux','windows':'windows','macos':'macos'}[plan['guest_profile']],
             'plan': plan, 'checks': checks,
             'progress': onboarding_state.summary(ctx, {k: ctx.get_config('setup_plan', {}).get(k, DEFAULTS[k]) for k in FIELDS}) if ctx.get_config('setup_plan', {}) else {'stage': 'not_started'},
-            'steps': (['Verify Linux KVM and storage', 'Build the verified Omarchy image and register the stopped domain', 'Check restricted runtime roles and start the guest', 'Verify the graphical driver, foreground input and private viewer', 'Capture the desktop and retire setup access'] if plan['guest_profile']=='omarchy-kvm' else ['Check Linux KVM, storage, firmware and TPM', 'Review Windows installation media and license consent', 'Install persistent firewall and restricted runtime identities', 'Provision verified media after administrator registration; harden the standard-user guest', 'Sign into the guest and verify its standard-mode driver', 'Verify private viewer and screenshot, then retire temporary guest and host setup keys'] if plan['guest_profile']=='windows' else ['Check Mac capacity and build tools', 'Prepare dedicated account and restricted SSH keys',
+            'steps': (['Verify Linux KVM and storage', 'Build the verified Omarchy image and register the stopped domain', 'Check restricted runtime roles and start the guest', 'Sign into the guest Hyprland session before installing the driver; verify foreground input and the private viewer', 'Capture the desktop and retire setup access'] if plan['guest_profile']=='omarchy-kvm' else ['Check Linux KVM, storage, firmware and TPM', 'Review Windows installation media and license consent', 'Install persistent firewall and restricted runtime identities', 'Provision verified media after administrator registration; harden the standard-user guest', 'Sign into the guest and verify its standard-mode driver', 'Verify private viewer and screenshot, then retire temporary guest and host setup keys'] if plan['guest_profile']=='windows' else ['Check Mac capacity and build tools', 'Prepare dedicated account and restricted SSH keys',
                       'Install and verify firewall', 'Provision Arch base and Omarchy desktop through pinned SSH stages' if plan['guest_profile']=='omarchy' else 'Provision guest without Apple sign-in',
                       'Verify graphical-session driver and AT-SPI accessibility' if plan['guest_profile']=='omarchy' else 'Approve guest Accessibility, Screen Recording and capture consent',
                       'Start private viewer and verify human/agent handoff']),

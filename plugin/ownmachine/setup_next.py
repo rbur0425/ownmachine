@@ -2,6 +2,7 @@
 
 
 def next_step(ctx,plan):
+    from .kvm_guidance import remedies, guidance
     from .setup_acceptance import matches, KEY
     from .setup_transport import summary
     accepted=ctx.state.get(KEY,default=None)
@@ -27,10 +28,9 @@ def next_step(ctx,plan):
         if row.get('stage') in ('verified','checks_passed','observed'):continue
         if row.get('stage') in ('running','needs_inspection'):
             return dict(stage='needs_inspection',next='Inspect the private '+step+' checkpoint; do not replay an uncertain mutation.')
-        if plan.get('guest_profile')=='windows':
-            from .windows_guidance import REMEDIES, guidance
-            if row.get('code') in REMEDIES:
-                return dict(stage='await_'+step,next=guidance(row['code']))
+        profile=plan.get('guest_profile')
+        if row.get('code') in remedies(profile):
+            return dict(stage='await_'+step,next=guidance(profile,row['code']))
         handoffs={
             'firewall':'The Mac administrator must install the reviewed firewall service. Then run setup --run firewall.',
             'permissions':'Open the guest permission guide with setup --run permissions --apply; approve the guest grants, then repeat the permission check.',
@@ -51,7 +51,7 @@ def next_step(ctx,plan):
             handoffs.update(build='Run setup --run build --apply with the verified Omarchy image and driver artifacts. Follow docs/omarchy-kvm.md for administrator registration.',
                 firewall='Register the stopped domain and install the dedicated KVM security service. Then run setup --run firewall.',
                 viewer='Run setup --run viewer --apply to start the private viewer.',
-                driver='Run setup --run driver --apply to install the standard-mode driver and build the pinned foreground input module.',
+                driver='Open the private viewer and sign into the configured Omarchy Hyprland session first. Keep it open and run setup --run driver --apply to install the standard-mode driver and build the pinned foreground input module.',
                 permissions='Sign into the Omarchy graphical session and run setup --run permissions. Check ownmachine-input.service if foreground input is unavailable.')
         if step in handoffs:return dict(stage='await_'+step,next=handoffs[step])
         suffix=' --apply' if step in ('build','provision','relay','keys','harden','driver') else ''

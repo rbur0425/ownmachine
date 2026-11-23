@@ -158,6 +158,39 @@ class OnboardingCommandsTests(unittest.TestCase):
                                 o.setup(ctx,request)
                                 self.assertEqual(ctx.settings['guest_profile'],target)
 
+    def test_lume_to_windows_persists_private_transport_and_rolls_back_on_failure(self):
+        for profile in ('macos','omarchy'):
+            for fail in (True,False):
+                ctx=Context(dict(host_alias='example', control_dir='/shared', vm_name='ownmachine',
+                                 guest_profile=profile,console_transport='password-vnc'))
+                previous=deepcopy(ctx.settings)
+                def save(key,value):
+                    if fail and key=='console_transport' and value=='private-unix':
+                        raise OSError('failed transport write')
+                    ctx.settings[key]=value
+                    o.configuration(ctx).validate()
+                with patch.object(ctx,'set_config',side_effect=save),patch.object(o,'preflight',return_value=[]):
+                    request=args('setup','--target','existing','--guest-profile','windows','--disk-gb','64','--connect','--replace')
+                    if fail:
+                        with self.assertRaises(OSError):o.setup(ctx,request)
+                        self.assertEqual(ctx.settings,previous)
+                    else:
+                        o.setup(ctx,request)
+                        self.assertEqual((ctx.settings['guest_profile'], ctx.settings['console_transport']),('windows','private-unix'))
+
+    def test_kvm_guides_sign_in_before_driver_with_or_without_saved_reason(self):
+        from ownmachine.setup_next import next_step
+        plan=dict(o.DEFAULTS,target='remote',guest_profile='omarchy-kvm')
+        ctx=Context(dict(setup_host_alias='setup',setup_source_sha256='a'*64))
+        outcomes={step:{'stage':'verified'} for step in ('preflight','build','firewall','relay','keys','viewer','provision','harden')}
+        for row in ({},{'stage':'needs_attention','code':'graphical_session_required'}):
+            outcomes['driver']=row
+            with patch('ownmachine.setup_transport.summary',return_value={'outcomes':outcomes}):
+                result=next_step(ctx,plan)
+            self.assertEqual(result['stage'],'await_driver')
+            self.assertIn('sign into',result['next'])
+            self.assertIn('Hyprland',result['next'])
+
     def test_provisioned_targets_can_explicitly_connect_without_changing_target(self):
         for target in ('local','remote'):
             ctx=Context()

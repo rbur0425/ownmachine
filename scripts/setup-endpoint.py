@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT/'plugin'))
 from ownmachine.onboarding import DEFAULTS, FIELDS, validate_plan
 from ownmachine.onboarding_state import digest
 from ownmachine.setup_transport import STEPS, READ_ONLY
-from ownmachine.windows_guidance import REMEDIES
+from ownmachine.kvm_guidance import remedies
 
 
 def fingerprint():
@@ -199,7 +199,7 @@ def execute(request,c,plan):
                             stage='needs_attention'
                     elif isinstance(report,dict) and result.returncode==2 and report.get('stage') in {'needs_attention','blocked'}:
                         stage='needs_attention'
-                        if plan.get('guest_profile')=='windows' and isinstance(report.get('code'),str) and report['code'] in REMEDIES:
+                        if isinstance(report.get('code'),str) and report['code'] in remedies(plan.get('guest_profile')):
                             code=report['code']
             except (OSError,ValueError,subprocess.SubprocessError):
                 pass
