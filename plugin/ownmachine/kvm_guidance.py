@@ -16,8 +16,10 @@ OMARCHY_REMEDIES = {
     'graphical_session_required': 'Open the private viewer and sign into the configured Omarchy desktop account. Keep its Hyprland session open, then retry the pending stage.',
     'omarchy_guest_unreachable': 'Check the pinned guest SSH connection and firewall, then rerun doctor.',
     'omarchy_guest_health_check_failed': 'Guest SSH responded. Inspect the installed guest health helper, then rerun doctor.',
+    'omarchy_driver_status_unconfirmed': 'Check the configured KVM relay identity and guest SSH status. Run doctor to confirm readiness before repeating the driver step.',
+    'omarchy_driver_install_incomplete': 'Inspect the guest driver service and build.log in ~/.local/share/ownmachine/input-module. For a partial or outdated build follow docs/omarchy-kvm.md#recover-foreground-input before retrying.',
     'omarchy_driver_required': 'Inspect the guest driver installation and its user service in the signed-in Hyprland session. Run setup --run driver --apply and check doctor.',
-    'foreground_input_unavailable': 'Inspect ownmachine-input.service in the guest user session. Rebuild the pinned input module against the installed Hyprland version and check doctor.',
+    'foreground_input_unavailable': 'Inspect ownmachine-input.service in the guest user session. Follow docs/omarchy-kvm.md#recover-foreground-input to preserve the old build and rebuild in the guest.',
     'omarchy_setup_check_failed': 'Check the private host stage log and saved configuration, then run setup --run progress before retrying.',
 }
 

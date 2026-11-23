@@ -104,9 +104,12 @@ def diagnose(config, permission_mode="standard"):
         add(key,'pass' if remote.get(key) else 'fail',key+'_granted' if remote.get(key) else key+'_required',
             '' if remote.get(key) else 'Open the guided permission setup inside the guest and approve '+label+'. Follow any restart prompt, then rerun doctor.')
     if linux and config.guest_profile=='omarchy-kvm':
+        if remote.get('graphical_session') is not True:
+            add('graphical_session','fail','graphical_session_required','Sign into Hyprland through the private viewer and rerun doctor.')
+            return result()
         ready=remote.get('foreground_input_ready') is True
         add('foreground_input','pass' if ready else 'fail','foreground_input_ready' if ready else 'foreground_input_unavailable',
-            '' if ready else 'In the signed-in guest check systemctl --user status ownmachine-input.service. After a Hyprland update rebuild the matching module, then check doctor again.')
+            '' if ready else 'In the signed-in guest check systemctl --user status ownmachine-input.service. For a partial build or Hyprland update follow docs/omarchy-kvm.md#recover-foreground-input.')
         if not ready and state == 'foreground_input_unavailable':
             return result()
     if linux:

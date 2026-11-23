@@ -39,6 +39,12 @@ def args(*argv):
 
 
 class OnboardingCommandsTests(unittest.TestCase):
+    def test_kvm_omarchy_disk_minimum_matches_upstream(self):
+        p=dict(o.DEFAULTS,guest_profile='omarchy-kvm',target='remote',disk_gb=40)
+        o.validate_plan(p)
+        with self.assertRaises(o.InputError):
+            o.validate_plan(dict(p,disk_gb=39))
+
     def setUp(self):
         capture = redirect_stdout(io.StringIO())
         capture.__enter__()

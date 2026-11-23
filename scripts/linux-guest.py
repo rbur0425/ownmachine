@@ -162,7 +162,7 @@ def install(version, sha256, artifact=None):
     support = home/'.local/lib/ownmachine'
     destinations = [root, config, support/'linux-guest.py', support/'driver-mcp.sh',
                     home/'.config/systemd/user/ownmachine-driver.service']
-    if any(p.exists() or p.is_symlink() for p in destinations):
+    if artifact is None and any(p.exists() or p.is_symlink() for p in destinations):
         raise ValueError('existing_installation_requires_inspection')
     private_dir(root.parent)
     with tempfile.TemporaryDirectory(dir=root.parent) as temporary:
@@ -190,10 +190,31 @@ def install(version, sha256, artifact=None):
         binary = unpacked/'cua-driver'
         if call([str(binary), '--version']).stdout.strip() != 'cua-driver ' + version:
             raise ValueError('driver_version_mismatch')
-        unpacked.rename(root)
-    write_new(config, json.dumps(dict(version=version, sha256=sha256, binary=str(root/'cua-driver'))).encode())
-    write_new(support/'linux-guest.py', Path(__file__).read_bytes(), 0o700)
-    write_new(support/'driver-mcp.sh', b'#!/bin/sh\nexec /usr/bin/python3 "$HOME/.local/lib/ownmachine/linux-guest.py" mcp\n', 0o700)
+        if root.exists() or root.is_symlink():
+            if root.is_symlink() or not root.is_dir():
+                raise ValueError('existing_installation_requires_inspection')
+            installed = root/'cua-driver'
+            if installed.is_symlink() or not installed.is_file() or not os.access(installed, os.X_OK):
+                raise ValueError('existing_driver_differs')
+            with binary.open('rb') as expected, installed.open('rb') as actual:
+                if hashlib.file_digest(expected, 'sha256').digest() != hashlib.file_digest(actual, 'sha256').digest():
+                    raise ValueError('existing_driver_differs')
+        else:
+            unpacked.rename(root)
+
+    def install_exact(path, content, mode=0o600):
+        private_dir(path.parent)
+        if artifact is not None and (path.exists() or path.is_symlink()):
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                    or stat.S_IMODE(info.st_mode) != mode or path.read_bytes() != content):
+                raise ValueError('existing_driver_configuration_differs')
+            return
+        write_new(path, content, mode)
+
+    install_exact(config, json.dumps(dict(version=version, sha256=sha256, binary=str(root/'cua-driver'))).encode())
+    install_exact(support/'linux-guest.py', Path(__file__).read_bytes(), 0o700)
+    install_exact(support/'driver-mcp.sh', b'#!/bin/sh\nexec /usr/bin/python3 "$HOME/.local/lib/ownmachine/linux-guest.py" mcp\n', 0o700)
     service = '''[Unit]
 Description=OwnMachine Linux desktop driver
 PartOf=graphical-session.target
@@ -208,7 +229,7 @@ Restart=no
 [Install]
 WantedBy=graphical-session.target
 '''
-    write_new(home/'.config/systemd/user/ownmachine-driver.service', service.encode())
+    install_exact(home/'.config/systemd/user/ownmachine-driver.service', service.encode())
     call(['systemctl', '--user', 'daemon-reload'])
     call(['systemctl', '--user', 'enable', 'ownmachine-driver.service'])
     # No linger: no desktop control before graphical login.

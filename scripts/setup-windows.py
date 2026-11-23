@@ -47,8 +47,8 @@ def probe(c,role,operation='status',timeout=20):
     if operation!='status':return result.returncode!=0
     if result.returncode!=0 or len(result.stdout)>65536:raise ValueError('runtime_probe_failed')
     data=json.loads(result.stdout)
-    if data.get('vm_uuid')!=c['_vm_uuid'] or data.get('vm_name')!=c['vm_name'] or data.get('backend')!='kvm' or data.get('guest_profile')!=c.get('_profile','windows'):
-        raise ValueError('production_windows_relay_required')
+    if not isinstance(data,dict) or data.get('vm_uuid')!=c['_vm_uuid'] or data.get('vm_name')!=c['vm_name'] or data.get('backend')!='kvm' or data.get('guest_profile')!=c.get('_profile','windows'):
+        raise ValueError('production_kvm_relay_required')
     return data
 
 
@@ -65,7 +65,7 @@ def wait_driver(c,report=None):
     while report.get('driver_ready') is not True:
         if (report.get('vm_state')!='running' or report.get('guest_reachable') is not True
                 or report.get('bootstrap_hardened') is not True
-                or report.get('driver_state')=='health_check_failed'):
+                or report.get('driver_state') in {'health_check_failed', 'foreground_input_unavailable'}):
             break
         remaining=deadline-time.monotonic()
         if remaining<=0:break
@@ -138,18 +138,29 @@ def execute(c,plan,step,apply=False):
         if result.get('hardened') is not True:raise ValueError('guest_hardening_failed')
         return dict(ok=True,stage='verified')
     if step=='driver':
-        result=w.guest(c,'status')
         if linux:
+            try:
+                result = w.guest(c, 'status')
+            except (subprocess.SubprocessError, ValueError):
+                return attention('omarchy_driver_status_unconfirmed')
+            if not isinstance(result, dict):
+                return attention('omarchy_driver_status_unconfirmed')
             if result.get('bootstrap_hardened') is not True:return attention('omarchy_hardening_required')
             if result.get('graphical_session') is not True:return attention('graphical_session_required')
             if result.get('foreground_input_ready') is not True or result.get('driver_ready') is not True:
                 try:
                     installed=w.guest(c,'driver')
-                except subprocess.CalledProcessError:
-                    return attention('omarchy_driver_required')
-                if installed.get('ok') is not True:return attention('omarchy_driver_required')
-            report=wait_driver(c);ok=report.get('foreground_input_ready') is True and report.get('driver_ready') is True
+                except (subprocess.SubprocessError, ValueError):
+                    return attention('omarchy_driver_install_incomplete')
+                if not isinstance(installed, dict) or installed.get('ok') is not True:
+                    return attention('omarchy_driver_install_incomplete')
+            try:
+                report = wait_driver(c)
+            except (subprocess.SubprocessError, ValueError):
+                return attention('omarchy_driver_status_unconfirmed')
+            ok=report.get('foreground_input_ready') is True and report.get('driver_ready') is True
             return dict(ok=True,stage='verified') if ok else readiness_result(report,linux=True)
+        result = w.guest(c, 'status')
         if not all(result.get(k) is True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')):raise ValueError('guest_driver_validation_failed')
         report=wait_driver(c)
         if report.get('driver_ready') is not True:return readiness_result(report)

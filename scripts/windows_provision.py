@@ -253,12 +253,35 @@ def console(c):
 
 def retire(c,state):
     marker=state/'windows-retirement.json'
-    if marker.exists():raise ValueError('guest_retirement_requires_inspection')
-    mac.write_state(marker,{'stage':'retiring'})
-    result=guest(c,'retire')
-    if result!={'ok':True,'retired':True}:raise ValueError('guest_retirement_failed')
-    check=subprocess.run(['ssh','-F',c['ssh_config'],'-T','ownmachine-guest-setup','ownmachine-guest status'],env=ENV,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=20)
-    if check.returncode!=255 or 'Permission denied' not in check.stderr:raise ValueError('guest_setup_key_rejection_not_proven')
+    linux = c.get('_profile') == 'omarchy-kvm'
+    previous = json.loads(private_read(marker)) if marker.exists() else {}
+    if previous and not linux:
+        raise ValueError('guest_retirement_requires_inspection')
+    binding = {'vm_uuid': c['_vm_uuid'], 'ssh_config_sha256': sha(c['ssh_config'])} if linux else {}
+    if previous and (any(previous.get(k) != v for k,v in binding.items())
+                     or previous.get('stage') not in {'retiring', 'rejected', 'retired'}):
+        raise ValueError('guest_retirement_requires_inspection')
+    if previous.get('stage') == 'retired':
+        return
+    if previous.get('stage') != 'rejected':
+        attempt = dict(binding, stage='retiring')
+        if linux:
+            attempt['key_sha256'] = hashlib.sha256(private_read(Path(c['storage_dir'])/'guest-setup')).hexdigest()
+        if previous and previous != attempt:
+            raise ValueError('guest_retirement_requires_inspection')
+        mac.write_state(marker,attempt)
+        try:
+            result=guest(c,'retire')
+        except subprocess.CalledProcessError as exc:
+            # A previous attempt may already have revoked this exact key.
+            if not previous or exc.returncode != 255:
+                raise
+        else:
+            if result!={'ok':True,'retired':True}:raise ValueError('guest_retirement_failed')
+        check=subprocess.run(['ssh','-F',c['ssh_config'],'-T','ownmachine-guest-setup','ownmachine-guest status'],env=ENV,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=20)
+        if check.returncode!=255 or 'Permission denied' not in check.stderr:raise ValueError('guest_setup_key_rejection_not_proven')
+        if linux:
+            mac.write_state(marker,dict(binding,stage='rejected'))
     # Remove only known temporary installation artifacts after positive rejection.
     # VM disks, runtime viewer credentials and the operator's login password stay.
     import shutil
@@ -271,4 +294,4 @@ def retire(c,state):
     seed=storage/'seed'
     if seed.is_symlink():raise ValueError('symlink_artifact_refused')
     if seed.exists():shutil.rmtree(seed)
-    mac.write_state(marker,{'stage':'retired','guest_key_rejected':True,'bootstrap_artifacts_removed':True})
+    mac.write_state(marker,dict(binding,stage='retired',guest_key_rejected=True,bootstrap_artifacts_removed=True))

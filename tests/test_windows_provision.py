@@ -34,6 +34,31 @@ class FreshWindowsTests(unittest.TestCase):
             self.assertEqual(stages.execute({}, plan, 'driver', True)['stage'], 'verified')
             self.assertEqual([call.args[1] for call in guest.call_args_list], ['status', 'driver'])
 
+    def test_omarchy_driver_errors_direct_operator_to_build_recovery(self):
+        pending = dict(bootstrap_hardened=True, graphical_session=True)
+        for response in (ValueError('invalid json'), subprocess.TimeoutExpired('ssh',1), [], {}):
+            with patch.object(w,'guest',side_effect=[pending,response]):
+                result=stages.execute({}, {'guest_profile':'omarchy-kvm'}, 'driver', True)
+                self.assertEqual(result['code'],'omarchy_driver_install_incomplete')
+
+    def test_guest_retirement_resumes_after_lost_reply(self):
+        with tempfile.TemporaryDirectory() as td:
+            state = Path(td).resolve()
+            key = state/'guest-setup'
+            key.touch(mode=0o600)
+            conf = state/'ssh_config'
+            conf.write_text('fixture')
+            c = dict(storage_dir=str(state), ssh_config=str(conf), _profile='omarchy-kvm', _vm_uuid='test')
+            denied = subprocess.CompletedProcess([],255,'','Permission denied (publickey).')
+            with patch.object(w,'guest',side_effect=[subprocess.TimeoutExpired('ssh',1),
+                              subprocess.CalledProcessError(255,'ssh')]), patch.object(w.subprocess,'run',return_value=denied):
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    w.retire(c,state)
+                self.assertTrue(key.exists())
+                w.retire(c,state)
+                self.assertFalse(key.exists())
+                w.retire(c,state)
+
     def test_first_build_has_budget_for_all_three_build_commands(self):
         for profile, operation, timeout in [('omarchy-kvm', 'driver', 6900), ('windows', 'driver', 1800),
                                             ('omarchy-kvm', 'status', 120)]:
@@ -145,7 +170,7 @@ class FreshWindowsTests(unittest.TestCase):
             probe.assert_not_called()
         with patch.object(stages.time,'monotonic',side_effect=[0,0,2]),patch.object(stages.time,'sleep'),patch.object(stages,'probe',side_effect=subprocess.TimeoutExpired('ssh',1)):
             self.assertEqual(stages.wait_driver({},pending),pending)
-        for changes in ({'vm_state':'stopped'},{'bootstrap_hardened':False},{'guest_reachable':False},{'driver_state':'health_check_failed'}):
+        for changes in ({'vm_state':'stopped'},{'bootstrap_hardened':False},{'guest_reachable':False},{'driver_state':'health_check_failed'},{'driver_state':'foreground_input_unavailable'}):
             report=dict(pending,**changes)
             with patch.object(stages,'probe') as probe:
                 self.assertEqual(stages.wait_driver({},report),report)

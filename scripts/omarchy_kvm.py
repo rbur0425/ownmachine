@@ -1,4 +1,5 @@
 """Build a private fresh Omarchy disk from verified upstream artifacts."""
+import hashlib
 import ipaddress
 import json
 import os
@@ -9,7 +10,7 @@ import subprocess
 import tarfile
 import tempfile
 from setup_support import ROOT, install_exact
-from windows_provision import sha
+import stat
 
 PINS={
     'image':'fea962bb66bef8f922900018f8241e50a2d1a00268715541882479016235dc9f',
@@ -21,8 +22,30 @@ PINS={
 
 def prepare_disk(state,p):
     if p['guest_user']!='omarchy':raise ValueError('upstream_image_account_required')
-    for key,expected in PINS.items():
-        if sha(p[key])!=expected:raise ValueError('artifact_hash_mismatch_'+key)
+    with tempfile.TemporaryDirectory(dir=state) as directory:
+        verified = dict(p)
+        for key, expected in PINS.items():
+            origin = Path(p[key])
+            folder = Path(directory)/key
+            folder.mkdir()
+            snapshot = folder/origin.name
+            if key.endswith('_wheel') and not (origin.name.startswith(key.split('_')[0]+'-') and origin.suffix == '.whl'):
+                raise ValueError('invalid_wheel_filename')
+            fd = os.open(origin, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, 'rb') as source, snapshot.open('xb') as target:
+                if not stat.S_ISREG(os.fstat(fd).st_mode):
+                    raise ValueError('regular_artifact_required')
+                checksum = hashlib.sha256()
+                while chunk := source.read(1024 * 1024):
+                    target.write(chunk)
+                    checksum.update(chunk)
+            if checksum.hexdigest() != expected:
+                raise ValueError('artifact_hash_mismatch_'+key)
+            verified[key] = str(snapshot)
+        build_verified_disk(state, verified)
+
+
+def build_verified_disk(state, p):
     env=dict(os.environ,LIBGUESTFS_BACKEND='direct')
     if p.get('guestfs_appliance'):
         env['LIBGUESTFS_PATH']=p['guestfs_appliance']

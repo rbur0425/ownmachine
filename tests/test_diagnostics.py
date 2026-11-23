@@ -101,6 +101,13 @@ class DiagnosticsTests(unittest.TestCase):
             self.assertIn('foreground_input_ready' if flag else 'foreground_input_unavailable',self.codes(report))
             self.assertNotIn('lume_missing',self.codes(report))
 
+    def test_omarchy_signed_out_prompts_login_before_module_diagnosis(self):
+        config=replace(self.config,guest_profile='omarchy-kvm',console_transport='private-unix')
+        self.remote.return_value=dict(READY,guest_os='linux',graphical_session=False,driver_ready=False)
+        codes=self.codes(diagnose(config))
+        self.assertIn('graphical_session_required',codes)
+        self.assertNotIn('foreground_input_unavailable',codes)
+
     def test_lume_missing(self):
         self.remote.return_value={**READY,'lume_installed':False}
         self.assertIn('lume_missing',self.codes(diagnose(self.config)))

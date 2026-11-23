@@ -15,6 +15,7 @@ from unittest.mock import patch
 SCRIPTS = Path(__file__).resolve().parents[1] / 'scripts'
 sys.path.insert(0, str(SCRIPTS))
 import kvm_disk
+import omarchy_kvm
 spec = importlib.util.spec_from_file_location('firstboot', SCRIPTS / 'omarchy/first-boot.py')
 boot = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(boot)
@@ -41,15 +42,39 @@ class RegistrationTests(unittest.TestCase):
             self.assertEqual(parser.call_count, 1)
             return out
 
-    def test_publish_independent_disk_and_refuse_existing(self):
+    def test_publish_independent_disk_reuse_only_unchanged_import(self):
         self.src.write_bytes(self.header)
         out = self.copy()
         self.assertNotEqual(out.stat().st_ino, self.src.stat().st_ino)
         self.assertEqual(stat.S_IMODE(out.stat().st_mode), 0o600)
-        with self.assertRaises(FileExistsError):
+        inode = out.stat().st_ino
+        self.assertEqual(self.copy().stat().st_ino, inode)
+        out.write_bytes(b"changed")
+        with self.assertRaisesRegex(ValueError, "existing_runtime_disk_requires_inspection"):
             self.copy()
+        self.assertEqual(out.read_bytes(), b"changed")
+        out.write_bytes(self.header)
         self.src.write_bytes(b'new build')
         self.assertEqual(out.read_bytes(), self.header)
+
+    def test_build_consumes_the_same_downloaded_bytes_that_were_verified(self):
+        pins = {}
+        config = {'guest_user':'omarchy'}
+        for name in omarchy_kvm.PINS:
+            filename = name.replace('_wheel','-fixture.whl')
+            path = self.parent/filename
+            path.write_bytes(name.encode())
+            config[name] = str(path)
+            pins[name] = hashlib.sha256(name.encode()).hexdigest()
+        def build(state, verified):
+            for name in pins:
+                Path(config[name]).write_bytes(b'changed download')
+                self.assertEqual(Path(verified[name]).read_bytes(),name.encode())
+        with patch.dict(omarchy_kvm.PINS,pins),patch.object(omarchy_kvm,'build_verified_disk',side_effect=build) as consumer:
+            omarchy_kvm.prepare_disk(self.parent,config)
+            with self.assertRaisesRegex(ValueError,'artifact_hash_mismatch'):
+                omarchy_kvm.prepare_disk(self.parent,config)
+            self.assertEqual(consumer.call_count,1)
 
     def test_refuse_untrusted_parent(self):
         with self.assertRaises(ValueError):

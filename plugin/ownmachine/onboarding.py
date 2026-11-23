@@ -109,7 +109,8 @@ def validate_plan(plan):
     if plan.get('guest_profile')=='windows' and plan['disk_gb']<64:
         raise InputError('Windows requires at least 64 GiB virtual disk capacity.')
     linux=plan.get('guest_profile')=='omarchy'
-    for key, low, high in (('cpu', 2, 32), ('memory_gb', 8, 128), ('disk_gb', 32 if linux else 50, 1000), ('min_free_gb', 16 if linux else 32, 2000)):
+    disk_min = {'omarchy-kvm': 40, 'omarchy': 32}.get(plan.get('guest_profile'), 50)
+    for key, low, high in (('cpu', 2, 32), ('memory_gb', 8, 128), ('disk_gb', disk_min, 1000), ('min_free_gb', 16 if linux else 32, 2000)):
         if type(plan[key]) is not int or not low <= plan[key] <= high:
             raise InputError(f'{key} must be an integer between {low} and {high}.')
     import re

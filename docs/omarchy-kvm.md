@@ -41,7 +41,7 @@ Pair a separate temporary setup key. Keep its public-key copy and the authorized
 ## Install and verify
 
 1. From Hermes run `setup --run preflight`, then `setup --run build --apply` (prefix every command here with `hermes ownmachine` in a terminal). Use a new empty storage directory and allocate at least the upstream disk’s 40 GiB virtual capacity. Larger values expand the virtual disk. The qualification did not measure guest filesystem growth. A failed build with a partial disk requires inspection. Keep the original image.
-2. On the Linux host, an administrator runs the registrar from an administrator-controlled checkout using reviewed, administrator-controlled copies of the services file and saved plan. Run `sudo python3 scripts/register-windows-host.py --services-file /YOUR/services.json --plan-file /YOUR/plan.json`. For Omarchy, registration imports a standalone copy of the staged disk under `/var/lib/libvirt/images`. To select another filesystem, pass `--disk-parent /YOUR/TRUSTED/IMAGES`. Create that directory first. It and its ancestors must be root-owned and closed to group and other writers, and QEMU must be able to traverse the path. Allow space for both the build image and the imported disk. Check that the new domain is **stopped**, that its VNC listener is a private Unix socket, and that persistent security was installed successfully. The private console directory must be new and outside libvirt’s per-process QEMU directories.
+2. On the Linux host, an administrator runs the registrar from an administrator-controlled checkout using reviewed, administrator-controlled copies of the services file and saved plan. Run `sudo python3 scripts/register-windows-host.py --services-file /YOUR/services.json --plan-file /YOUR/plan.json`. For Omarchy, registration imports a standalone copy of the staged disk under `/var/lib/libvirt/images`. To select another filesystem, pass `--disk-parent /YOUR/TRUSTED/IMAGES`. Create that directory first. It and its ancestors must be root-owned and closed to group and other writers, and QEMU must be able to traverse the path. Allow temporary space for private copies of the pinned downloads during the build and an independent runtime disk during registration. If registration stopped immediately after disk import, the same command verifies and reuses an unchanged disk. Inspect any conflicting disk or partially created host resources before continuing. Check that the new domain is **stopped**, that its VNC listener is a private Unix socket, and that persistent security was installed successfully. The private console directory must be new and outside libvirt’s per-process QEMU directories.
 3. From Hermes run `setup --run firewall`, `setup --run relay --apply`, `setup --run keys --apply`, and `setup --run viewer --apply`. Configure the runtime SSH alias on the Hermes machine using the **agent** key generated in storage. Save the connection with `setup --connect --save`. Set `computer_use.backend` to `ownmachine`, permission mode to `standard`, and plugin isolation to `in_process` in this Hermes profile. The connection uses `guest_profile: omarchy-kvm` and `console_transport: private-unix`.
 4. Refresh preflight, then run `setup --run provision --apply`. It starts the registered VM. On first boot the guest rotates its password, applies key-only SSH and firewall policy, and verifies hardening before graphical login. After an interrupted first boot, restart the same guest. Setup reuses matching private keys and working offline tools, then retries hardening. If a key differs or its owner or mode changed, inspect the guest instead of deleting the key or disabling the login gate. Allow the graphical session to start. If still booting, check progress, refresh preflight, and repeat provision against the same VM. The operator’s recovery password is stored privately at `guest-password` in the selected storage directory.
 5. Run `setup --run harden --apply`. Open the private viewer and sign into the configured desktop account if needed. Keep its Hyprland session open and run `setup --run driver --apply`. The latter installs the pinned driver, compiles the input module with the guest’s Hyprland headers and compiler, runs its tests, and enables its user service. Run `setup --run permissions` and `setup --run viewer-check`.
@@ -49,6 +49,31 @@ Pair a separate temporary setup key. Keep its public-key copy and the authorized
 7. Save open guest work. Shut down the VM through the viewer, confirm it reached stopped, and start it again. Once the graphical session is ready, run `hermes ownmachine doctor --json`. Look for **foreground_input_ready**, **driver_ready**, and **mcp_ready**. Doctor reads the current guest state on each call. If doctor reports `guest_unreachable`, check guest SSH connectivity and key pairing first. A `guest_health_check_failed` result means SSH answered but the guest helper failed. A `foreground_input_unavailable` refusal on an otherwise ready session keeps new MCP connections, including screenshot requests, closed. The private viewer remains available. To restore MCP, inspect `systemctl --user status ownmachine-input.service` inside the guest; a package update can require rebuilding against the new compositor ABI. Use the browser’s human reservation while troubleshooting.
 
 The host firewall and role restrictions use the existing KVM security machinery. The viewer streams a private Unix socket under its own SSH role. The agent receives the guest’s standard-mode MCP interface. The initial qualification uses software-rendered virtio graphics and native Wayland Chromium. Hardware GPU passthrough and background input are outside this profile’s qualification.
+
+## Recover foreground input
+
+If doctor reports `graphical_session_required`, sign into Hyprland through the private viewer and run doctor again. For `foreground_input_unavailable` after a compositor upgrade, or an interrupted module build, reserve the viewer and save your work. Sign out and back in to start a fresh compositor. Open a terminal **inside the VM as the desktop user**. Check `systemctl --user status ownmachine-input.service` and the previous `~/.local/share/ownmachine/input-module/build.log` if present.
+
+Once the previous build process has exited, run these commands together. They move its entire working directory to a private backup and build from the pinned source shipped in the guest. This path also works after setup-key retirement.
+
+```sh
+(
+  set -eu
+  umask 077
+  cd "$HOME/.local/share/ownmachine"
+  if [ -d input-module ]; then
+    backup=$(mktemp -d ./input-module-backup.XXXXXXXX)
+    mv input-module "$backup/"
+    printf 'Previous build saved in %s\n' "$backup"
+  fi
+  export PATH="/opt/ownmachine-kvm/tools/bin:$PATH"
+  module="$HOME/.local/lib/ownmachine/linux-input-module.py"
+  python3 "$module" build --source-archive /opt/ownmachine-kvm/input.tar --enable-experimental-input --apply
+  python3 "$module" enable --enable-experimental-input --apply
+)
+```
+
+Run `hermes ownmachine doctor --json` from Hermes and verify foreground input and MCP readiness. If the compiler or compositor ABI is incompatible with the pinned source, keep the build log and use the private viewer until you restore a compatible package set or install a qualified driver update.
 
 ## Qualification evidence
 

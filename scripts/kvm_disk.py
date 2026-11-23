@@ -62,5 +62,17 @@ def import_disk(source, parent, identity, owner, qemu, size, digest):
             os.fchmod(copy.fileno(), 0o600)
             os.fchown(copy.fileno(), qemu.pw_uid, qemu.pw_gid)
             os.fsync(copy.fileno())
-            os.link(copy.name, destination)  # atomic publication, never overwrite
+            try:
+                os.link(copy.name, destination)
+            except FileExistsError:
+                # Registration may have stopped immediately after publication.
+                # Reuse only an unchanged import in the trusted storage directory.
+                fd = os.open(destination, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                with os.fdopen(fd, 'rb') as existing:
+                    st = os.fstat(fd)
+                    if (not stat.S_ISREG(st.st_mode) or st.st_nlink != 1
+                            or (st.st_uid, st.st_gid) != (qemu.pw_uid, qemu.pw_gid)
+                            or stat.S_IMODE(st.st_mode) != 0o600 or st.st_size != info.st_size
+                            or hashlib.file_digest(existing, 'sha256').hexdigest() != digest):
+                        raise ValueError('existing_runtime_disk_requires_inspection') from None
     return destination

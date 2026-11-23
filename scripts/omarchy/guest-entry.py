@@ -23,8 +23,7 @@ def main():
     elif role=='runtime' and command=='ownmachine-guest mcp':
         os.execl(sys.executable,sys.executable,str(ROOT/'linux-guest.py'),'mcp')
     elif role=='setup' and command=='ownmachine-guest driver':
-        if not (HOME/'.config/ownmachine/linux-driver.json').exists():
-            subprocess.run([sys.executable,str(ROOT/'linux-guest.py'),'install','--artifact',str(ROOT/'driver.tar.gz')],check=True,stdout=sys.stderr)
+        subprocess.run([sys.executable,str(ROOT/'linux-guest.py'),'install','--artifact',str(ROOT/'driver.tar.gz')],check=True,stdout=sys.stderr)
         import shutil
         shutil.copyfile(ROOT/'linux-input-module.py',SUPPORT/'linux-input-module.py')
         env={**os.environ,'PATH':str(ROOT/'tools/bin')+':'+os.environ['PATH']}
@@ -32,7 +31,7 @@ def main():
             subprocess.run([sys.executable,str(SUPPORT/'linux-input-module.py'),step,'--source-archive',str(ROOT/'input.tar'),'--enable-experimental-input','--apply'],env=env,check=True,stdout=sys.stderr)
         print(json.dumps({'ok':True}))
     elif role=='setup' and command=='ownmachine-guest retire':
-        (HOME/'.ssh/ownmachine-setup').unlink()
+        (HOME/'.ssh/ownmachine-setup').unlink(missing_ok=True)
         print(json.dumps({'ok':True,'retired':True}))
     else:
         return 64
