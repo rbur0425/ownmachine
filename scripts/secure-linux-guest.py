@@ -51,7 +51,9 @@ def install_file(path, value, mode=0o600):
         if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != mode:
             raise ValueError('unsafe_existing_configuration')
         return
-    with tempfile.NamedTemporaryFile(dir=path.parent) as tmp:
+    # sudo skips names containing a dot in an included directory, even if
+    # the guest stops before this staging file can be removed.
+    with tempfile.NamedTemporaryFile(dir=path.parent, prefix='.ownmachine-') as tmp:
         tmp.write(value.encode());tmp.flush()
         os.fchmod(tmp.fileno(), mode);os.fsync(tmp.fileno())
         os.link(tmp.name, path)
@@ -68,6 +70,12 @@ def user_support(home, uid, gid):
         if info.st_uid!=uid or info.st_mode & 0o022:
             raise ValueError('unsafe_guest_support_directory')
     return support
+
+
+def rotate_password(user, password, password_file, hypervisor):
+    command(['chpasswd'], input=user + ':' + password + '\n')
+    if hypervisor == 'apple':
+        password_file.unlink()
 
 
 def harden(user, source, password_file, hypervisor="apple"):
@@ -135,7 +143,7 @@ WantedBy=multi-user.target
     # Remove only the exact upstream unattended passwordless rule, preserving
     # administrator customizations. Unknown rules require operator inspection.
     # Establish recovery access before removing unattended sudo.
-    command(['chpasswd'], input=user + ':' + password + '\n')
+    rotate_password(user, password, Path(password_file), hypervisor)
     if wheel.exists():
         with tempfile.NamedTemporaryFile(dir=wheel.parent, prefix='.ownmachine-', delete=False) as tmp:
             tmp.write(b'%wheel ALL=(ALL:ALL) ALL\n');tmp.flush()
@@ -155,8 +163,6 @@ WantedBy=multi-user.target
     # The receipt is public policy metadata; recovery material remains private.
     Path('/etc/ownmachine').chmod(0o755)
     command(['/usr/bin/python3','/usr/local/libexec/ownmachine-hardening-gate.py','--seal',user])
-    if hypervisor != 'kvm':
-        Path(password_file).unlink()
     return dict(hardened=True,guest_os='linux',ssh='key_only',firewall='loaded',sudo='exact_shutdown_only')
 
 
@@ -165,7 +171,7 @@ def main():
     parser.add_argument('--user',required=True)
     parser.add_argument('--ssh-source',required=True,help='Host-side source address observed over the verified guest SSH connection')
     parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--password-file',type=Path,help='Private guest-side recovery-password transfer file, consumed after rotation; keep the recovery copy on the host, never pass it in argv')
+    parser.add_argument('--password-file',type=Path,help='Private guest password-transfer file. Lume removes it after successful rotation. KVM first boot removes it after hardening is sealed. Keep the recovery copy on the host.')
     parser.add_argument('--hypervisor',choices=('apple','kvm'),default='apple')
     args=parser.parse_args()
     firewall_rules(args.ssh_source)

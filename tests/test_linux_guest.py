@@ -115,6 +115,31 @@ class LinuxIsolationTests(unittest.TestCase):
             finally:os.umask(previous)
             self.assertEqual(path.stat().st_mode & 0o777,0o440)
 
+    def test_sudo_rule_staging_name_is_ignored_before_publication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            final = Path(directory).resolve() / 'ownmachine-shutdown'
+            def interrupt(staged, destination):
+                self.assertEqual(Path(staged).parent, final.parent)
+                self.assertTrue(Path(staged).name.startswith('.ownmachine-'))
+                self.assertFalse(destination.exists())
+                raise InterruptedError()
+            with patch.object(hardener.os, 'link', side_effect=interrupt), self.assertRaises(InterruptedError):
+                hardener.install_file(final, 'fixture', 0o440)
+
+    def test_transfer_file_lifetime_at_password_rotation(self):
+        for hypervisor in ('apple', 'kvm'):
+            with self.subTest(hypervisor=hypervisor), tempfile.TemporaryDirectory() as directory:
+                transfer = Path(directory) / 'transfer'
+                transfer.touch(mode=0o600)
+                with patch.object(hardener, 'command', side_effect=subprocess.CalledProcessError(1, 'chpasswd')):
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        hardener.rotate_password('desktop', 'fixture', transfer, hypervisor)
+                self.assertTrue(transfer.exists())
+                with patch.object(hardener, 'command') as rotate:
+                    hardener.rotate_password('desktop', 'fixture', transfer, hypervisor)
+                    rotate.assert_called_once_with(['chpasswd'], input='desktop:fixture\n')
+                self.assertEqual(transfer.exists(), hypervisor == 'kvm')
+
     def test_guest_firewall_does_not_flush_other_tables(self):
         rules = hardener.firewall_rules('192.0.2.7')
         self.assertNotIn('flush ruleset', rules)
