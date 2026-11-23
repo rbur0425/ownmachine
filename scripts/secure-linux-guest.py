@@ -166,12 +166,13 @@ def main():
     parser.add_argument('--ssh-source',required=True,help='Host-side source address observed over the verified guest SSH connection')
     parser.add_argument('--apply',action='store_true')
     parser.add_argument('--password-file',type=Path,help='Private guest-side recovery-password transfer file, consumed after rotation; keep the recovery copy on the host, never pass it in argv')
+    parser.add_argument('--hypervisor',choices=('apple','kvm'),default='apple')
     args=parser.parse_args()
     firewall_rules(args.ssh_source)
     if not args.apply:
         print(json.dumps(dict(stage='planned',guest_os='linux',next='Run as root inside the fresh guest after pairing its key.')));return
-    if platform.system()!='Linux' or os.geteuid()!=0 or command(['systemd-detect-virt']).stdout.strip()!='apple':
-        raise ValueError('apple_virtualized_linux_guest_root_required')
+    if platform.system()!='Linux' or os.geteuid()!=0 or command(['systemd-detect-virt']).stdout.strip()!=args.hypervisor:
+        raise ValueError('matching_virtualized_linux_guest_root_required')
     if args.password_file is None:raise ValueError('private_recovery_password_required')
     print(json.dumps(harden(args.user,args.ssh_source,args.password_file)))
 

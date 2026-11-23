@@ -1,5 +1,7 @@
 # Wizard quickstart
 
+For x86-64 Omarchy on Linux KVM, choose `omarchy-kvm`. See [guided setup](omarchy-kvm.md).
+
 For a first evaluation, start with the [evaluator quickstart](evaluator-quickstart.md),
 including administrator handoffs and shared-control permission checks.
 This is the guided onboarding path, not a claim of one-click setup.

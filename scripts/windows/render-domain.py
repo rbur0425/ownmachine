@@ -20,7 +20,7 @@ domain=f'''<domain type="kvm"><name>{name}</name><uuid>{ident}</uuid>
 <on_poweroff>destroy</on_poweroff><on_reboot>restart</on_reboot><on_crash>destroy</on_crash>
 <devices><emulator>/usr/bin/qemu-system-x86_64</emulator>
 <disk type="file" device="disk"><driver name="qemu" type="qcow2"/><source file={quoteattr(str(root/'windows.qcow2'))}/><target dev="sda" bus="sata"/></disk>
-<disk type="file" device="cdrom"><driver name="qemu" type="raw"/><source file={quoteattr(c['windows_iso'])}/><target dev="sdb" bus="sata"/><readonly/></disk>
+<disk type="file" device="cdrom"><driver name="qemu" type="raw"/><source file={quoteattr(c.get('windows_iso',''))}/><target dev="sdb" bus="sata"/><readonly/></disk>
 <disk type="file" device="cdrom"><driver name="qemu" type="raw"/><source file={quoteattr(str(root/'bootstrap.iso'))}/><target dev="sdc" bus="sata"/><readonly/></disk>
 <interface type="network"><mac address={quoteattr(mac)}/><source network={quoteattr(c['vm_name'])}/><model type="e1000e"/></interface>
 <input type="tablet" bus="usb"/><controller type="usb" model="qemu-xhci"/>
@@ -28,6 +28,27 @@ domain=f'''<domain type="kvm"><name>{name}</name><uuid>{ident}</uuid>
 <video><model type="vga" vram="16384" heads="1" primary="yes"/></video>
 <tpm model="tpm-crb"><backend type="emulator" version="2.0"/></tpm><memballoon model="none"/>
 </devices></domain>'''
+if c.get('guest_profile')=='omarchy-kvm':
+    from xml.etree import ElementTree as ET
+    tree=ET.fromstring(domain)
+    os_node=tree.find('os')
+    os_node.clear()
+    ET.SubElement(os_node,'type',arch='x86_64',machine='q35').text='hvm'
+    ET.SubElement(os_node,'loader',readonly='yes',type='pflash').text=c['firmware_code']
+    ET.SubElement(os_node,'nvram',template=c['firmware_vars'])
+    ET.SubElement(os_node,'boot',dev='hd')
+    devices=tree.find('devices')
+    for disk in devices.findall("disk[@device='cdrom']"):
+        devices.remove(disk)
+    disk=devices.find('disk')
+    disk.find('source').set('file',str(root/'omarchy.qcow2'))
+    disk.find('target').attrib.update(dev='vda',bus='virtio')
+    devices.find('interface/model').set('type','virtio')
+    devices.find('video/model').attrib={'type':'virtio','heads':'1','primary':'yes'}
+    width,height=c['display'].split('x')
+    ET.SubElement(devices.find('video/model'),'resolution',x=str(int(width)),y=str(int(height)))
+    devices.remove(devices.find('tpm'))
+    domain=ET.tostring(tree,encoding='unicode')
 (a.output/'network.xml').write_text(network)
 (a.output/'domain.xml').write_text(domain)
 print('Domain and network templates rendered; VM not created.')

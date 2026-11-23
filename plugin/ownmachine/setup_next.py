@@ -9,7 +9,7 @@ def next_step(ctx,plan):
         if accepted.get('stage')=='complete':return dict(stage='complete',next='Setup accepted. Use doctor for current health.')
         if accepted.get('stage')=='retiring':return dict(stage='needs_inspection',next='Inspect setup-key retirement on the VM host. Do not reauthorize or replay it.')
     if not ctx.get_config('setup_host_alias','') or not ctx.get_config('setup_source_sha256',''):
-        document='docs/windows-onboarding.md' if plan.get('guest_profile')=='windows' else 'docs/wizard-quickstart.md'
+        document='docs/omarchy-kvm.md' if plan.get('guest_profile')=='omarchy-kvm' else 'docs/windows-onboarding.md' if plan.get('guest_profile')=='windows' else 'docs/wizard-quickstart.md'
         return dict(stage='pairing_required',next='Pair a separate temporary setup key, independently confirm the VM host key, and install the reviewed endpoint. Follow '+document+'; never send private keys in chat.')
     progress=summary(ctx,plan)
     if progress.get('stage') in ('configuration_changed','awaiting_remote_result','needs_inspection'):
@@ -18,7 +18,7 @@ def next_step(ctx,plan):
     stages=['preflight','build','provision','firewall','relay','keys','harden','driver','permissions','viewer','verify']
     if plan.get('guest_profile')=='omarchy':
         stages=['preflight','build','firewall','provision','linux-boot-installer','linux-base','linux-boot-system','linux-desktop','relay','keys','harden','linux-start-desktop','driver','permissions','viewer','verify']
-    if plan.get('guest_profile')=='windows':
+    if plan.get('guest_profile') in {'windows','omarchy-kvm'}:
         stages=['preflight','build','firewall','relay','keys','viewer','provision','harden','driver','permissions','verify']
     if plan['target']=='existing':stages=['permissions','viewer','verify']
     for step in stages:
@@ -47,6 +47,12 @@ def next_step(ctx,plan):
         if plan.get('guest_profile')=='windows':
             handoffs['provision']='Run setup --run provision --apply. Open the private viewer for the DVD prompt and standard-user login; read the non-blocking OwnMachine setup progress window while OpenSSH installs. Do not recreate the VM. See docs/windows-onboarding.md#first-install-progress-and-recovery. For an optional reminder use remind later --mode next-visit and confirm its preview.'
             handoffs.update(viewer='Run setup --run viewer --apply to install the private viewer service under its configured owner before starting the guest.',build='Run setup --run build --apply after reviewing the verified Windows media and evaluation consent. Then have the administrator register the fresh stopped domain using docs/windows-onboarding.md.',firewall='The Linux administrator must install the reviewed persistent KVM security service. Then run setup --run firewall.',permissions='Sign into the Windows standard-user desktop, then run setup --run permissions. No macOS permissions or elevated driver are required.',verify='Pause control, then run setup --run verify. Use --apply to repeat screenshot verification and retire both guest and host setup keys.')
+        if plan.get('guest_profile')=='omarchy-kvm':
+            handoffs.update(build='Run setup --run build --apply with the verified Omarchy image and driver artifacts. Follow docs/omarchy-kvm.md for administrator registration.',
+                firewall='Register the stopped domain and install the dedicated KVM security service. Then run setup --run firewall.',
+                viewer='Run setup --run viewer --apply to start the private viewer.',
+                driver='Run setup --run driver --apply to install the standard-mode driver and build the pinned foreground input module.',
+                permissions='Sign into the Omarchy graphical session and run setup --run permissions. Check ownmachine-input.service if foreground input is unavailable.')
         if step in handoffs:return dict(stage='await_'+step,next=handoffs[step])
         suffix=' --apply' if step in ('build','provision','relay','keys','harden','driver') else ''
         prefix='Refresh setup --run preflight first. ' if step in ('build','provision') else ''

@@ -1,5 +1,7 @@
 # OwnMachine
 
+For x86-64 Omarchy on Linux KVM, choose `omarchy-kvm`. See [guided setup](../docs/omarchy-kvm.md).
+
 Start with the [evaluator quickstart](../docs/evaluator-quickstart.md) for the complete ordered setup and permission checks.
 
 **Give Hermes its own Mac, Omarchy or Windows desktop.**

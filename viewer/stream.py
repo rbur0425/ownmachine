@@ -24,7 +24,7 @@ class StreamError(RuntimeError): pass
 def upstream_auth(metadata, config, offered):
     """No implicit downgrade: socket authentication requires explicit configuration."""
     if getattr(config, 'console_transport', 'password-vnc') == 'private-unix':
-        if getattr(config, 'guest_profile', None) != 'windows' or metadata != {'transport':'private-unix','authentication':'none'} or 1 not in offered:
+        if getattr(config, 'guest_profile', None) not in {'windows','omarchy-kvm'} or metadata != {'transport':'private-unix','authentication':'none'} or 1 not in offered:
             raise StreamError('private_console_attestation_required')
         return 1, None
     password = metadata.get('password')

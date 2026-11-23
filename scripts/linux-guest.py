@@ -21,6 +21,7 @@ import urllib.request
 # Verified Sigstore issuer: https://token.actions.githubusercontent.com
 # Identity: https://github.com/trycua/cua/.github/workflows/cd-rust-cua-driver.yml@refs/tags/cua-driver-rs-v0.47.19
 VERSION = '0.47.19'
+X86_SHA256 = 'a9b89435e4257467749e5da12770d74882e1e250925e3079b05a392f824b0e71'
 SHA256 = '5a1daed6820e6063f33dddbd3e5403d89dc27b8cf197b45df9af0fddd4fd50bb'
 SESSION_KEYS = {'DISPLAY', 'WAYLAND_DISPLAY', 'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP',
                 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'HYPRLAND_INSTANCE_SIGNATURE'}
@@ -169,7 +170,8 @@ def install(version, sha256, artifact=None):
         if artifact:
             shutil.copyfile(artifact, archive)
         else:
-            url = f'https://github.com/trycua/cua/releases/download/cua-driver-rs-v{version}/cua-driver-rs-{version}-linux-arm64-binary.tar.gz'
+            arch = 'x86_64' if platform.machine()=='x86_64' else 'arm64'
+            url = f'https://github.com/trycua/cua/releases/download/cua-driver-rs-v{version}/cua-driver-rs-{version}-linux-{arch}-binary.tar.gz'
             # HTTPS URL is built from a pinned upstream source; content SHA-256 is verified before use.
             with urllib.request.urlopen(url, timeout=60) as response, archive.open('wb') as out:
                 shutil.copyfileobj(response, out)
@@ -217,11 +219,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['install', 'status', 'mcp', 'serve'])
     parser.add_argument('--version', default=VERSION)
-    parser.add_argument('--sha256', default=SHA256)
+    parser.add_argument('--sha256', default=X86_SHA256 if platform.machine()=='x86_64' else SHA256)
     parser.add_argument('--artifact', type=Path)
     args = parser.parse_args()
-    if platform.system() != 'Linux' or platform.machine() not in {'aarch64', 'arm64'} or os.geteuid() == 0:
-        raise ValueError('run_inside_arm64_linux_guest_as_desktop_user')
+    if platform.system() != 'Linux' or platform.machine() not in {'aarch64', 'arm64','x86_64'} or os.geteuid() == 0:
+        raise ValueError('run_inside_supported_linux_guest_as_desktop_user')
     os.umask(0o077)
     if args.operation == 'install':
         install(args.version, args.sha256, args.artifact)

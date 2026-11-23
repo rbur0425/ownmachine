@@ -379,7 +379,7 @@ def bind_server(viewer, requested_port=0):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--host-alias',required=True)
-    parser.add_argument('--guest-profile', choices=['macos','omarchy','windows'], default='macos')
+    parser.add_argument('--guest-profile', choices=['macos','omarchy','omarchy-kvm','windows'], default='macos')
     parser.add_argument('--vm-name',default='ownmachine')
     parser.add_argument('--control-dir',required=True)
     parser.add_argument('--access-dir',help='Private viewer-user directory outside shared control state')

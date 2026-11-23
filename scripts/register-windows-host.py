@@ -32,6 +32,8 @@ def main():
     a=argparse.ArgumentParser(description=__doc__);a.add_argument('--services-file',type=Path,required=True);a.add_argument('--plan-file',type=Path,required=True);args=a.parse_args()
     if os.geteuid()!=0:a.error('Administrator authentication required')
     c=json.loads(args.services_file.read_text());payload=json.loads(args.plan_file.read_text());plan=payload.get('plan',payload);p=settings(c,plan)
+    linux=plan.get('guest_profile')=='omarchy-kvm'
+    media=Path(p['image'] if linux else p['windows_iso'])
     state=Path(plan['storage_dir']);prefix=Path(p['runtime_prefix'])
     expected_runtime=prefix/(p['vm_uuid'].replace('-','')+'.json')
     if str(expected_runtime)!=c['runtime_config']:raise ValueError('runtime_configuration_path_mismatch')
@@ -41,7 +43,7 @@ def main():
         raise ValueError('enable_libvirt_polkit_and_restart_with_operator_before_installing')
     for role in ('agent','viewer'):
         if not re_full_key((state/(role+'.pub')).read_text().strip()):raise ValueError('invalid_runtime_public_key')
-    for path in (state,*state.parents,Path(p['windows_iso']),*Path(p['windows_iso']).parents):
+    for path in (state,*state.parents,media,*media.parents):
         if path.is_symlink():raise ValueError('symlink_storage_refused')
     pwd.getpwnam(p['qemu_user'])
     if Path(p['console_socket']).parent.exists():raise ValueError('console_directory_exists')
@@ -69,11 +71,11 @@ def main():
             if old.overlaps(ipaddress.ip_network(p['subnet'])):raise ValueError('network_overlap')
     receipt=json.loads((state/'build.json').read_text())
     if receipt['identity']!=hashlib.sha256(json.dumps(p,sort_keys=True).encode()).hexdigest():raise ValueError('build_configuration_changed')
-    if set(receipt['files'])!={'domain.xml','network.xml','bootstrap.iso','install.json'}:raise ValueError('invalid_build_receipt')
+    if set(receipt['files'])!={'domain.xml','network.xml','omarchy.qcow2' if linux else 'bootstrap.iso','install.json'}:raise ValueError('invalid_build_receipt')
     if json.loads((state/'render.json').read_text())!={**p,'storage_dir':str(state)}:raise ValueError('render_configuration_changed')
     for name,digest in receipt['files'].items():
         if sha(state/name)!=digest:raise ValueError('built_artifact_changed')
-    if sha(p['windows_iso'])!=p['windows_iso_sha256']:raise ValueError('windows_iso_changed')
+    if not linux and sha(p['windows_iso'])!=p['windows_iso_sha256']:raise ValueError('windows_iso_changed')
     # Re-render, compare and then define, never accept arbitrary supplied XML.
     with tempfile.TemporaryDirectory() as directory:
         call(sys.executable,str(ROOT/'scripts/windows/render-domain.py'),str(state/'render.json'),directory)
@@ -82,14 +84,18 @@ def main():
     for path in (prefix.parent,*prefix.parent.parents):
         st=path.stat()
         if path.is_symlink() or st.st_uid!=0 or st.st_mode & 0o022:raise ValueError('unsafe_runtime_parent')
-    disk=state/'windows.qcow2'
-    fd=os.open(disk,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600);os.close(fd)
-    call('qemu-img','create','-f','qcow2',str(disk),str(plan['disk_gb'])+'G')
+    if linux:
+        disks=[state/'omarchy.qcow2']
+    else:
+        disk=state/'windows.qcow2'
+        fd=os.open(disk,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600);os.close(fd)
+        call('qemu-img','create','-f','qcow2',str(disk),str(plan['disk_gb'])+'G')
+        disks=[disk,state/'bootstrap.iso']
     qemu=pwd.getpwnam(p['qemu_user'])
-    for path in (disk,state/'bootstrap.iso'):
+    for path in disks:
         os.chown(path,qemu.pw_uid,qemu.pw_gid);path.chmod(0o600)
     # Traversal only through private parents, no recursive sharing with runtime users.
-    for path in (state,*state.parents,Path(p['windows_iso']).parent,*Path(p['windows_iso']).parent.parents):
+    for path in (state,*state.parents,media.parent,*media.parent.parents):
         if path.is_symlink():raise ValueError('symlink_storage_refused')
         if path.stat().st_mode & 0o001==0:call('setfacl','-m','u:'+p['qemu_user']+':--x',str(path))
     call('groupadd','--system',p['console_group'])

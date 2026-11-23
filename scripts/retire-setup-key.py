@@ -22,6 +22,13 @@ def entry(config_path, public_path):
     return 'restrict,command="'+command+'" ssh-ed25519 '+fields[1]+' ownmachine-setup', fields[1]
 
 
+def verify_entry(c):
+    expected, blob = entry(Path(c['_config_path']), Path(c['setup_public_key_file']))
+    lines = private_read(Path.home()/'.ssh/authorized_keys').decode().splitlines(keepends=True)
+    if [line for line in lines if blob in line.split()] != [expected+'\n']:
+        raise ValueError('setup_key_missing_or_differently_authorized')
+
+
 def retire(c, state):
     expected, blob = entry(Path(c['_config_path']), Path(c['setup_public_key_file']))
     path = Path.home()/'.ssh/authorized_keys'

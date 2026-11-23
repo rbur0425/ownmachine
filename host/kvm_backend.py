@@ -47,12 +47,18 @@ def inspect():
 def guest_argv(operation):
     ip=ipaddress.ip_address(C['guest_ip'])
     if ip not in ipaddress.ip_network(C['subnet']):raise ValueError('guest_outside_network')
-    executable=C['driver_executable']
     username=C['guest_user']
-    if not re.fullmatch(r'[A-Za-z]:/[A-Za-z0-9_./-]+\.exe',executable) or not re.fullmatch(r'[a-z][a-z0-9_-]{0,19}',username):raise ValueError('invalid_guest_configuration')
-    health=C['guest_health_script']
-    if not re.fullmatch(r'[A-Za-z]:/[A-Za-z0-9_./-]+\.ps1',health):raise ValueError('invalid_guest_health_path')
-    command=executable+' mcp --socket \\\\.\\pipe\\cua-driver' if operation=='mcp' else 'powershell -NoProfile -ExecutionPolicy Bypass -File '+health
+    if not re.fullmatch(r'[a-z][a-z0-9_-]{0,19}',username):
+        raise ValueError('invalid_guest_configuration')
+    if C.get('guest_profile')=='omarchy-kvm':
+        if operation not in ('status','mcp'):raise ValueError('unsupported_guest_operation')
+        command='ownmachine-guest '+operation
+    else:
+        executable=C['driver_executable']
+        if not re.fullmatch(r'[A-Za-z]:/[A-Za-z0-9_./-]+\.exe',executable) or not re.fullmatch(r'[a-z][a-z0-9_-]{0,19}',username):raise ValueError('invalid_guest_configuration')
+        health=C['guest_health_script']
+        if not re.fullmatch(r'[A-Za-z]:/[A-Za-z0-9_./-]+\.ps1',health):raise ValueError('invalid_guest_health_path')
+        command=executable+' mcp --socket \\\\.\\pipe\\cua-driver' if operation=='mcp' else 'powershell -NoProfile -ExecutionPolicy Bypass -File '+health
     return ['/usr/bin/ssh','-F','/dev/null','-T','-i',C['guest_key'],'-o','IdentitiesOnly=yes','-o','IdentityAgent=none','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ForwardAgent=no','-o','ClearAllForwardings=yes','-o','ConnectTimeout=8','-o','UserKnownHostsFile='+C['guest_known_hosts'], username+'@'+str(ip),command]
 
 def dispatch(role):
@@ -64,9 +70,11 @@ def dispatch(role):
     # Always permit a graceful shutdown even if a firewall has drifted.
     if op != 'stop': security_ready()
     tree,state=inspect()
+    linux=C.get('guest_profile')=='omarchy-kvm'
+    flags_required=('guest_reachable','graphical_session','accessibility_bus','driver_running','standard_mode','foreground_input_ready') if linux else ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')
     if op=='status':
         data={};health_failed=False
-        flags={key:False for key in ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')}
+        flags={key:False for key in flags_required}
         if role=='agent' and state=='running':
             p=subprocess.run(guest_argv('status'),env=ENV,capture_output=True,text=True,timeout=15)
             if p.returncode != 255:
@@ -79,13 +87,13 @@ def dispatch(role):
         if C.get('require_hardened'):
             flags['bootstrap_hardened']=data.get('bootstrap_hardened') is True
         ready=all(flags.values()) and not health_failed
-        print(json.dumps(dict(**flags,vm_name=C['vm_name'],vm_uuid=C['vm_uuid'],vm_state={'running':'running','shut off':'stopped'}.get(state,'unknown'),guest_os='windows',guest_profile='windows',backend='kvm',driver_ready=ready,driver_state='health_check_failed' if health_failed else 'ready' if ready else 'not_running')))
+        print(json.dumps(dict(**flags,vm_name=C['vm_name'],vm_uuid=C['vm_uuid'],vm_state={'running':'running','shut off':'stopped'}.get(state,'unknown'),guest_os='linux' if linux else 'windows',guest_profile='omarchy-kvm' if linux else 'windows',backend='kvm',driver_ready=ready,driver_state='health_check_failed' if health_failed else 'ready' if ready else 'not_running')))
         return
     if op=='mcp':
         if state!='running':raise ValueError('vm_not_running')
         probe=subprocess.run(guest_argv('status'),env=ENV,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=15,check=True)
         health=json.loads(probe.stdout.lstrip('\ufeff'))
-        if not all(health.get(k) is True for k in ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')):
+        if not all(health.get(k) is True for k in flags_required):
             raise ValueError('interactive_standard_session_required')
         if C.get('require_hardened') and health.get('bootstrap_hardened') is not True:raise ValueError('guest_hardening_required')
         os.execve('/usr/bin/ssh',guest_argv('mcp'),ENV)
@@ -153,6 +161,10 @@ def configure(path):
     required={'backend','vm_name','vm_uuid','network_uuid','network_name','agent_user','viewer_user','qemu_user',
               'console_group','console_socket','guest_ip','subnet','guest_user','guest_key',
               'guest_known_hosts','driver_executable','guest_health_script','security_helper'}
+    if isinstance(C,dict) and C.get('guest_profile')=='omarchy-kvm':
+        required -= {'driver_executable','guest_health_script'}
+        required.add('guest_profile')
+        if C.get('require_hardened') is not True:raise ValueError('guest_hardening_required')
     if not isinstance(C,dict) or (not required<=set(C) or set(C)-required-{'require_hardened'}) or C['backend']!='kvm':
         raise ValueError('invalid_kvm_configuration')
     for field in ('vm_name','network_name','agent_user','viewer_user','qemu_user','console_group'):

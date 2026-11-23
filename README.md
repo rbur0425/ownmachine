@@ -98,6 +98,7 @@ compromised host or malicious software. Read the [security model](SECURITY.md).
 | --- | --- |
 | macOS desktop | A Lume VM on a compatible Apple Silicon Mac. Local laptop and dedicated Mac-host installations have been tested. |
 | Omarchy desktop | ARM64 guest on Apple Silicon with patched Lume; tested foreground Chromium and Mousepad control. The native input module requires explicit opt-in and a matching Hyprland ABI. |
+| Omarchy on Linux KVM | x86-64 guest with private browser viewing and foreground input. [Guided setup](docs/omarchy-kvm.md). |
 | Windows desktop | Windows 11 Enterprise Evaluation x86-64 on Linux KVM/libvirt. See the [tested input/platform scope](docs/windows-support-matrix.md) and [Windows setup](docs/windows-onboarding.md). Home/Pro and physical-host reboot recovery are not qualified. |
 | Hermes | On the same Mac or another machine with private SSH access to the host. A separate Linux Docker runtime has been tested. |
 | Browser viewer | On a configured runtime host, reached locally or over SSH forwarding. Human input requires a reservation. |

@@ -17,10 +17,12 @@ class Config:
     def validate(self) -> "Config":
         if type(self.experimental_linux_background_input) is not bool or (self.experimental_linux_background_input and self.guest_profile != "omarchy"):
             raise ValueError("invalid_linux_background_opt_in")
-        if self.guest_profile not in {"macos", "omarchy", "windows"}:
+        if self.guest_profile not in {"macos", "omarchy", "omarchy-kvm", "windows"}:
             raise ValueError("unsupported_guest_profile")
-        if self.console_transport not in {"password-vnc", "private-unix"} or (self.console_transport == "private-unix" and self.guest_profile != "windows"):
+        if self.console_transport not in {"password-vnc", "private-unix"} or (self.console_transport == "private-unix" and self.guest_profile not in {"windows", "omarchy-kvm"}):
             raise ValueError("unsupported_console_transport")
+        if self.guest_profile == "omarchy-kvm" and self.console_transport != "private-unix":
+            raise ValueError("private_console_required")
         for value in (self.host_alias, self.vm_name):
             if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,63}", value):
                 raise ValueError("invalid_configuration")

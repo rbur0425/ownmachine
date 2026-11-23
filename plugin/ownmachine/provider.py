@@ -279,7 +279,7 @@ class OwnMachineBackend(ComputerUseBackend):
         if self.config.guest_profile == 'windows':
             note = note.replace('Element clicks invoke AXPress, not mouse focus. For a field without AXPress,', 'Element clicks use UI Automation invocation, not mouse focus. For a field without an invoke action,')
             note += '\nWindows: launch apps using list_apps then focus_app with the exact discovered name or identity; do not guess Start/taskbar coordinates. Use list_windows and capture with explicit pid/window_id to select the app or its newly opened dialog. App display names can differ from executable window names. Desktop/shell foreground activation may be refused; never bypass that refusal. Element actions use Windows UI Automation, not AXPress; only use advertised actions. A fresh capture is required after launch or dialog changes. For app shortcuts such as Ctrl+S and Ctrl+O in modern Notepad, explicitly choose delivery_mode=foreground on the freshly captured exact app/dialog; the default/background accelerator path is not reliable for these shortcuts. This is an initial mode choice, not permission to fall back after a refusal: stop on operator_review_required and never replay uncertain input. To verify a saved file, explicitly open its exact path through File > Open or File Explorer; a restored Notepad tab is not file-reopen evidence.\n'
-        if self.config.guest_profile == 'omarchy':
+        if self.config.guest_profile in {'omarchy', 'omarchy-kvm'}:
             note += '\nLinux text/entry elements: use set_value to edit their contents; do not use element click to focus them. Foreground compositor input requires the explicitly enabled ABI-matched Hyprland module. Prefer keyboard shortcuts over opening menus: a foreground grab can refuse further compositor input. Experimental background requests never authorize foreground fallback; operator/control-gate refusals override generic escalation advice.\n'
         if mode == 'som' and raw:
             try:
@@ -395,7 +395,7 @@ class OwnMachineBackend(ComputerUseBackend):
             return ActionResult(False,name,code='pixel_capture_required')
         if delivery_mode not in {None,'background','foreground'}:
             return ActionResult(False,name,code='unsupported_delivery_mode')
-        if self.config.guest_profile == 'omarchy':
+        if self.config.guest_profile in {'omarchy', 'omarchy-kvm'}:
             if delivery_mode == 'background':
                 if not self.config.experimental_linux_background_input:
                     return ActionResult(False,name,code='linux_background_input_not_certified',message='Background input is disabled. Stop; this refusal does not authorize foreground input. The operator must explicitly enable the experiment.',escalation={'recommended':'operator'},meta={'dispatched':False,'operator_review_required':True})
@@ -445,7 +445,7 @@ class OwnMachineBackend(ComputerUseBackend):
         name = 'right_click' if button=='right' else 'double_click' if click_count==2 else 'click'
         try:
             args = self._element(element) if element is not None else {'x':x,'y':y}
-            if (element is not None and self.config.guest_profile == 'omarchy'
+            if (element is not None and self.config.guest_profile in {'omarchy', 'omarchy-kvm'}
                     and self.element_roles.get(element) in {'text','entry','password text'}):
                 return ActionResult(False,name,code='element_press_unsupported',message='Linux text elements are not activation targets. No input was dispatched. Use set_value for text or a fresh screenshot-grounded foreground pixel click to focus.',meta={'dispatched':False})
             press_action = 'invoke' if self.config.guest_profile == 'windows' else 'AXPress'
@@ -507,12 +507,12 @@ class OwnMachineBackend(ComputerUseBackend):
             if not pid:
                 bundle_id = matches[0].get('bundle_id')
                 launch = {'bundle_id':bundle_id}
-                if self.config.guest_profile in {'omarchy', 'windows'}:
+                if self.config.guest_profile in {'omarchy', 'omarchy-kvm', 'windows'}:
                     # Round-trip the discovered launch identity. Windows UWP
                     # bundle_id is a package family, not the complete AUMID.
                     path = matches[0].get('launch_path')
                     if not isinstance(path,str) or not path or any(ord(c)<32 for c in path):
-                        return ActionResult(False,'focus_app',code='linux_launch_identity_missing' if self.config.guest_profile == 'omarchy' else 'windows_launch_identity_missing')
+                        return ActionResult(False,'focus_app',code='linux_launch_identity_missing' if self.config.guest_profile in {'omarchy', 'omarchy-kvm'} else 'windows_launch_identity_missing')
                     launch = {'launch_path':path}
                     if self.config.guest_profile == 'windows' and path.startswith('shell:appsFolder\\'):
                         aumid = path.split('\\', 1)[1]

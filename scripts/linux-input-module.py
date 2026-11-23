@@ -67,12 +67,20 @@ def execute(args):
             return dict(stage='verified',replayed=False)
         source=root/'source';build=root/'build'
         if source.exists() or build.exists():raise ValueError('partial_input_build_requires_inspection')
-        call(['git','init',str(source)])
-        call(['git','-C',str(source),'remote','add','origin','https://github.com/trycua/cua.git'])
-        call(['git','-C',str(source),'fetch','--depth=1','--filter=blob:none','origin',PIN],timeout=900)
-        call(['git','-C',str(source),'sparse-checkout','set','libs/cua-driver/hyprland-plugin'])
-        call(['git','-C',str(source),'checkout','--detach',PIN],timeout=900)
-        if call(['git','-C',str(source),'rev-parse','HEAD']).strip()!=PIN:raise ValueError('input_source_mismatch')
+        archive=getattr(args,'source_archive',None)
+        if archive is not None:
+            import tarfile
+            if digest(archive)!='bea7f5a549db16abb7388002a1b63a8d100c704e95587e17082393901fc9f459':
+                raise ValueError('input_source_mismatch')
+            with tarfile.open(archive) as tar:
+                tar.extractall(source,filter='data')
+        else:
+            call(['git','init',str(source)])
+            call(['git','-C',str(source),'remote','add','origin','https://github.com/trycua/cua.git'])
+            call(['git','-C',str(source),'fetch','--depth=1','--filter=blob:none','origin',PIN],timeout=900)
+            call(['git','-C',str(source),'sparse-checkout','set','libs/cua-driver/hyprland-plugin'])
+            call(['git','-C',str(source),'checkout','--detach',PIN],timeout=900)
+            if call(['git','-C',str(source),'rev-parse','HEAD']).strip()!=PIN:raise ValueError('input_source_mismatch')
         env=dict(env,CUA_HYPRLAND_REQUIRE_XKBCOMMON='1')
         commands=[['cmake','-S',str(source/'libs/cua-driver/hyprland-plugin'),'-B',str(build),'-G','Ninja',
                    '-DCMAKE_BUILD_TYPE=Release','-DCMAKE_CXX_COMPILER=g++','-DCUA_HYPRLAND_INPUT=ON',
@@ -137,6 +145,7 @@ WantedBy=graphical-session.target
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--source-archive',type=Path)
     p.add_argument('step',choices=['build','enable']);p.add_argument('--jobs',type=int,default=2)
     p.add_argument('--enable-experimental-input',action='store_true');p.add_argument('--apply',action='store_true')
     a=p.parse_args();os.umask(0o077)

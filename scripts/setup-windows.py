@@ -35,6 +35,8 @@ def configuration(path,plan,require_runtime=True):
     runtime=json.loads(adapter.protected(c['runtime_config']).read_text())
     if runtime.get('backend')!='kvm' or runtime.get('vm_name')!=plan['vm_name']:
         raise ValueError('runtime_plan_mismatch')
+    if runtime.get('guest_profile','windows')!=plan['guest_profile']:raise ValueError('runtime_plan_mismatch')
+    c['_profile']=plan['guest_profile']
     c['_vm_uuid']=runtime['vm_uuid']
     return c
 
@@ -45,7 +47,7 @@ def probe(c,role,operation='status',timeout=20):
     if operation!='status':return result.returncode!=0
     if result.returncode!=0 or len(result.stdout)>65536:raise ValueError('runtime_probe_failed')
     data=json.loads(result.stdout)
-    if data.get('vm_uuid')!=c['_vm_uuid'] or data.get('vm_name')!=c['vm_name'] or data.get('backend')!='kvm' or data.get('guest_os')!='windows':
+    if data.get('vm_uuid')!=c['_vm_uuid'] or data.get('vm_name')!=c['vm_name'] or data.get('backend')!='kvm' or data.get('guest_profile')!=c.get('_profile','windows'):
         raise ValueError('production_windows_relay_required')
     return data
 
@@ -88,7 +90,7 @@ def preflight(plan):
     while not path.exists():path=path.parent
     checks={'linux_x86_64':platform.system()=='Linux' and platform.machine() in ('x86_64','amd64'),
             'kvm_available':Path('/dev/kvm').exists(),
-            'tools_available':all(shutil.which(x) for x in ('virsh','qemu-system-x86_64','qemu-img','swtpm','nft','xorriso','ssh-keygen','setfacl'))}
+            'tools_available':all(shutil.which(x) for x in ('virsh','qemu-system-x86_64','qemu-img','nft','ssh-keygen','setfacl')+(('guestfish',) if plan.get('guest_profile')=='omarchy-kvm' else ('swtpm','xorriso')))}
     free=shutil.disk_usage(path).free//(1024**3)
     memory=os.sysconf('SC_PAGE_SIZE')*os.sysconf('SC_PHYS_PAGES')//(1024**3) if platform.system()=='Linux' else 0
     ok=all(checks.values()) and free>=plan['min_free_gb'] and (os.cpu_count() or 0)>=plan['cpu'] and memory>=plan['memory_gb']
@@ -97,6 +99,7 @@ def preflight(plan):
 
 def execute(c,plan,step,apply=False):
     import windows_provision as w
+    linux=plan.get('guest_profile')=='omarchy-kvm'
     if step=='preflight':return preflight(plan)
     if step in ('build','provision','harden') and not apply:raise ValueError('explicit_apply_required')
     if step=='build':
@@ -107,6 +110,7 @@ def execute(c,plan,step,apply=False):
             w.run(['ssh','-F',c['ssh_config'],'-T',c['viewer_alias'],'ownmachine-host start --vm '+c['vm_name']])
         try:result=w.guest(c,'status')
         except (ValueError,subprocess.SubprocessError):return dict(ok=False,stage='needs_attention',code='windows_installation_in_progress',next='Use the private viewer for any installation prompt. Resume provision after setup; do not recreate the disk.')
+        if linux:return dict(ok=result.get('bootstrap_hardened') is True,stage='verified' if result.get('bootstrap_hardened') is True else 'needs_attention')
         phase=result.get('bootstrap_stage')
         if phase=='awaiting_time_sync':
             result=w.guest(c,'sync-time')
@@ -115,12 +119,21 @@ def execute(c,plan,step,apply=False):
         if result.get('configured') is True:return dict(ok=True,stage='verified')
         return dict(ok=False,stage='needs_attention',code='windows_bootstrap_failed' if phase=='failed' else 'windows_bootstrap_in_progress')
     if step=='harden':
+        if linux:
+            hardened=w.guest(c,'status').get('bootstrap_hardened') is True
+            return dict(ok=hardened,stage='verified' if hardened else 'needs_attention')
         if w.guest(c,'status').get('configured') is not True:raise ValueError('bootstrap_must_finish_before_hardening')
         w.eject(c);result=w.guest(c,'harden')
         if result.get('hardened') is not True:raise ValueError('guest_hardening_failed')
         return dict(ok=True,stage='verified')
     if step=='driver':
         result=w.guest(c,'status')
+        if linux:
+            if result.get('bootstrap_hardened') is not True:raise ValueError('guest_hardening_required')
+            if result.get('foreground_input_ready') is not True or result.get('driver_ready') is not True:
+                if w.guest(c,'driver').get('ok') is not True:raise ValueError('driver_installation_failed')
+            report=probe(c,'agent');ok=report.get('foreground_input_ready') is True and report.get('driver_ready') is True
+            return dict(ok=ok,stage='verified' if ok else 'needs_attention')
         if not all(result.get(k) is True for k in ('configured','hardened','secure_boot','tpm_ready','driver_signature','driver_unchanged')):raise ValueError('guest_driver_validation_failed')
         report=wait_driver(c)
         if report.get('driver_ready') is not True:return readiness_result(report)
@@ -137,7 +150,7 @@ def execute(c,plan,step,apply=False):
         # Final acceptance must additionally prove viewer connectivity, before the
         # client capture and setup-key retirement can be authorized.
         if step=='verify':
-            if not w.media_ejected(c) or agent.get('bootstrap_hardened') is not True:raise ValueError('guest_hardening_required')
+            if (not linux and not w.media_ejected(c)) or agent.get('bootstrap_hardened') is not True:raise ValueError('guest_hardening_required')
             w.viewer(c,plan,False);w.console(c)
         return dict(ok=True,stage='verified' if step in ('relay','keys') else 'checks_passed',vm_uuid=agent['vm_uuid'])
     return dict(ok=False,stage='blocked',code='windows_stage_not_integrated',next='See docs/windows-production-plan.md; preserve the saved plan and do not mark this stage complete manually.')
@@ -150,7 +163,7 @@ def main():
     a=p.parse_args()
     try:
         payload=json.loads(private_read(a.plan_file));plan=payload.get('plan',payload)
-        if plan.get('guest_profile')!='windows':raise ValueError('windows_profile_required')
+        if plan.get('guest_profile') not in {'windows','omarchy-kvm'}:raise ValueError('windows_profile_required')
         c=configuration(a.config,plan,require_runtime=a.step not in ('preflight','build'));result=execute(c,plan,a.step,a.apply)
     except (OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError):
         result=dict(ok=False,stage='needs_attention',code='windows_setup_check_failed')

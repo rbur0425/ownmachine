@@ -75,13 +75,14 @@ def diagnose(config, permission_mode="standard"):
         return result()
     add('host','pass','host_reachable')
     windows = config.guest_profile == 'windows'
-    if not windows and not remote.get('lume_installed'):
+    kvm = config.guest_profile in {'windows','omarchy-kvm'}
+    if not kvm and not remote.get('lume_installed'):
         add('vm','fail','lume_missing','Install the pinned Lume release on the Mac host and check the relay lume_path.')
         return result()
     if remote.get('vm_state')!='running':
         state=remote.get('vm_state')
         code='vm_'+state if state in {'stopped','absent','provisioning','unknown','not_probed'} else 'vm_unknown'
-        add('vm','fail',code,('Check the configured KVM domain and persistent security service on the Linux host. Sign in after starting the guest through the viewer.' if windows else 'Check the named VM with Lume on the host. Provision an absent VM explicitly; start an existing stopped VM with the operator lifecycle command.'))
+        add('vm','fail',code,('Check the configured KVM domain and persistent security service on the Linux host. Sign in after starting the guest through the viewer.' if kvm else 'Check the named VM with Lume on the host. Provision an absent VM explicitly; start an existing stopped VM with the operator lifecycle command.'))
         return result()
     add('vm','pass','vm_running')
     state=remote.get('driver_state')
@@ -99,6 +100,10 @@ def diagnose(config, permission_mode="standard"):
     for key, label in ([] if linux or windows else [('accessibility','Accessibility'),('screen_recording','Screen Recording')]):
         add(key,'pass' if remote.get(key) else 'fail',key+'_granted' if remote.get(key) else key+'_required',
             '' if remote.get(key) else 'Open the guided permission setup inside the guest and approve '+label+'. Follow any restart prompt, then rerun doctor.')
+    if linux and config.guest_profile=='omarchy-kvm':
+        ready=remote.get('foreground_input_ready') is True
+        add('foreground_input','pass' if ready else 'fail','foreground_input_ready' if ready else 'foreground_input_unavailable',
+            '' if ready else 'In the signed-in guest check systemctl --user status ownmachine-input.service. After a Hyprland update rebuild the matching module, then check doctor again.')
     if linux:
         for key in ('graphical_session', 'accessibility_bus', 'standard_mode'):
             add(key, 'pass' if remote.get(key) else 'fail', key + ('_ready' if remote.get(key) else '_required'),
