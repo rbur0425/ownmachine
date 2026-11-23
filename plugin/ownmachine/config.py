@@ -14,6 +14,13 @@ class Config:
     action_timeout_seconds: int = 30
     experimental_linux_background_input: bool = False
 
+    def __post_init__(self):
+        # Both explicit transports stay strict. A profile-default setting can
+        # safely span a profile change made through Hermes's single-key API.
+        if self.console_transport == "profile-default":
+            transport = "private-unix" if self.guest_profile in {"windows", "omarchy-kvm"} else "password-vnc"
+            object.__setattr__(self, "console_transport", transport)
+
     def validate(self) -> "Config":
         if type(self.experimental_linux_background_input) is not bool or (self.experimental_linux_background_input and self.guest_profile != "omarchy"):
             raise ValueError("invalid_linux_background_opt_in")

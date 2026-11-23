@@ -201,21 +201,39 @@ def setup(ctx, args):
     if args.connect:
         if not plan['host_alias'] or not plan['control_dir']:
             raise InputError('--connect requires a verified runtime agent SSH alias and an absolute shared control directory; local targets also use restricted SSH.')
-        desired = {k: plan[k] for k in ('host_alias', 'vm_name', 'control_dir', 'guest_profile')}
-        if plan['guest_profile']=='omarchy-kvm' or current.guest_profile=='omarchy-kvm':
-            desired['console_transport']='private-unix' if plan['guest_profile'] in {'omarchy-kvm','windows'} else 'password-vnc'
+        profile = plan['guest_profile']
+        desired = {k: plan[k] for k in ('host_alias', 'vm_name', 'control_dir')}
+        if current.experimental_linux_background_input and profile != 'omarchy':
+            desired['experimental_linux_background_input'] = False
+        switching_kvm = 'omarchy-kvm' in (current.guest_profile, profile)
+        if switching_kvm and profile == 'omarchy-kvm':
+            desired['console_transport'] = 'private-unix'
+        if current.guest_profile == 'windows' and profile in ('omarchy', 'macos'):
+            desired['console_transport'] = 'password-vnc'
+        desired['guest_profile'] = profile
+        if switching_kvm and profile != 'omarchy-kvm':
+            desired['console_transport'] = 'private-unix' if profile == 'windows' else 'password-vnc'
         old = {k: getattr(current, k) for k in desired}
         if (current.host_alias or current.control_dir) and desired != old and not args.replace:
             raise InputError('Existing connection differs. Review it before explicitly using --replace.')
-        # Each public API write is atomic. Restore earlier values if a later write fails.
+        writes = list(desired.items())
+        if switching_kvm and profile != current.guest_profile and 'windows' not in (current.guest_profile, profile):
+            # Lume and Omarchy KVM have no shared explicit transport. Neither
+            # ordering alone is valid. Resolve the transport from the active
+            # profile during the change, then persist the explicit final value.
+            writes = [(k, v) for k, v in writes if k not in ('guest_profile', 'console_transport')]
+            writes.extend([('console_transport', 'profile-default'), ('guest_profile', profile),
+                           ('console_transport', desired['console_transport'])])
         written = []
         try:
-            for key, value in desired.items():
-                ctx.set_config(key, value)
-                written.append(key)
+            for key, value in writes:
+                previous_value = ctx.get_config(key, None)
+                if previous_value != value:
+                    ctx.set_config(key, value)
+                    written.append((key, old[key] if previous_value is None else previous_value))
         except Exception:
-            for key in reversed(written):
-                ctx.set_config(key, old[key])
+            for key, previous_value in reversed(written):
+                ctx.set_config(key, previous_value)
             raise
     if args.save or args.connect:
         ctx.set_config('setup_plan', {**plan, 'schema_version': 1})

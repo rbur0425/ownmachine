@@ -78,6 +78,18 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertNotIn('host_unreachable', self.codes(report))
         self.transport.assert_not_called()
 
+    def test_kvm_ssh_and_helper_failures_stop_before_session_checks(self):
+        config=replace(self.config,guest_profile='omarchy-kvm',console_transport='private-unix')
+        for reachable,state,code in [(False,'not_running','guest_unreachable'),
+                                     (True,'health_check_failed','guest_health_check_failed')]:
+            self.remote.return_value=dict(READY,guest_os='linux',guest_reachable=reachable,
+                                          driver_state=state,driver_ready=False)
+            report=diagnose(config)
+            self.assertIn(code,self.codes(report))
+            self.assertNotIn('guest_reachable',self.codes(report))
+            self.assertNotIn('graphical_session_required',self.codes(report))
+            self.transport.assert_not_called()
+
     def test_omarchy_kvm_requires_live_foreground_input(self):
         config=replace(self.config,guest_profile='omarchy-kvm',console_transport='private-unix')
         self.remote.return_value=dict(READY,guest_os='linux',lume_installed=False,

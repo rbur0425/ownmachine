@@ -28,7 +28,7 @@ def status(config):
         # driver diagnostics never flow into the model-facing result.
         states = {'not_configured', 'vm_not_running', 'guest_unreachable',
                   'invalid_response', 'permissions_required', 'capture_consent_required',
-                  'not_running', 'health_check_failed', 'ready'}
+                  'not_running', 'health_check_failed', 'foreground_input_unavailable', 'ready'}
         state = data.get('driver_state')
         state = state if isinstance(state, str) and state in states else 'not_probed'
         flags = {key: data.get(key) is True for key in

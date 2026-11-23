@@ -86,8 +86,11 @@ def diagnose(config, permission_mode="standard"):
         return result()
     add('vm','pass','vm_running')
     state=remote.get('driver_state')
-    if windows and state == 'health_check_failed':
-        add('guest','fail','guest_health_check_failed','Guest SSH answered, but its readiness helper failed. Inspect the installed Windows health helper and configuration before changing SSH keys or firewall rules.')
+    if kvm and state == 'health_check_failed':
+        add('guest','fail','guest_health_check_failed','Guest SSH answered, but its readiness helper failed. Inspect the installed guest health helper and its configuration.')
+        return result()
+    if config.guest_profile == 'omarchy-kvm' and not remote.get('guest_reachable'):
+        add('guest','fail','guest_unreachable','Check the configured guest SSH address, pinned host key, agent key and guest firewall. During first boot, check setup --run progress.')
         return result()
     if windows and not remote.get('guest_reachable'):
         add('guest','fail','guest_unreachable','During a fresh install, open the private viewer and read OwnMachine setup progress: OpenSSH may still be installing. Use setup --run progress and setup --next; do not recreate the VM. After bootstrap, check the pinned guest SSH endpoint and host firewall reply rules. See docs/windows-onboarding.md#first-install-progress-and-recovery. Optional: remind later --mode next-visit requires confirmation.')
@@ -104,6 +107,8 @@ def diagnose(config, permission_mode="standard"):
         ready=remote.get('foreground_input_ready') is True
         add('foreground_input','pass' if ready else 'fail','foreground_input_ready' if ready else 'foreground_input_unavailable',
             '' if ready else 'In the signed-in guest check systemctl --user status ownmachine-input.service. After a Hyprland update rebuild the matching module, then check doctor again.')
+        if not ready and state == 'foreground_input_unavailable':
+            return result()
     if linux:
         for key in ('graphical_session', 'accessibility_bus', 'standard_mode'):
             add(key, 'pass' if remote.get(key) else 'fail', key + ('_ready' if remote.get(key) else '_required'),

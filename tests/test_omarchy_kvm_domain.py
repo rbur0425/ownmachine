@@ -17,10 +17,21 @@ class OmarchyDomainTests(unittest.TestCase):
                           subnet='192.0.2.0/24', guest_ip='192.0.2.2', bridge='testnet',
                           storage_dir=tmp, memory_gb=8, cpu=4, display='1600x900',
                           firmware_code='/firmware/code', firmware_vars='/firmware/vars',
-                          console_socket='/console/private.sock', windows_iso='/media/install.iso')
+                          console_socket='/console/private.sock')
             for profile in ('omarchy-kvm', 'windows'):
                 config_path = directory / 'settings.json'
-                config_path.write_text(json.dumps(dict(config, guest_profile=profile)))
+                selected = dict(config, guest_profile=profile)
+                config_path.write_text(json.dumps(selected))
+                if profile == 'windows':
+                    for missing in (None, ''):
+                        if missing is not None:
+                            selected['windows_iso'] = missing
+                        config_path.write_text(json.dumps(selected))
+                        with self.assertRaises(subprocess.CalledProcessError):
+                            subprocess.run([sys.executable, str(renderer), str(config_path), str(directory)],
+                                           check=True, capture_output=True)
+                    selected['windows_iso'] = '/media/install.iso'
+                    config_path.write_text(json.dumps(selected))
                 subprocess.run([sys.executable, str(renderer), str(config_path), str(directory)],
                                check=True, capture_output=True)
                 domain = ElementTree.parse(directory / 'domain.xml')

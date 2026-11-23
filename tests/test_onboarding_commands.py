@@ -130,6 +130,34 @@ class OnboardingCommandsTests(unittest.TestCase):
         o.setup(ctx, args('setup', '--host-alias', 'different', '--connect', '--replace'))
         self.assertEqual(ctx.settings['host_alias'], 'different')
 
+    def test_kvm_connection_stays_valid_after_each_write_and_rollback(self):
+        profiles = {'macos': 'password-vnc', 'omarchy': 'password-vnc', 'windows': 'password-vnc',
+                    'omarchy-kvm': 'private-unix'}
+        for other in ('macos', 'omarchy', 'windows'):
+            for source, target in [(other, 'omarchy-kvm'), ('omarchy-kvm', other)]:
+                for failure in (None, 'guest_profile', 'setup_transport_final'):
+                    with self.subTest(source=source,target=target,failure=failure):
+                        ctx = Context(dict(host_alias='example', control_dir='/shared', vm_name='ownmachine',
+                                           guest_profile=source, console_transport=profiles[source]))
+                        original = deepcopy(ctx.settings)
+                        def checked(key, value):
+                            if (key == failure or
+                                (failure == 'setup_transport_final' and key == 'console_transport'
+                                 and value != 'profile-default' and ctx.settings['guest_profile'] == target)):
+                                raise OSError('injected write failure')
+                            ctx.settings[key] = value
+                            o.configuration(ctx).validate()
+                        request = args('setup', '--target','existing','--guest-profile',target,
+                                       '--disk-gb','64','--connect','--replace')
+                        with patch.object(ctx,'set_config',side_effect=checked), patch.object(o,'preflight',return_value=[]):
+                            if failure == 'guest_profile' or (failure == 'setup_transport_final' and other != 'windows'):
+                                with self.assertRaises(OSError):
+                                    o.setup(ctx,request)
+                                self.assertEqual(ctx.settings,original)
+                            else:
+                                o.setup(ctx,request)
+                                self.assertEqual(ctx.settings['guest_profile'],target)
+
     def test_provisioned_targets_can_explicitly_connect_without_changing_target(self):
         for target in ('local','remote'):
             ctx=Context()

@@ -71,7 +71,7 @@ def dispatch(role):
     if op != 'stop': security_ready()
     tree,state=inspect()
     linux=C.get('guest_profile')=='omarchy-kvm'
-    flags_required=('guest_reachable','graphical_session','accessibility_bus','driver_running','standard_mode','foreground_input_ready') if linux else ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')
+    flags_required=('guest_reachable','graphical_session','accessibility_bus','driver_running','standard_mode') if linux else ('guest_reachable','interactive_session','driver_running','standard_mode','standard_user')
     if op=='status':
         data={};health_failed=False
         flags={key:False for key in flags_required}
@@ -80,14 +80,21 @@ def dispatch(role):
             if p.returncode != 255:
                 flags['guest_reachable']=True
                 try:
-                    data=json.loads(p.stdout.lstrip('\ufeff'))
-                    if p.returncode or not isinstance(data,dict): raise ValueError()
+                    response=json.loads(p.stdout.lstrip('\ufeff'))
+                    if p.returncode or not isinstance(response,dict): raise ValueError()
+                    data=response
                     flags={key:data.get(key) is True for key in flags}
                 except ValueError: health_failed=True
         if C.get('require_hardened'):
             flags['bootstrap_hardened']=data.get('bootstrap_hardened') is True
         ready=all(flags.values()) and not health_failed
-        print(json.dumps(dict(**flags,vm_name=C['vm_name'],vm_uuid=C['vm_uuid'],vm_state={'running':'running','shut off':'stopped'}.get(state,'unknown'),guest_os='linux' if linux else 'windows',guest_profile='omarchy-kvm' if linux else 'windows',backend='kvm',driver_ready=ready,driver_state='health_check_failed' if health_failed else 'ready' if ready else 'not_running')))
+        driver_state='health_check_failed' if health_failed else 'ready' if ready else 'not_running'
+        if linux:
+            flags['foreground_input_ready']=data.get('foreground_input_ready') is True
+            if ready and not flags['foreground_input_ready']:
+                ready=False
+                driver_state='foreground_input_unavailable'
+        print(json.dumps(dict(**flags,vm_name=C['vm_name'],vm_uuid=C['vm_uuid'],vm_state={'running':'running','shut off':'stopped'}.get(state,'unknown'),guest_os='linux' if linux else 'windows',guest_profile='omarchy-kvm' if linux else 'windows',backend='kvm',driver_ready=ready,driver_state=driver_state)))
         return
     if op=='mcp':
         if state!='running':raise ValueError('vm_not_running')
@@ -96,6 +103,8 @@ def dispatch(role):
         if not all(health.get(k) is True for k in flags_required):
             raise ValueError('interactive_standard_session_required')
         if C.get('require_hardened') and health.get('bootstrap_hardened') is not True:raise ValueError('guest_hardening_required')
+        if linux and health.get('foreground_input_ready') is not True:
+            raise ValueError('foreground_input_unavailable')
         os.execve('/usr/bin/ssh',guest_argv('mcp'),ENV)
     if op in ('start','stop','restart'):
         deadline=time.monotonic()+90
