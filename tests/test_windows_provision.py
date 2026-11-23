@@ -168,13 +168,43 @@ class FreshWindowsTests(unittest.TestCase):
         with patch.object(stages.time,'monotonic',side_effect=[0,30]),patch.object(stages,'probe') as probe:
             self.assertEqual(stages.wait_driver({},pending),pending)
             probe.assert_not_called()
-        with patch.object(stages.time,'monotonic',side_effect=[0,0,2]),patch.object(stages.time,'sleep'),patch.object(stages,'probe',side_effect=subprocess.TimeoutExpired('ssh',1)):
+        with patch.object(stages.time,'monotonic',side_effect=[0,0,2,30]),patch.object(stages.time,'sleep'),patch.object(stages,'probe',side_effect=subprocess.TimeoutExpired('ssh',1)):
             self.assertEqual(stages.wait_driver({},pending),pending)
-        for changes in ({'vm_state':'stopped'},{'bootstrap_hardened':False},{'guest_reachable':False},{'driver_state':'health_check_failed'},{'driver_state':'foreground_input_unavailable'}):
+        for changes in ({'vm_state':'stopped'},{'bootstrap_hardened':False},{'guest_reachable':False},{'driver_state':'health_check_failed'}):
             report=dict(pending,**changes)
             with patch.object(stages,'probe') as probe:
                 self.assertEqual(stages.wait_driver({},report),report)
                 probe.assert_not_called()
+
+    def test_omarchy_permissions_and_verify_wait_for_foreground_input(self):
+        pending = dict(vm_uuid='test', vm_state='running', guest_reachable=True, bootstrap_hardened=True,
+                       graphical_session=True, driver_state='foreground_input_unavailable', driver_ready=False,
+                       foreground_input_ready=False)
+        ready = dict(pending, driver_state='ready', driver_ready=True, foreground_input_ready=True)
+        for step in ('permissions', 'verify'):
+            for becomes_ready in (True, False):
+                with self.subTest(step=step, becomes_ready=becomes_ready), \
+                        patch.object(stages, 'probe', side_effect=[pending, pending, True, True,
+                                    ready if becomes_ready else pending]) as probe, \
+                        patch.object(stages.time, 'monotonic', side_effect=[0, 0, 2, 30]), \
+                        patch.object(stages.time, 'sleep'), patch.object(w, 'viewer') as viewer, \
+                        patch.object(w, 'console') as console:
+                    result = stages.execute({}, {'guest_profile':'omarchy-kvm'}, step, False)
+                    self.assertEqual(result['ok'], becomes_ready)
+                    if not becomes_ready:
+                        self.assertEqual(result['code'], 'foreground_input_unavailable')
+                    self.assertEqual([c.args[1:] for c in probe.call_args_list],
+                                     [('agent',), ('viewer',), ('agent','vnc'), ('viewer','mcp'), ('agent',)])
+                    self.assertEqual(viewer.called, step == 'verify' and becomes_ready)
+                    self.assertEqual(console.called, viewer.called)
+
+    def test_role_separation_requires_an_explicit_denial(self):
+        c = dict(ssh_config='/config', agent_alias='agent', vm_name='test')
+        for rc, output, expected in [(2, '{"code":"unsupported_operation"}', True),
+                                     (255, '', False), (0, '{}', False), (2, '', False),
+                                     (2, '{"code":"invalid_host_configuration"}', False)]:
+            with patch.object(stages.subprocess, 'run', return_value=subprocess.CompletedProcess([],rc,output)):
+                self.assertIs(stages.probe(c, 'agent', 'vnc'), expected)
 
     def test_driver_wait_configuration(self):
         self.assertEqual(stages.readiness_timeout({}),30)

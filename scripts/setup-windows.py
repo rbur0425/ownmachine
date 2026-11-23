@@ -43,8 +43,14 @@ def configuration(path,plan,require_runtime=True):
 
 def probe(c,role,operation='status',timeout=20):
     argv=['ssh','-F',c['ssh_config'],'-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ForwardAgent=no','-o','ClearAllForwardings=yes','-o','ConnectTimeout=8',c[role+'_alias'],'ownmachine-host '+operation+' --vm '+c['vm_name']]
-    result=subprocess.run(argv,env=ENV,capture_output=True,text=True,timeout=timeout)
-    if operation!='status':return result.returncode!=0
+    result=subprocess.run(argv,env=ENV,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=timeout)
+    if operation != 'status':
+        if result.returncode != 2 or len(result.stdout) > 65536:
+            return False
+        try:
+            return json.loads(result.stdout) == {'code': 'unsupported_operation'}
+        except ValueError:
+            return False
     if result.returncode!=0 or len(result.stdout)>65536:raise ValueError('runtime_probe_failed')
     data=json.loads(result.stdout)
     if not isinstance(data,dict) or data.get('vm_uuid')!=c['_vm_uuid'] or data.get('vm_name')!=c['vm_name'] or data.get('backend')!='kvm' or data.get('guest_profile')!=c.get('_profile','windows'):
@@ -65,7 +71,7 @@ def wait_driver(c,report=None):
     while report.get('driver_ready') is not True:
         if (report.get('vm_state')!='running' or report.get('guest_reachable') is not True
                 or report.get('bootstrap_hardened') is not True
-                or report.get('driver_state') in {'health_check_failed', 'foreground_input_unavailable'}):
+                or report.get('driver_state') == 'health_check_failed'):
             break
         remaining=deadline-time.monotonic()
         if remaining<=0:break
@@ -73,7 +79,8 @@ def wait_driver(c,report=None):
         remaining=deadline-time.monotonic()
         if remaining<=0:break
         try:report=probe(c,'agent',timeout=min(20,remaining))
-        except subprocess.TimeoutExpired:break
+        except subprocess.TimeoutExpired:
+            continue  # no new observation; the original deadline still applies
     return report
 
 

@@ -434,7 +434,7 @@ def main(role='agent'):
         print(json.dumps(status(name, binary, guest, settings.get('storage_dir'), guest_profile(settings)[0])))
         return 0
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
-        code = str(exc) if isinstance(exc, ValueError) and str(exc) in {'foreground_input_unavailable','live_firewall_drift','persistent_firewall_service_required','configuration_changed','security_file_changed','network_identity_mismatch','network_isolation_drift','autostart_must_be_disabled','libvirt_acl_required','live_security_verification_required'} else 'invalid_host_configuration'
+        code = str(exc) if isinstance(exc, ValueError) and str(exc) in {'unsupported_operation','foreground_input_unavailable','live_firewall_drift','persistent_firewall_service_required','configuration_changed','security_file_changed','network_identity_mismatch','network_isolation_drift','autostart_must_be_disabled','libvirt_acl_required','live_security_verification_required'} else 'invalid_host_configuration'
         print(json.dumps({'code': code}))
         return 2
 
