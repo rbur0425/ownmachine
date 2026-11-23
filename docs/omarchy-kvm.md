@@ -4,7 +4,7 @@ Choose **omarchy-kvm** for an x86-64 Linux host with hardware KVM, QEMU/libvirt 
 
 ## Save the plan
 
-Follow the [Hermes profile and plugin installation steps](evaluator-quickstart.md#install-the-reviewed-release) using a revision that contains `omarchy-kvm`. For a development checkout, set the plugin setting `setup_guide_ref` to its full Git commit so the wizard opens the matching guide. In the wizard choose the guest, the host location, and a new VM name. The equivalent terminal command is below. Replace the uppercase values. The control directory must be the same physical directory for the viewer and Hermes, even when its container mount path differs.
+Follow the [Hermes profile and plugin installation steps](evaluator-quickstart.md#install-the-reviewed-release) using the v1.2.0 tag or a later release that includes `omarchy-kvm`. For a development checkout, set the plugin setting `setup_guide_ref` to its full Git commit so the wizard opens the matching guide. In the wizard choose the guest, the host location, and a new VM name. The equivalent terminal command is below. Replace the uppercase values. The control directory must be the same physical directory for the viewer and Hermes, even when its container mount path differs.
 
 ```sh
 hermes ownmachine setup --guest-profile omarchy-kvm --target remote \

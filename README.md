@@ -24,13 +24,13 @@ OwnMachine does not make a cloud model local.
 
 **[Download the 15-second teaser with sound (MP4)](https://raw.githubusercontent.com/rbur0425/ownmachine/v1.0.1/docs/media/ownmachine-teaser.mp4)** · Stylized introduction, not a live automation benchmark.
 
-> **v1.1.1 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
+> **v1.2.0 — free for permitted noncommercial use; commercial licensing available.** OwnMachine is a community plugin for Hermes, not an
 > official Nous Research product. Setup includes administrator firewall installation
 > and, for a macOS guest, manual permission grants. The existing plugin is listed in the Hermes community catalog; catalog installs use its reviewed commit pin.
 
-> **Have an Intel or AMD Linux machine with hardware KVM?** Choose [Windows 11 Enterprise Evaluation](docs/windows-onboarding.md) or [x86-64 Omarchy](docs/omarchy-kvm.md). Both run on Linux without a Mac. Windows is available in v1.1.1. The x86-64 Omarchy instructions apply to this branch until a release containing the new profile is published.
+> **Have an Intel or AMD Linux machine with hardware KVM?** Choose [Windows 11 Enterprise Evaluation](docs/windows-onboarding.md) or [x86-64 Omarchy](docs/omarchy-kvm.md). Both run on Linux without a Mac. The x86-64 Omarchy profile is available in v1.2.0. Catalog installs follow the commit approved by Hermes.
 
-See [v1.1.1 analysis and security updates](docs/release-1.1.1.md) and [v1.1.0 release notes](docs/release-1.1.0.md) for Windows installation, maintenance and qualification limits. [Platform artwork](docs/media/releases/1.1.0/README.md) is available for the release announcement.
+See [v1.2.0 Omarchy KVM release notes](docs/release-1.2.0.md), [v1.1.1 analysis and security updates](docs/release-1.1.1.md) and [v1.1.0 release notes](docs/release-1.1.0.md) for Windows installation, maintenance and qualification limits. [Platform artwork](docs/media/releases/1.1.0/README.md) is available for the release announcement.
 
 ## A verified desktop task
 
@@ -164,7 +164,7 @@ See [persistent installation and startup](docs/permanent-installation.md),
 
 ## Roadmap
 
-1. ~~Implement an Omarchy image.~~ ARM64 foreground support shipped in v1.0.0 on [Apple Silicon](docs/omarchy-final-acceptance.md). This branch adds [x86-64 foreground support on Linux KVM](docs/omarchy-kvm.md#qualification-evidence).
+1. ~~Implement an Omarchy image.~~ ARM64 foreground support shipped in v1.0.0 on [Apple Silicon](docs/omarchy-final-acceptance.md). v1.2.0 adds [x86-64 foreground support on Linux KVM](docs/omarchy-kvm.md#qualification-evidence).
 2. Implement an Ubuntu image.
 3. ~~Implement a Windows VM.~~ Implemented for Windows 11 Enterprise Evaluation on Linux KVM ([scope and limits](docs/windows-support-matrix.md)); Home/Pro remain follow-up work.
 4. Test various cloud providers and record tutorials and setup guides for each.
